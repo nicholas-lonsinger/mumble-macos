@@ -289,10 +289,7 @@ def package_client():
 	a.copy_plugins()
 	a.copy_resources([os.path.join(options.source_dir, 'icons/mumble.icns')])
 	a.update_plist()
-	if not options.universal:
-		a.set_min_macosx_version('10.9.0')
-	else:
-		a.set_min_macosx_version('10.4.8')
+	a.set_min_macosx_version('15.0')
 	a.done()
 
 	# Sign our binaries, etc.
