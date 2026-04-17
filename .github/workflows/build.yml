@@ -1,0 +1,136 @@
+name: Build
+
+on:
+  push:
+    branches: '*'
+  pull_request:
+    branches: '*'
+  workflow_dispatch:
+    inputs:
+      SIGN_WINDOWS_INSTALLER:
+        description: 'Sign Windows Installer'
+        required: true
+        type: boolean
+        default: false
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  CMAKE_OPTIONS: -Dtests=ON -Dsymbols=ON -Ddisplay-install-paths=ON -Dtest-lto=OFF -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache
+
+
+jobs:
+
+  fetch_build_number:
+    runs-on: ubuntu-latest
+    outputs:
+      build_number: ${{ steps.fetch.outputs.build_number }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+            fetch-depth: 1
+      - id: fetch
+        shell: bash
+        run: |
+          build_version="$("${{ github.workspace }}/scripts/mumble-version.py")"
+          build_number="$("${{ github.workspace }}/scripts/mumble-build-number.py" \
+            --commit "${{ github.sha }}" --version "${build_version}" \
+            --password "${{ secrets.BUILD_NUMBER_TOKEN }}" --default 0)"
+          echo "Build Number: ${build_version}.${build_number}"
+          echo "build_number=${build_number}" >> "$GITHUB_OUTPUT"
+
+
+  build:
+    needs: [ fetch_build_number ]
+
+    strategy:
+        fail-fast: false
+        matrix:
+            os: [ubuntu-22.04, ubuntu-24.04, windows-2025-vs2026, macos-14]
+            type: [static, shared]
+            arch: [x86_64]
+            exclude:
+              - os: windows-2025-vs2026
+                type: shared
+              - os: macos-14
+                type: shared
+              - os: ubuntu-22.04
+                type: static
+            
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+          submodules: 'recursive'
+          fetch-depth: 1
+
+
+      # The Bash version installed on macOS is ancient. We need a newer version
+    - name: Install Bash
+      if: startswith(matrix.os, 'macos')
+      run: brew install bash
+
+    - name: Set environment variables
+      run: $GITHUB_WORKSPACE/.github/workflows/set_environment_variables.sh "${{ matrix.os }}" "${{ matrix.type }}" "${{ matrix.arch }}" "${{ github.workspace }}"
+      shell: bash
+
+    - uses: actions/cache/restore@v5
+      with:
+          path: '${{ env.MUMBLE_ENVIRONMENT_DIR }}'
+          key: ${{ env.MUMBLE_ENVIRONMENT_VERSION }}
+
+    - uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        key: ${{ github.base_ref || github.ref_name }}.${{ matrix.os }}.${{ matrix.type }}
+        save: ${{ github.event_name != 'pull_request' }}
+        append-timestamp: false
+
+    - uses: ./.github/actions/install-dependencies
+      with:
+          type: ${{ matrix.type }}
+          os: ${{ matrix.os }}
+          arch: ${{ matrix.arch }}
+
+    - name: Build
+      run: ./.github/workflows/build.sh "${{ matrix.os }}" "${{ matrix.type }}" "${{ matrix.arch }}"
+      shell: bash
+      env:
+          MUMBLE_BUILD_NUMBER: ${{ needs.fetch_build_number.outputs.build_number }}
+
+    - name: Test
+      working-directory: ${{ github.workspace }}/build
+      shell: bash
+      run: ctest --output-on-failure -C $BUILD_TYPE
+
+    - if: ${{ inputs.SIGN_WINDOWS_INSTALLER && startsWith(matrix.os, 'windows') }}
+      uses: ./.github/actions/sign-binaries
+      with:
+          signpath-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          build-number: ${{ needs.fetch_build_number.outputs.build_number }}
+          type: ${{ matrix.type }}
+          os: ${{ matrix.os }}
+          arch: ${{ matrix.arch }}
+
+    - if: ${{ !inputs.SIGN_WINDOWS_INSTALLER && matrix.type == 'static' }}
+      name: Publish
+      uses: actions/upload-artifact@v6
+      with:
+        name: 'Mumble-${{ matrix.os }}'
+        compression-level: 9
+        path: |
+          build/mumble
+          build/Mumble.app
+          build/mumble-server
+          build/**/mumble*.msi
+          build/**/mumble*.exe
+
+      # We don't want to save the build env in a cache on a PR as caches are scoped
+      # to branches and while PRs can access caches from the default branch, they
+      # can't access the cache of other PRs. Hence, it is kind of a waste to save
+      # the cache on a PR
+    - if: ${{ matrix.type  == 'static' && github.event_name != 'pull_request' }}
+      uses: actions/cache/save@v5
+      with:
+          path: '${{ env.MUMBLE_ENVIRONMENT_DIR }}'
+          key: ${{ env.MUMBLE_ENVIRONMENT_VERSION }}

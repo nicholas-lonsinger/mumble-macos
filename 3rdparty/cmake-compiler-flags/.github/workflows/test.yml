@@ -1,0 +1,36 @@
+name: Test
+
+on: [push, pull_request]
+
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-20.04 ]
+        compiler: [ 'g++', 'clang++' ]
+        include:
+          - os: windows-2022
+            compiler: ''
+          - os: macos-11
+            compiler: ''
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Setup MSVC
+        if: ${{ contains(matrix.os, 'windows') }}
+        uses: ilammy/msvc-dev-cmd@v1
+            
+      - name: Set compiler env var
+        if: ${{ matrix.compiler != '' }}
+        run: echo "CXX=${{ matrix.compiler }}" >> $GITHUB_ENV
+
+      - name: Test
+        run: "set -e; cd test; mkdir build; cd build; cmake .. || cat D:/a/cmake-compiler-flags/cmake-compiler-flags/test/build/CMakeFiles/CMakeError.log; cmake --build ."
+        shell: bash

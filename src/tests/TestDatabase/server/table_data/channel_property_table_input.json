@@ -1,0 +1,48 @@
+{
+	"v6": {
+		"table_name": "channel_info",
+		"column_names": [
+			"server_id",
+			"channel_id",
+			"key",
+			"value"
+		],
+		"column_types": [
+			"INTEGER",
+			"INTEGER",
+			"INTEGER",
+			"TEXT"
+		],
+		"rows": [
+			[
+				1,
+				0,
+				42,
+				"miau"
+			]
+		]
+	},
+	"v10": {
+		"table_name": "channel_properties",
+		"column_names": [
+			"server_id",
+			"channel_id",
+			"property_key",
+			"property_value"
+		],
+		"column_types": [
+			"INTEGER",
+			"INTEGER",
+			"INTEGER",
+			"TEXT"
+		],
+		"rows": [
+			[
+				0,
+				0,
+				42,
+				"miau"
+			]
+		]
+	}
+}

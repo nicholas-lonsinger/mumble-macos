@@ -1,0 +1,24 @@
+# Copyright The Mumble Developers. All rights reserved.
+# Use of this source code is governed by a BSD-style license
+# that can be found in the LICENSE file at the root of the
+# Mumble source tree or at <https://www.mumble.info/LICENSE>.
+
+jobs:
+  - job: Translations
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - script: .ci/azure-pipelines/install-environment_linux_translations.bash
+      displayName: 'Install Qt tools'
+    - script: .ci/azure-pipelines/assertNoTranslationChanges.sh
+      displayName: 'Checking for translation changes'
+
+  - job: Docs
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      submodules: false
+      fetchDepth: 1
+    - script: .ci/azure-pipelines/checkDocs.bash
+      displayName: 'Check documentation'
