@@ -50,3 +50,5 @@ compile_commands.json
 .devcontainer/*
 __pycache__/
 CMakeSettings.json
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
