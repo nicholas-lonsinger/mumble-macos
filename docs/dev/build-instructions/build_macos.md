@@ -15,9 +15,7 @@ brew update && brew install \
   pkg-config \
   qt6 \
   boost \
-  libogg \
-  libvorbis \
-  flac \
+  opus \
   libsndfile \
   protobuf \
   openssl \
