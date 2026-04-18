@@ -81,7 +81,6 @@ if(UNIX)
 	set(METADATADIR_DEFAULT "${CMAKE_INSTALL_DATAROOTDIR}/metainfo")
 	set(APPLICATIONSDIR_DEFAULT "${CMAKE_INSTALL_DATAROOTDIR}/applications")
 	set(CLIENT_SHAREDIR_DEFAULT "${CMAKE_INSTALL_DATAROOTDIR}/mumble")
-	set(SERVER_SHAREDIR_DEFAULT "${CMAKE_INSTALL_DATAROOTDIR}/mumble-server")
 else()
 	set(EXECUTABLEDIR_DEFAULT ".")
 	# In order for the installer to produce a working version of Mumble, this
@@ -99,7 +98,6 @@ else()
 	set(SYSUSERSDIR_DEFAULT "./sysusers/")
 	set(TMPFILESDIR_DEFAULT "./tmpfiles/")
 	set(CLIENT_SHAREDIR_DEFAULT "./share/mumble")
-	set(SERVER_SHAREDIR_DEFAULT "./share/mumble-server")
 endif()
 
 set(MUMBLE_INSTALL_EXECUTABLEDIR "${EXECUTABLEDIR_DEFAULT}" CACHE PATH "The directory to install the main executable(s) into")
@@ -116,7 +114,6 @@ set(MUMBLE_INSTALL_SERVICEFILEDIR "${SERVICEFILEDIR_DEFAULT}" CACHE PATH "The di
 set(MUMBLE_INSTALL_SYSUSERSDIR "${SYSUSERSDIR_DEFAULT}" CACHE PATH "The directory to install systemd sysusers files to")
 set(MUMBLE_INSTALL_TMPFILESDIR "${TMPFILESDIR_DEFAULT}" CACHE PATH "The directory to install systemd tmpfiles files to")
 set(MUMBLE_INSTALL_CLIENT_SHAREDIR "${CLIENT_SHAREDIR_DEFAULT}" CACHE PATH "The directory to install miscellaneous client files to")
-set(MUMBLE_INSTALL_SERVER_SHAREDIR "${SERVER_SHAREDIR_DEFAULT}" CACHE PATH "The directory to install miscellaneous server files to")
 
 if(packaging)
 	# Using absolute install paths doesn't allow CPack to create the installer for us.
@@ -135,7 +132,6 @@ if(packaging)
 	assert_is_relative("${MUMBLE_INSTALL_SYSUSERSDIR}")
 	assert_is_relative("${MUMBLE_INSTALL_TMPFILESDIR}")
 	assert_is_relative("${MUMBLE_INSTALL_CLIENT_SHAREDIR}")
-	assert_is_relative("${MUMBLE_INSTALL_SERVER_SHAREDIR}")
 
 	if (WIN32)
 		if(NOT "${MUMBLE_INSTALL_LIBDIR}" STREQUAL "${LIBDIR_DEFAULT}")
@@ -161,7 +157,6 @@ make_absolute(MUMBLE_INSTALL_ABS_SERVICEFILEDIR "${MUMBLE_INSTALL_SERVICEFILEDIR
 make_absolute(MUMBLE_INSTALL_ABS_SYSUSERSDIR "${MUMBLE_INSTALL_SYSUSERSDIR}")
 make_absolute(MUMBLE_INSTALL_ABS_TMPFILESDIR "${MUMBLE_INSTALL_TMPFILESDIR}")
 make_absolute(MUMBLE_INSTALL_ABS_CLIENT_SHAREDIR "${MUMBLE_INSTALL_CLIENT_SHAREDIR}")
-make_absolute(MUMBLE_INSTALL_ABS_SERVER_SHAREDIR "${MUMBLE_INSTALL_SERVER_SHAREDIR}")
 
 option(display-install-paths "Print out base install paths during project configuration" OFF)
 
@@ -182,7 +177,6 @@ if(display-install-paths)
 	message(STATUS "Sysusers files:      \"${MUMBLE_INSTALL_ABS_SYSUSERSDIR}\"")
 	message(STATUS "Tmpfiles files:      \"${MUMBLE_INSTALL_ABS_TMPFILESDIR}\"")
 	message(STATUS "Shared client files: \"${MUMBLE_INSTALL_ABS_CLIENT_SHAREDIR}\"")
-	message(STATUS "Shared server files: \"${MUMBLE_INSTALL_ABS_SERVER_SHAREDIR}\"")
 	message(STATUS "")
 endif()
 

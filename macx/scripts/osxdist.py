@@ -317,59 +317,6 @@ def package_client():
 	d.copy(os.path.join(options.binary_dir, 'Mumble.app'))
 	d.create()
 
-def package_server():
-	if options.version is not None:
-		ver = options.version
-	else:
-		ver = gitrev()
-
-	name = 'Murmur-OSX-Static-%s' % ver
-
-	# Fix .ini files
-	p = Popen(('bash', 'mkini.sh'), cwd=os.path.join(options.source_dir, 'scripts'))
-	retval = p.wait()
-	if retval != 0:
-		raise Exception('mkini.sh failed')
-
-	destdir = os.path.join(options.binary_dir, name)
-	if os.path.exists(destdir):
-		shutil.rmtree(destdir)
-	os.mkdir(destdir)
-
-	shutil.copy(os.path.join(options.binary_dir, 'installer/gpl.txt'), os.path.join(destdir, 'LICENSE'))
-	shutil.copy(os.path.join(options.binary_dir, 'docs/additional-readmes/README.static.osx'), os.path.join(destdir, 'README'))
-	shutil.copy(os.path.join(options.binary_dir, 'CHANGES'), os.path.join(destdir, 'CHANGES'))
-	shutil.copy(os.path.join(options.binary_dir, 'scripts/murmur.pl'), os.path.join(destdir, 'murmur.pl'))
-	shutil.copy(os.path.join(options.binary_dir, 'scripts/weblist.pl'), os.path.join(destdir, 'weblist.pl'))
-	shutil.copy(os.path.join(options.binary_dir, 'scripts/icedemo.php'), os.path.join(destdir, 'icedemo.php'))
-	shutil.copy(os.path.join(options.binary_dir, 'scripts/weblist.php'), os.path.join(destdir, 'weblist.php'))
-	shutil.copy(os.path.join(options.binary_dir, 'scripts/murmur.ini.osx'), os.path.join(destdir, 'murmur.ini'))
-	shutil.copy(os.path.join(options.binary_dir, 'src/murmur/Murmur.ice'), os.path.join(destdir, 'Murmur.ice'))
-
-	shutil.copy(os.path.join(options.binary_dir, 'murmurd'), os.path.join(destdir, 'murmurd'))
-	codesign(os.path.join(destdir, 'murmurd'))
-
-	certname = 'Developer ID Installer: %s' % options.developer_id
-	p = Popen(('xip', '--keychain', options.keychain, '-s', certname, '--timestamp', destdir, os.path.join(options.binary_dir, name+'.xip')))
-	retval = p.wait()
-	if retval != 0:
-		print('Failed to build Murmur XIP package')
-		sys.exit(1)
-
-	absrelease = os.path.join(os.getcwd(), options.binary_dir)
-
-	p = Popen(('tar', '-cjpf', name+'.tar.bz2', name), cwd=absrelease)
-	retval = p.wait()
-	if retval != 0:
-		print('Failed to build Murmur tar.bz2 package')
-		sys.exit(1)
-
-	p = Popen(('gpg', '--detach-sign', '--armor', '-u', options.developer_id, '-o', name+'.tar.bz2.sig', name+'.tar.bz2'), cwd=absrelease)
-	retval = p.wait()
-	if retval != 0:
-		print('Failed to sign Murmur tar.bz2 package')
-		sys.exit(1)
-
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--source-dir', help='This sets the path to the repository. (Defaults to ".")', default='.')
@@ -382,7 +329,6 @@ if __name__ == '__main__':
 	overlay_group.add_argument('--no-overlay', help='Skip bundling the overlay', action='store_true', default=False)
 	parser.add_argument('--developer-id', help='Identity (Developer ID) to use for code signing. The name is also used for GPG signing. (If not set, no code signing will occur)')
 	parser.add_argument('--keychain', help='The keychain to use when invoking code signing utilities. (Defaults to "login.keychain")', default='login.keychain')
-	parser.add_argument('--server', help='Build a Murmur package.', action='store_true', default=False)
 
 	options = parser.parse_args()
 
@@ -394,7 +340,4 @@ if __name__ == '__main__':
 		print('Please specify a binary directory that exists!')
 		sys.exit(1)
 
-	if not options.server:
-		package_client()
-	else:
-		package_server()
+	package_client()

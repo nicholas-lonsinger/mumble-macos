@@ -239,11 +239,6 @@ if(client)
 	endif()
 endif()
 
-if(server)
-	add_subdirectory(database)
-	add_subdirectory(murmur)
-endif()
-
 if(tests)
 	add_subdirectory(tests)
 endif()

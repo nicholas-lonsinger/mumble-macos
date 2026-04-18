@@ -21,8 +21,7 @@ brew update && brew install \
   libsndfile \
   protobuf \
   openssl \
-  poco \
-  ice
+  poco
 ```
 
 
@@ -36,8 +35,6 @@ following commands:
 
 This will cause cmake to create the necessary build files for you. If you want to customize your build, you can pass special flags to cmake in step 3.
 For all available build options, have a look [here](cmake_options.md).
-
-E.g. if you only want to build the server, use `cmake -Dclient=OFF ..`.
 
 
 ## Building

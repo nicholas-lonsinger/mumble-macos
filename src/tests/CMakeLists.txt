@@ -35,16 +35,11 @@ if(client)
 	endif()
 endif()
 
-if(server)
-	add_subdirectory("TestCrypt")
-	add_subdirectory("TestAudioReceiverBuffer")
-endif()
-
 # Shared tests
 add_subdirectory("TestCaseInsensitiveQString")
+add_subdirectory("TestCrypt")
 add_subdirectory("TestCryptographicHash")
 add_subdirectory("TestCryptographicRandom")
-add_subdirectory("TestDatabase")
 add_subdirectory("TestFFDHE")
 add_subdirectory("TestPacketDataStream")
 add_subdirectory("TestPasswordGenerator")

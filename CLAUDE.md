@@ -9,8 +9,7 @@ design decisions should favor that direction. Currently a fresh fork
 
 ## Build (macOS client)
 - Deps via Homebrew — see `docs/dev/build-instructions/build_macos.md`.
-- Configure: `cmake -Dserver=OFF ..` from a `build/` directory.
-  The default config pulls soci → MySQL and fails without it.
+- Configure: `cmake ..` from a `build/` directory.
 - Build: `cmake --build . -j <N>`. Artifact: `build/Mumble.app`.
 - Faster iteration: add `-Dplugins=OFF` (80+ per-game plugin targets).
 

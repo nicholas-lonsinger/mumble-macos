@@ -59,7 +59,6 @@ option(warnings-as-errors "All warnings are treated as errors." ON)
 option(use-timestamps "Allow using compile-time timestamps" ON)
 
 option(client "Build the client (Mumble)" ON)
-option(server "Build the server (Murmur)" ON)
 option(packaging "Build package." OFF)
 option(tests "Build tests." ${packaging})
 option(plugins "Build plugins." ON)
@@ -240,7 +239,7 @@ if (packaging AND WIN32)
 	message(STATUS "Using VC redist >= ${VC_REDIST_VERSION} as dependency")
 endif()
 
-if(client OR server)
+if(client)
 	add_subdirectory(src)
 endif()
 
@@ -268,7 +267,6 @@ if(packaging)
 
 		file(COPY
 			${CMAKE_SOURCE_DIR}/icons/mumble.ico
-			${CMAKE_SOURCE_DIR}/icons/murmur.ico
 			DESTINATION
 				${CMAKE_BINARY_DIR}/installer/icons
 		)

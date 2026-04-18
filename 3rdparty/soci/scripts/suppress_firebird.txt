@@ -1,4 +1,0 @@
-# This is a suppression file for LeakSanitizer when running FB tests.
-
-# This FB function leaks memory during initialization.
-leak:isc_attach_database

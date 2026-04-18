@@ -81,7 +81,6 @@ my %iconpos = (
 	"Applications" => [ 466, 40 ],
 	"ReadMe.txt" => [ 54, 416 ],
 	"Changes.txt" => [ 157, 416 ],
-	"Murmur Extras" => [ 363, 416 ],
 	"Licenses" => [ 466, 416 ],
 );
 

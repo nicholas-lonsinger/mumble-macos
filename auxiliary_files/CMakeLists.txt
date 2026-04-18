@@ -63,49 +63,4 @@ if(client AND UNIX AND NOT APPLE)
 	install(FILES "man_files/mumble.1" DESTINATION "${MUMBLE_INSTALL_MANDIR}" COMPONENT doc)
 endif()
 
-if(server)
-	file(COPY "mumble-server.ini" DESTINATION ${CMAKE_BINARY_DIR})
-
-	# systemd related files
-	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-		delayed_configure_files(
-			TARGET mumble-server
-			FILES
-				"${CMAKE_CURRENT_SOURCE_DIR}/config_files/mumble-server.service.in=${CMAKE_CURRENT_BINARY_DIR}/mumble-server.service"
-				"${CMAKE_CURRENT_SOURCE_DIR}/config_files/mumble-server.tmpfiles.in=${CMAKE_CURRENT_BINARY_DIR}/mumble-server.tmpfiles"
-				"${CMAKE_CURRENT_SOURCE_DIR}/run_scripts/mumble-server-user-wrapper.in=${CMAKE_CURRENT_BINARY_DIR}/mumble-server-user-wrapper"
-			PASSTHROUGH_VARIABLES
-				MUMBLE_BUILD_YEAR
-				MUMBLE_INSTALL_ABS_EXECUTABLEDIR
-				MUMBLE_INSTALL_ABS_SYSCONFDIR
-			VARIABLES
-				"MUMBLE_SERVER_BINARY_NAME=$<TARGET_FILE_NAME:mumble-server>"
-			PYTHON_INTERPRETER Python::Interpreter
-			@ONLY
-		)
-
-		install(FILES "man_files/mumble-server-user-wrapper.1" DESTINATION "${MUMBLE_INSTALL_MANDIR}" COMPONENT doc)
-
-		install(FILES "config_files/mumble-server.sysusers" DESTINATION "${MUMBLE_INSTALL_SYSUSERSDIR}" COMPONENT mumble_server RENAME "mumble-server.conf")
-		install(FILES "${CMAKE_CURRENT_BINARY_DIR}/mumble-server.tmpfiles" DESTINATION "${MUMBLE_INSTALL_TMPFILESDIR}" COMPONENT mumble_server RENAME "mumble-server.conf")
-
-		install(FILES "${CMAKE_CURRENT_BINARY_DIR}/mumble-server.service" DESTINATION "${MUMBLE_INSTALL_SERVICEFILEDIR}" COMPONENT mumble_server)
-		install(
-			FILES "${CMAKE_CURRENT_BINARY_DIR}/mumble-server-user-wrapper" DESTINATION "${MUMBLE_INSTALL_EXECUTABLEDIR}" COMPONENT mumble_server
-			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
-	endif()
-
-	if(UNIX AND NOT APPLE)
-		install(FILES "man_files/mumble-server.1" DESTINATION "${MUMBLE_INSTALL_MANDIR}" COMPONENT doc)
-
-		install(
-			FILES "mumble-server.ini" DESTINATION "${MUMBLE_INSTALL_SYSCONFDIR}" COMPONENT mumble_server
-			PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ
-		)
-
-		if(ice)
-			install(FILES "${CMAKE_SOURCE_DIR}/src/murmur/MumbleServer.ice" DESTINATION "${MUMBLE_INSTALL_SERVER_SHAREDIR}" COMPONENT mumble_server)
-		endif()
-	endif()
-endif()
 

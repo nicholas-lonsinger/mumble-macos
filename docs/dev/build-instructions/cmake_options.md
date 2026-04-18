@@ -49,11 +49,6 @@ Build the included version of nlohmann_json instead of looking for one on the sy
 Build the included version of RNNoise instead of looking for one on the system.
 (Default: ${rnnoise})
 
-### bundled-soci
-
-Build the included version of SOCI instead of looking for one on the system
-(Default: ON)
-
 ### bundled-spdlog
 
 Use the bundled spdlog version instead of looking for one on the system
@@ -84,21 +79,6 @@ Build support for CoreAudio.
 Include support for reporting crashes to the Mumble developers.
 (Default: ON)
 
-### database-mysql-tests
-
-Whether to include the MySQL database tests (requires special setup)
-(Default: OFF)
-
-### database-postgresql-tests
-
-Whether to include the PostgreSQL database tests (requires special setup)
-(Default: OFF)
-
-### database-sqlite-tests
-
-Whether to include the SQLite database tests
-(Default: ON)
-
 ### dbus
 
 Enable DBus support/interface
@@ -119,21 +99,6 @@ Print out base install paths during project configuration
 Set \"uiAccess=true\", required for global shortcuts to work with privileged applications. Requires the client's executable to be signed with a trusted code signing certificate.
 (Default: OFF)
 
-### enable-mysql
-
-Whether or not to enable the MySQL database backend
-(Default: ${server})
-
-### enable-postgresql
-
-Whether or not to enable the PostgreSQL database backend
-(Default: ${server})
-
-### enable-sqlite
-
-Whether or not to enable the SQLite database backend
-(Default: ON)
-
 ### g15
 
 Include support for the G15 keyboard (and compatible devices).
@@ -147,11 +112,6 @@ Build the g15helper executable in emulator mode. This will cause an emulated G15
 ### gkey
 
 Build support for Logitech G-Keys. Note: This feature does not require any build-time dependencies, and requires Logitech Gaming Software to be installed to have any effect at runtime.
-(Default: ON)
-
-### ice
-
-Build support for Ice RPC.
 (Default: ON)
 
 ### jackaudio
@@ -247,11 +207,6 @@ Build redacted (outdated) plugins as well
 ### rnnoise
 
 Use RNNoise for machine learning noise reduction.
-(Default: ON)
-
-### server
-
-Build the server (Murmur)
 (Default: ON)
 
 ### skip-msi-rebuild

@@ -41,7 +41,6 @@ When cloning the repo, the source tree should look something like this:
 ├── src
 │   ├── crypto
 │   ├── mumble
-│   ├── murmur
 │   └── tests
 └── themes
     └── Default
@@ -65,7 +64,7 @@ Windows installer. If you want to tinker with that, you have to know that we are
 it.
 
 `macx` contains some macOS specific files (mostly overlay-related and scripts used for release mangement), whereas `man` contains the man entries
-(used on Windows) for the Mumble client and server.
+(used on Windows) for the Mumble client.
 
 The `overlay*` directories contain the implementation for the Mumble overlay for the various platforms. We will not go into detail for those here, as
 they aren't really part of the main Mumble source (I mean they are, but yet they aren't).
@@ -75,12 +74,10 @@ implementation of all plugins shipped with Mumble by default and also the plugin
 you are referred to the dedicated plugin documentation within the `docs/dev` directory.
 
 `samples` and `screenshots` are self-describing and generally of very little interest when dealing with the Mumble source code as such. `scripts` is
-mainly occupied by various scripts used throughout various tasks surrounding Mumble. In addition to that, it also contains a few things such as a
-default configuration file for the Mumble server.
+mainly occupied by various scripts used throughout various tasks surrounding Mumble.
 
 Your main focus should lie on the `src` directory as this is where the bulk of Mumble's source code is living. Directly in `src/` are shared sources
-that are used by the Mumble client as well as by the server that live in `src/mumble` and `src/murmur` respectively. The remaining directories within
-`src` should be somewhat self-explanatory.
+used by the Mumble client, which lives in `src/mumble`. The remaining directories within `src` should be somewhat self-explanatory.
 
 The `themes` directory contains all built-in themes that are currently shipped with Mumble. At this point there is only one theme available: the
 `Default` theme (note that it contains the Lite and the Dark theme variant). If you want to customize any kind of icons within Mumble, this is the
@@ -135,18 +132,4 @@ implicit signal-connecting which is based on a special naming scheme of slots in
 corresponding UI element).
 
 When creating or changing existing UI elements, always consider the [accessibility checklist](/docs/dev/Accessibility.md).
-
-### Server
-
-When working with the server, it is useful to know that the Mumble server has the concept of "virtual servers" where one running instance of the
-Mumble server program, may simultaneously serve multiple Mumble servers (aka: they will show up as separate servers in a client's server list).
-
-- `main.cpp`: This file (again) contains the main entry point into the server code (the "main" function)
-- `Meta.cpp`: The `Meta` class is responsible for managing the different virtual servers. That includes booting them.
-- `Messages.cpp`: Just as for the client, this file contains the implementation of all Protobuf message handling.
-- `Server.cpp`: This is the heart of every virtual server instance. It contains a bunch of auxiliary functionality and completely handles the UDP
-  audio thread.
-- `ServerDB.cpp`: As the name suggests, this file implements database access of all kinds.
-
-If you want to mess with or extend the server's Ice RPC framework, check out the dedicated documentation for that.
 

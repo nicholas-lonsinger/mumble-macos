@@ -16,7 +16,6 @@ private slots:
 	void initTestCase();
 	void cleanupTestCase();
 	void exerciseClientCert();
-	void exerciseServerCert();
 };
 
 void TestSelfSignedCertificate::initTestCase() {
@@ -54,16 +53,6 @@ void TestSelfSignedCertificate::exerciseClientCert() {
 	// both a name and an email.
 	ok = SelfSignedCertificate::generateMumbleCertificate(QLatin1String("John Doe"), QLatin1String("john@doe.family"),
 														  cert, key);
-	QCOMPARE(ok, true);
-	QCOMPARE(cert.isNull(), false);
-	QCOMPARE(key.isNull(), false);
-}
-
-void TestSelfSignedCertificate::exerciseServerCert() {
-	QSslCertificate cert;
-	QSslKey key;
-
-	bool ok = SelfSignedCertificate::generateMurmurV2Certificate(cert, key);
 	QCOMPARE(ok, true);
 	QCOMPARE(cert.isNull(), false);
 	QCOMPARE(key.isNull(), false);
