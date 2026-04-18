@@ -61,7 +61,7 @@ git checkout -b [new-branch-name] [tag]
 
 Use commit hashes to build a specific development state of Mumble.
 
-You can find the list of commits [here (for master branch)](https://github.com/mumble-voip/mumble/commits/master) or by using the command `git log` inside a cloned repository.
+You can find the list of commits [here](https://github.com/nicholas-lonsinger/mumble-macos/commits/main) or by using the command `git log` inside a cloned repository.
 
 Go into the cloned repository and use:
 
