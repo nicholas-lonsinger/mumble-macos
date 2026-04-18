@@ -12,7 +12,6 @@
 #include "PluginManager.h"
 #include "ServerHandler.h"
 #include "Utils.h"
-#include "WebFetch.h"
 
 #include <QtCore/QDir>
 #include <QtCore/QStandardPaths>
