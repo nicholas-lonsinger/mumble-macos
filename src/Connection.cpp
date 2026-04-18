@@ -10,18 +10,10 @@
 #include <QtCore/QtEndian>
 #include <QtNetwork/QHostAddress>
 
-#ifdef Q_OS_WIN
-#	include <qos2.h>
-#else
-#	include <netinet/in.h>
-#	include <netinet/tcp.h>
-#	include <sys/socket.h>
-#	include <sys/types.h>
-#endif
-
-#ifdef Q_OS_WIN
-HANDLE Connection::hQoS = nullptr;
-#endif
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 Connection::Connection(QObject *p, QSslSocket *qtsSock) : QObject(p) {
 	qtsSocket = qtsSock;
@@ -48,47 +40,18 @@ Connection::Connection(QObject *p, QSslSocket *qtsSock) : QObject(p) {
 	connect(qtsSocket, SIGNAL(sslErrors(const QList< QSslError > &)), this,
 			SLOT(socketSslErrors(const QList< QSslError > &)));
 	qtLastPacket.restart();
-#ifdef Q_OS_WIN
-	dwFlow = 0;
-#endif
 }
 
 Connection::~Connection() {
-#ifdef Q_OS_WIN
-	if (dwFlow && hQoS) {
-		if (!QOSRemoveSocketFromFlow(hQoS, 0, dwFlow, 0))
-			qWarning("Connection: Failed to remove flow from QoS");
-	}
-#endif
 }
 
 void Connection::setToS() {
-#if defined(Q_OS_WIN)
-	if (dwFlow || !hQoS)
-		return;
-
-	dwFlow = 0;
-	if (!QOSAddSocketToFlow(hQoS, qtsSocket->socketDescriptor(), nullptr, QOSTrafficTypeAudioVideo,
-							QOS_NON_ADAPTIVE_FLOW, reinterpret_cast< PQOS_FLOWID >(&dwFlow)))
-		qWarning("Connection: Failed to add flow to QOS");
-#elif defined(Q_OS_UNIX)
 	int val = 0xa0;
 	if (setsockopt(static_cast< int >(qtsSocket->socketDescriptor()), IPPROTO_IP, IP_TOS, &val, sizeof(val))) {
 		val = 0x60;
 		if (setsockopt(static_cast< int >(qtsSocket->socketDescriptor()), IPPROTO_IP, IP_TOS, &val, sizeof(val)))
 			qWarning("Connection: Failed to set TOS for TCP Socket");
 	}
-#	if defined(SO_PRIORITY)
-	socklen_t optlen = sizeof(val);
-	if (getsockopt(static_cast< int >(qtsSocket->socketDescriptor()), SOL_SOCKET, SO_PRIORITY, &val, &optlen) == 0) {
-		if (val == 0) {
-			val = 6;
-			setsockopt(static_cast< int >(qtsSocket->socketDescriptor()), SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
-		}
-	}
-#	endif
-
-#endif
 }
 
 qint64 Connection::activityTime() const {
@@ -258,9 +221,3 @@ QSsl::SslProtocol Connection::sessionProtocol() const {
 QString Connection::sessionProtocolString() const {
 	return MumbleSSL::protocolToString(sessionProtocol());
 }
-
-#ifdef Q_OS_WIN
-void Connection::setQoS(HANDLE hParentQoS) {
-	hQoS = hParentQoS;
-}
-#endif

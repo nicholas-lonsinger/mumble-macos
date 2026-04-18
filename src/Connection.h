@@ -8,12 +8,6 @@
 
 #include "MumbleProtocol.h"
 
-#include <QtCore/QtGlobal>
-
-#ifdef Q_OS_WIN
-#	include "win.h"
-#endif
-
 #include "crypto/CryptState.h"
 #include "crypto/CryptStateOCB2.h"
 
@@ -23,10 +17,6 @@
 #include <QtCore/QObject>
 #include <QtNetwork/QSslSocket>
 #include <memory>
-
-#ifdef Q_OS_WIN
-#	include <ws2tcpip.h>
-#endif
 
 namespace google {
 namespace protobuf {
@@ -43,10 +33,6 @@ protected:
 	QElapsedTimer qtLastPacket;
 	Mumble::Protocol::TCPMessageType m_type;
 	int iPacketLength;
-#ifdef Q_OS_WIN
-	static HANDLE hQoS;
-	DWORD dwFlow;
-#endif
 protected slots:
 	void socketRead();
 	void socketError(QAbstractSocket::SocketError);
@@ -93,9 +79,6 @@ public:
 	bool bDisconnectedEmitted;
 
 	void setToS();
-#ifdef Q_OS_WIN
-	static void setQoS(HANDLE hParentQoS);
-#endif
 };
 
 #endif

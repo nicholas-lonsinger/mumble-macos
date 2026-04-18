@@ -9,18 +9,7 @@
 
 #include <QRegularExpression>
 
-#ifdef Q_OS_WIN
-#	include "win.h"
-#	include <winsock2.h>
-#	include <ws2tcpip.h>
-#else
-#	include <arpa/inet.h>
-#	if defined(Q_OS_FREEBSD) || defined(Q_OS_OPENBSD)
-#		include <netinet/in.h>
-#		include <sys/socket.h>
-#		include <sys/types.h>
-#	endif
-#endif
+#include <arpa/inet.h>
 
 #include <cassert>
 #include <cstdint>
