@@ -8,7 +8,6 @@
     <file alias="channel_linked.svg">Default/channel_linked.svg</file>
     <file alias="comment.svg">Default/comment.svg</file>
     <file alias="comment_seen.svg">Default/comment_seen.svg</file>
-    <file alias="config_asio.png">Default/config_asio.png</file>
     <file alias="config_audio_input.png">Default/config_audio_input.png</file>
     <file alias="config_audio_output.png">Default/config_audio_output.png</file>
     <file alias="config_basic.png">Default/config_basic.png</file>
@@ -40,16 +39,13 @@
 	<file alias="lock_locked.svg">Default/lock_locked.svg</file>
 	<file alias="lock_unlocked.svg">Default/lock_unlocked.svg</file>
 	<file alias="magnifier.svg">Default/magnifier.svg</file>
-    <file alias="mumble.ico">Default/mumble.ico</file>
     <file alias="mumble.osx.png">Default/mumble.osx.png</file>
-    <file alias="mumble.png">Default/mumble.png</file>
     <file alias="mumble.svg">Default/mumble.svg</file>
     <file alias="muted_local.svg">Default/muted_local.svg</file>
     <file alias="muted_self.svg">Default/muted_self.svg</file>
     <file alias="muted_server.svg">Default/muted_server.svg</file>
     <file alias="muted_suppressed.svg">Default/muted_suppressed.svg</file>
     <file alias="muted_pushtomute.svg">Default/muted_pushtomute.svg</file>
-    <file alias="overlay.mumblelay">Default/overlay.mumblelay</file>
     <file alias="pin.svg">Default/pin.svg</file>
     <file alias="priority_speaker.svg">Default/priority_speaker.svg</file>
     <file alias="self_comment.svg">Default/self_comment.svg</file>
@@ -88,7 +84,6 @@
     <file alias="controls/radio_check_lite.svg">Default/controls/radio_check_lite.svg</file>
     <file alias="controls/toolbar_ext.svg">Default/controls/toolbar_ext.svg</file>
     <file alias="emblems/emblem-favorite.svg">Default/emblems/emblem-favorite.svg</file>
-    <file alias="exported/config_asio.svg">Default/exported/config_asio.svg</file>
     <file alias="exported/config_audio_input.svg">Default/exported/config_audio_input.svg</file>
     <file alias="exported/config_audio_output.svg">Default/exported/config_audio_output.svg</file>
     <file alias="exported/config_basic.svg">Default/exported/config_basic.svg</file>
