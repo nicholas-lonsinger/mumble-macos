@@ -4,11 +4,7 @@ on: [pull_request]
 
 jobs:
   pr-checks:
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     steps:
 
@@ -20,7 +16,6 @@ jobs:
       with:
           # Assume that there are not >200 new commits that need checking
           fetch-depth: 200
-          submodules: 'recursive'
           # Don't create a merge commit
           ref: ${{ github.event.pull_request.head.sha }}
 
@@ -32,16 +27,6 @@ jobs:
       uses: erclu/check-crlf@master
       with:
           exclude: '3rdparty/'
-
-    - uses: ./.github/actions/install-dependencies
-      with:
-          type: shared
-          os: ${{ matrix.os }}
-          arch: x86_64
-
-    - name: Generate compile-command DB
-      run: mkdir build; cd build; cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..; cd ..; ln -s build/compile_commands.json .
-      shell: bash
 
     - name: Check code formatting
       uses: jidicula/clang-format-action@v4.16.0
