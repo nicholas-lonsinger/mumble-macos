@@ -400,16 +400,7 @@ if(TARGET Poco::Zip)
 else()
 	message(STATUS "Regular Poco search failed - looking for Poco include dir manually...")
 
-	if(MINGW)
-		# These are the paths for our MXE environment
-		if(32_BIT)
-			set(POCO_INCLUDE_DIR_HINT "/usr/lib/mxe/usr/i686-w64-mingw32.static/include/")
-		else()
-			set(POCO_INCLUDE_DIR_HINT "/usr/lib/mxe/usr/x86_64-w64-mingw32.static/include/")
-		endif()
-	else()
-		set(POCO_INCLUDE_DIR_HINT "/usr/include")
-	endif()
+	set(POCO_INCLUDE_DIR_HINT "/usr/include")
 
 	find_path(POCO_INCLUDE_DIR "Poco/Poco.h" HINTS ${POCO_INCLUDE_DIR_HINT})
 

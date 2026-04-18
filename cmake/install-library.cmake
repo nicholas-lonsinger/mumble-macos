@@ -8,10 +8,6 @@ function(install_library lib component)
 
 	if(NOT lib_type STREQUAL "STATIC_LIBRARY")
 		# only install non-static libraries
-		if(WIN32)
-			install(TARGETS ${lib} RUNTIME DESTINATION "${MUMBLE_INSTALL_LIBDIR}" COMPONENT "${component}")
-		else()
-			install(TARGETS ${lib} LIBRARY DESTINATION "${MUMBLE_INSTALL_LIBDIR}" COMPONENT "${component}")
-		endif()
+		install(TARGETS ${lib} LIBRARY DESTINATION "${MUMBLE_INSTALL_LIBDIR}" COMPONENT "${component}")
 	endif()
 endfunction()
