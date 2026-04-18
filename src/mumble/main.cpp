@@ -40,7 +40,6 @@
 #include "TalkingUI.h"
 #include "Themes.h"
 #include "Translations.h"
-#include "UserLockFile.h"
 #include "Version.h"
 #include "VersionCheck.h"
 #include "Global.h"

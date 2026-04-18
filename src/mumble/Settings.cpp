@@ -22,7 +22,6 @@
 #include <QImageReader>
 #include <QMessageBox>
 #include <QOperatingSystemVersion>
-#include <QProcessEnvironment>
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
@@ -391,9 +390,7 @@ Settings::Settings() {
 	// Therefore we disable it by default until the issues are fixed.
 	echoOption = EchoCancelOptionID::DISABLED;
 #endif
-	const bool isUnityDesktop =
-		QProcessEnvironment::systemEnvironment().value(QLatin1String("XDG_CURRENT_DESKTOP")) == QLatin1String("Unity");
-	bHideInTray = !isUnityDesktop && QSystemTrayIcon::isSystemTrayAvailable();
+	bHideInTray = QSystemTrayIcon::isSystemTrayAvailable();
 #ifdef NO_UPDATE_CHECK
 	bUpdateCheck = false;
 	bPluginCheck = false;
