@@ -653,15 +653,7 @@ bool GlobalShortcutConfig::eventFilter(QObject * /*object*/, QEvent *e) {
 }
 
 bool GlobalShortcutConfig::showWarning() const {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1090
-	const QOperatingSystemVersion current = QOperatingSystemVersion::current();
-	if (current >= QOperatingSystemVersion::OSXMavericks) {
-		return !AXIsProcessTrustedWithOptions(nullptr);
-	} else
-#endif
-	{
-		return !QFile::exists(QLatin1String("/private/var/db/.AccessibilityAPIEnabled"));
-	}
+	return !AXIsProcessTrustedWithOptions(nullptr);
 }
 
 void GlobalShortcutConfig::on_qpbOpenAccessibilityPrefs_clicked() {

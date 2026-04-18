@@ -132,28 +132,12 @@ GlobalShortcutMac::GlobalShortcutMac()
 
 	kbdLayout = nullptr;
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-# if MAC_OS_X_VERSION_MIN_REQUIRED < 1050
-	if (TISCopyCurrentKeyboardInputSource && TISGetInputSourceProperty)
-# endif
-	{
-		TISInputSourceRef inputSource = TISCopyCurrentKeyboardInputSource();
-		if (inputSource) {
-			CFDataRef data = static_cast<CFDataRef>(TISGetInputSourceProperty(inputSource, kTISPropertyUnicodeKeyLayoutData));
-			if (data)
-				kbdLayout = reinterpret_cast<UCKeyboardLayout *>(const_cast<UInt8 *>(CFDataGetBytePtr(data)));
-		}
+	TISInputSourceRef inputSource = TISCopyCurrentKeyboardInputSource();
+	if (inputSource) {
+		CFDataRef data = static_cast<CFDataRef>(TISGetInputSourceProperty(inputSource, kTISPropertyUnicodeKeyLayoutData));
+		if (data)
+			kbdLayout = reinterpret_cast<UCKeyboardLayout *>(const_cast<UInt8 *>(CFDataGetBytePtr(data)));
 	}
-#endif
-#ifndef __LP64__
-	if (! kbdLayout) {
-		SInt16 currentKeyScript = GetScriptManagerVariable(smKeyScript);
-		SInt16 lastKeyLayoutID = GetScriptVariable(currentKeyScript, smScriptKeys);
-		Handle handle = GetResource('uchr', lastKeyLayoutID);
-		if (handle)
-			kbdLayout = reinterpret_cast<UCKeyboardLayout *>(*handle);
-	}
-#endif
 	if (! kbdLayout)
 		qWarning("GlobalShortcutMac: No keyboard layout mapping available. Unable to perform key translation.");
 
