@@ -18,6 +18,17 @@ design decisions should favor that direction. Currently a fresh fork
 - Code style: see `CODING_GUIDELINES.md` (`.clang-format` is authoritative).
 - Commits: see `COMMIT_GUIDELINES.md`. Format: `TYPE(Scope): Summary`.
 
+## Tracking technical debt
+When a change introduces a temporary fix, workaround, warning suppression,
+or any other form of deliberate technical debt, open a GitHub issue
+describing it before (or as part of) the commit that lands the debt.
+Link the issue from the code comment next to the workaround and from the
+commit message. The issue must include: what we did, why the real fix was
+deferred, what the real fix looks like, and acceptance criteria for
+closing it out. Use `gh issue create` — don't just leave a TODO in the
+code. Example: issue #1 tracks the `-Wno-deprecated-declarations`
+suppression on `TextToSpeech_macx.mm`.
+
 ## Testing
 Configure with `-Dtests=ON`, then run `ctest` from `build/`. Tests live in
 `src/tests/`; DB tests use SQLite by default.
