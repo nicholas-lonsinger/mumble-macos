@@ -123,22 +123,6 @@ bool operator!=(const PluginSetting &lhs, const PluginSetting &rhs) {
 	return !(lhs == rhs);
 }
 
-bool operator==(const OverlaySettings &lhs, const OverlaySettings &rhs) {
-#define PROCESS(category, key, variable) \
-	if (lhs.variable != rhs.variable) {  \
-		return false;                    \
-	}
-	PROCESS_ALL_OVERLAY_SETTINGS
-#undef PROCESS
-
-	return true;
-}
-
-bool operator!=(const OverlaySettings &lhs, const OverlaySettings &rhs) {
-	return !(lhs == rhs);
-}
-
-
 void Settings::save(const QString &path) const {
 	// Our saving procedure is a 4-step process:
 	// 1. Write the settings that are to be saved to a temporary file
@@ -405,105 +389,6 @@ const QString Settings::cqsDefaultPushClickOff = QLatin1String(":/off.ogg");
 
 const QString Settings::cqsDefaultMuteCue = QLatin1String(":/off.ogg");
 
-OverlaySettings::OverlaySettings() {
-#ifdef Q_OS_MACOS
-	qsStyle = QLatin1String("Cleanlooks");
-#endif
-
-	qcUserName[Settings::Passive]      = QColor(170, 170, 170);
-	qcUserName[Settings::MutedTalking] = QColor(170, 170, 170);
-	qcUserName[Settings::Talking]      = QColor(255, 255, 255);
-	qcUserName[Settings::Whispering]   = QColor(128, 255, 128);
-	qcUserName[Settings::Shouting]     = QColor(255, 128, 255);
-
-	setPreset();
-	qfFps = qfUserName;
-}
-
-void OverlaySettings::setPreset(const OverlayPresets preset) {
-	switch (preset) {
-		case LargeSquareAvatar:
-			uiColumns      = 2;
-			fUserName      = 0.75f;
-			fChannel       = 0.75f;
-			fMutedDeafened = 0.5f;
-			fAvatar        = 1.0f;
-
-#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
-			qfUserName = QFont(QLatin1String("Verdana"), 20);
-#else
-			qfUserName = QFont(QLatin1String("Arial"), 20);
-#endif
-			qfChannel = qfUserName;
-
-			fUser[Settings::Passive]      = 0.5f;
-			fUser[Settings::MutedTalking] = 0.5f;
-			fUser[Settings::Talking]      = (7.0f / 8.0f);
-			fUser[Settings::Whispering]   = (7.0f / 8.0f);
-			fUser[Settings::Shouting]     = (7.0f / 8.0f);
-
-			qrfUserName      = QRectF(-0.0625f, 0.101563f - 0.0625f, 0.125f, 0.023438f);
-			qrfChannel       = QRectF(-0.03125f, -0.0625f, 0.09375f, 0.015625f);
-			qrfMutedDeafened = QRectF(-0.0625f, -0.0625f, 0.0625f, 0.0625f);
-			qrfAvatar        = QRectF(-0.0625f, -0.0625f, 0.125f, 0.125f);
-
-			fBoxPenWidth = (1.f / 256.0f);
-			fBoxPad      = (1.f / 256.0f);
-
-			bUserName      = true;
-			bChannel       = true;
-			bMutedDeafened = true;
-			bAvatar        = true;
-			bBox           = false;
-
-			qaUserName      = Qt::AlignCenter;
-			qaMutedDeafened = Qt::AlignLeft | Qt::AlignTop;
-			qaAvatar        = Qt::AlignCenter;
-			qaChannel       = Qt::AlignCenter;
-			break;
-		case AvatarAndName:
-		default:
-			uiColumns      = 1;
-			fUserName      = 1.0f;
-			fChannel       = (7.0f / 8.0f);
-			fMutedDeafened = (7.0f / 8.0f);
-			fAvatar        = 1.0f;
-
-#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
-			qfUserName = QFont(QLatin1String("Verdana"), 20);
-#else
-			qfUserName = QFont(QLatin1String("Arial"), 20);
-#endif
-			qfChannel = qfUserName;
-
-			fUser[Settings::Passive]      = 0.5f;
-			fUser[Settings::MutedTalking] = 0.5f;
-			fUser[Settings::Talking]      = (7.0f / 8.0f);
-			fUser[Settings::Whispering]   = (7.0f / 8.0f);
-			fUser[Settings::Shouting]     = (7.0f / 8.0f);
-
-			qrfUserName      = QRectF(0.015625f, -0.015625f, 0.250f, 0.03125f);
-			qrfChannel       = QRectF(0.03125f, -0.015625f, 0.1875f, 0.015625f);
-			qrfMutedDeafened = QRectF(0.234375f, -0.015625f, 0.03125f, 0.03125f);
-			qrfAvatar        = QRectF(-0.03125f, -0.015625f, 0.03125f, 0.03125f);
-
-			fBoxPenWidth = 0.0f;
-			fBoxPad      = (1.f / 256.0f);
-
-			bUserName      = true;
-			bChannel       = false;
-			bMutedDeafened = true;
-			bAvatar        = true;
-			bBox           = true;
-
-			qaUserName      = Qt::AlignLeft | Qt::AlignVCenter;
-			qaMutedDeafened = Qt::AlignRight | Qt::AlignVCenter;
-			qaAvatar        = Qt::AlignCenter;
-			qaChannel       = Qt::AlignLeft | Qt::AlignTop;
-			break;
-	}
-}
-
 Settings::Settings() {
 #ifndef NDEBUG
 	verifySettingsKeys();
@@ -601,35 +486,6 @@ bool Settings::doPositionalAudio() const {
 	return bPositionalAudio;
 }
 
-void OverlaySettings::savePresets(const QString &filename) {
-	nlohmann::json settingsJSON = *this;
-
-	settingsJSON.erase(SettingsKeys::OVERLAY_ENABLE_KEY);
-	settingsJSON.erase(SettingsKeys::OVERLAY_WHITELIST_KEY);
-	settingsJSON.erase(SettingsKeys::OVERLAY_WHITELIST_EXCLUDE_KEY);
-	settingsJSON.erase(SettingsKeys::OVERLAY_BLACKLIST_KEY);
-	settingsJSON.erase(SettingsKeys::OVERLAY_BLACKLIST_EXCLUDE_KEY);
-	settingsJSON.erase(SettingsKeys::OVERLAY_LAUNCHERS_KEY);
-	settingsJSON.erase(SettingsKeys::OVERLAY_LAUNCHERS_EXCLUDE_KEY);
-
-	std::ofstream stream(Mumble::QtUtils::qstring_to_path(filename));
-
-	stream << settingsJSON.dump(4) << std::endl;
-}
-
-void OverlaySettings::load(const QString &filename) {
-	std::ifstream stream(Mumble::QtUtils::qstring_to_path(filename));
-
-	nlohmann::json settingsJSON;
-	try {
-		stream >> settingsJSON;
-
-		settingsJSON.get_to(*this);
-	} catch (const nlohmann::json::parse_error &e) {
-		qWarning() << "Failed to load overlay settings due to invalid format: " << e.what();
-	}
-}
-
 #include BOOST_TYPEOF_INCREMENT_REGISTRATION_GROUP()
 
 
@@ -637,7 +493,6 @@ BOOST_TYPEOF_REGISTER_TYPE(Qt::Alignment)
 BOOST_TYPEOF_REGISTER_TYPE(Settings::AudioTransmit)
 BOOST_TYPEOF_REGISTER_TYPE(Settings::VADSource)
 BOOST_TYPEOF_REGISTER_TYPE(Settings::LoopMode)
-BOOST_TYPEOF_REGISTER_TYPE(Settings::OverlayShow)
 BOOST_TYPEOF_REGISTER_TYPE(Settings::ProxyType)
 BOOST_TYPEOF_REGISTER_TYPE(Settings::ChannelExpand)
 BOOST_TYPEOF_REGISTER_TYPE(Settings::ChannelDrag)
@@ -687,75 +542,6 @@ BOOST_TYPEOF_REGISTER_TEMPLATE(QList, 1)
 			}                                                                                            \
 		} while (0)
 #endif
-
-void OverlaySettings::legacyLoad(QSettings *settings_ptr) {
-	LOAD(bEnable, "enable");
-
-	LOADENUM(osShow, "show");
-	LOAD(bAlwaysSelf, "alwaysself");
-	LOAD(uiActiveTime, "activetime");
-	LOADENUM(osSort, "sort");
-
-	LOAD(fX, "x");
-	LOAD(fY, "y");
-	LOAD(fZoom, "zoom");
-	LOAD(uiColumns, "columns");
-
-	settings_ptr->beginReadArray(QLatin1String("states"));
-	for (unsigned int i = 0; i < 4; ++i) {
-		settings_ptr->setArrayIndex(static_cast< int >(i));
-		LOAD(qcUserName[i], "color");
-		LOAD(fUser[i], "opacity");
-	}
-	settings_ptr->endArray();
-
-	LOAD(qfUserName, "userfont");
-	LOAD(qfChannel, "channelfont");
-	LOAD(qcChannel, "channelcolor");
-	LOAD(qfFps, "fpsfont");
-	LOAD(qcFps, "fpscolor");
-
-	LOAD(fBoxPad, "padding");
-	LOAD(fBoxPenWidth, "penwidth");
-	LOAD(qcBoxPen, "pencolor");
-	LOAD(qcBoxFill, "fillcolor");
-
-	LOAD(bUserName, "usershow");
-	LOAD(bChannel, "channelshow");
-	LOAD(bMutedDeafened, "mutedshow");
-	LOAD(bAvatar, "avatarshow");
-	LOAD(bBox, "boxshow");
-	LOAD(bFps, "fpsshow");
-	LOAD(bTime, "timeshow");
-
-	LOAD(fUserName, "useropacity");
-	LOAD(fChannel, "channelopacity");
-	LOAD(fMutedDeafened, "mutedopacity");
-	LOAD(fAvatar, "avataropacity");
-	LOAD(fFps, "fpsopacity");
-
-	LOAD(qrfUserName, "userrect");
-	LOAD(qrfChannel, "channelrect");
-	LOAD(qrfMutedDeafened, "mutedrect");
-	LOAD(qrfAvatar, "avatarrect");
-	LOAD(qrfFps, "fpsrect");
-	LOAD(qrfTime, "timerect");
-
-	LOADFLAG(qaUserName, "useralign");
-	LOADFLAG(qaChannel, "channelalign");
-	LOADFLAG(qaMutedDeafened, "mutedalign");
-	LOADFLAG(qaAvatar, "avataralign");
-
-	LOADENUM(oemOverlayExcludeMode, "mode");
-	LOAD(qslLaunchers, "launchers");
-	LOAD(qslLaunchersExclude, "launchersexclude");
-	LOAD(qslWhitelist, "whitelist");
-	LOAD(qslWhitelistExclude, "whitelistexclude");
-	LOAD(qslPaths, "paths");
-	LOAD(qslPathsExclude, "pathsexclude");
-	LOAD(qslBlacklist, "blacklist");
-	LOAD(qslBlacklistExclude, "blacklistexclude");
-}
 
 void Settings::legacyLoad(const QString &path) {
 	std::unique_ptr< QSettings > settings_ptr;
@@ -870,36 +656,8 @@ void Settings::legacyLoad(const QString &path) {
 	LOAD(iJitterBufferSize, "net/jitterbuffer");
 	LOAD(iFramesPerPacket, "net/framesperpacket");
 
-	LOAD(bASIOEnable, "asio/enable");
-	LOAD(qsASIOclass, "asio/class");
-	LOAD(qlASIOmic, "asio/mic");
-	LOAD(qlASIOspeaker, "asio/speaker");
-
-	LOAD(qsWASAPIInput, "wasapi/input");
-	LOAD(qsWASAPIOutput, "wasapi/output");
-	LOAD(qsWASAPIRole, "wasapi/role");
-
-	LOAD(qsALSAInput, "alsa/input");
-	LOAD(qsALSAOutput, "alsa/output");
-
-	LOAD(pipeWireInput, "pipewire/input");
-	LOAD(pipeWireOutput, "pipewire/output");
-
-	LOAD(qsPulseAudioInput, "pulseaudio/input");
-	LOAD(qsPulseAudioOutput, "pulseaudio/output");
-
-	LOAD(qsJackAudioOutput, "jack/output");
-	LOAD(bJackStartServer, "jack/startserver");
-	LOAD(bJackAutoConnect, "jack/autoconnect");
-
-	LOAD(qsOSSInput, "oss/input");
-	LOAD(qsOSSOutput, "oss/output");
-
 	LOAD(qsCoreAudioInput, "coreaudio/input");
 	LOAD(qsCoreAudioOutput, "coreaudio/output");
-
-	LOAD(iPortAudioInput, "portaudio/input");
-	LOAD(iPortAudioOutput, "portaudio/output");
 
 	LOAD(bTTS, "tts/enable");
 	LOAD(iTTSVolume, "tts/volume");
@@ -1025,11 +783,6 @@ void Settings::legacyLoad(const QString &path) {
 	LOAD(disableConnectDialogEditing, "ui/disableconnectdialogediting");
 	LOAD(bPingServersDialogViewed, "consent/pingserversdialogviewed");
 
-	// OverlayPrivateWin
-	LOAD(iOverlayWinHelperRestartCooldownMsec, "overlay_win/helper/restart_cooldown_msec");
-	LOAD(bOverlayWinHelperX86Enable, "overlay_win/helper/x86/enable");
-	LOAD(bOverlayWinHelperX64Enable, "overlay_win/helper/x64/enable");
-
 	// LCD
 	LOAD(iLCDUserViewMinColWidth, "lcd/userview/mincolwidth");
 	LOAD(iLCDUserViewSplitterWidth, "lcd/userview/splitterwidth");
@@ -1116,10 +869,6 @@ void Settings::legacyLoad(const QString &path) {
 
 		qhPluginSettings.insert(pluginHash, pluginSettings);
 	}
-	settings_ptr->endGroup();
-
-	settings_ptr->beginGroup(QLatin1String("overlay"));
-	os.legacyLoad(settings_ptr.get());
 	settings_ptr->endGroup();
 
 
@@ -1221,7 +970,6 @@ void Settings::verifySettingsKeys() const {
 #define PROCESS(category, key, variable) currentCategoryName = #category;
 #define INTERMEDIATE_OPERATION categoryNames.push_back(currentCategoryName);
 	PROCESS_ALL_SETTINGS_WITH_INTERMEDIATE_OPERATION
-	PROCESS_ALL_OVERLAY_SETTINGS_WITH_INTERMEDIATE_OPERATION
 
 	// Assert that all entries in categoryNames are unique
 	std::sort(categoryNames.begin(), categoryNames.end());
@@ -1240,7 +988,6 @@ void Settings::verifySettingsKeys() const {
 	assert(std::unique(keyNames.begin(), keyNames.end()) == keyNames.end()); \
 	keyNames.clear();
 	PROCESS_ALL_SETTINGS_WITH_INTERMEDIATE_OPERATION
-	PROCESS_ALL_OVERLAY_SETTINGS_WITH_INTERMEDIATE_OPERATION
 #undef PROCESS
 #undef INTERMEDIATE_OPERATION
 
@@ -1248,11 +995,6 @@ void Settings::verifySettingsKeys() const {
 	std::vector< std::string > variableNames;
 #define PROCESS(category, key, variable) variableNames.push_back(#variable);
 	PROCESS_ALL_SETTINGS
-	std::sort(variableNames.begin(), variableNames.end());
-	assert(std::unique(variableNames.begin(), variableNames.end()) == variableNames.end());
-	variableNames.clear();
-
-	PROCESS_ALL_OVERLAY_SETTINGS
 	std::sort(variableNames.begin(), variableNames.end());
 	assert(std::unique(variableNames.begin(), variableNames.end()) == variableNames.end());
 #undef PROCESS

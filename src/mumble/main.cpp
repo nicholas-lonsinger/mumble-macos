@@ -222,7 +222,6 @@ struct CLIOptions {
 	bool skipSettingsBackupPrompt = false;
 
 	std::optional< std::string > configFile;
-	std::optional< std::string > jackClientName;
 	std::optional< std::string > windowTitleExt;
 	std::optional< std::string > hyperlink;
 	std::optional< std::string > translationDir;
@@ -275,10 +274,6 @@ CLIOptions parseCLI(int argc, char **argv) {
 		->group(CLIOptions::CLI_GENERAL_SECTION);
 
 	app.add_flag("--no-identity", options.suppressIdentity, "Suppress loading of identity files (i.e., certificates).")
-		->group(CLIOptions::CLI_GENERAL_SECTION);
-
-	app.add_option("--jack-name", options.jackClientName, "Set custom Jack client name.")
-		->option_text("<name>")
 		->group(CLIOptions::CLI_GENERAL_SECTION);
 
 	app.add_option("--window-title-ext", options.windowTitleExt, "Set a custom window title extension.")
@@ -437,9 +432,6 @@ int main(int argc, char **argv) {
 
 	if (options.suppressIdentity) {
 		Global::get().s.bSuppressIdentity = true;
-	}
-	if (options.jackClientName) {
-		Global::get().s.qsJackClientName = QString::fromStdString(*options.jackClientName);
 	}
 	if (options.windowTitleExt) {
 		Global::get().windowTitlePostfix = QString::fromStdString(*options.windowTitleExt);
@@ -983,8 +975,6 @@ int main(int argc, char **argv) {
 			arguments << QLatin1String("--multiple");
 		if (options.suppressIdentity)
 			arguments << QLatin1String("--no-identity");
-		if (options.jackClientName)
-			arguments << QLatin1String("--jack-name ") + Global::get().s.qsJackClientName;
 		if (!url.isEmpty())
 			arguments << url.toString();
 

@@ -101,30 +101,9 @@
 	PROCESS(network, SSL_CIPHERS_KEY, qsSslCiphers)
 
 
-#define AUDIO_BACKEND_SETTINGS                                        \
-	PROCESS(audio_backend, ASIO_ENABLE_KEY, bASIOEnable)              \
-	PROCESS(audio_backend, ASIO_CLASS_KEY, qsASIOclass)               \
-	PROCESS(audio_backend, ASIO_MICROPHONE_KEY, qlASIOmic)            \
-	PROCESS(audio_backend, ASIO_SPEAKER_KEY, qlASIOspeaker)           \
-	PROCESS(audio_backend, WASAPI_INPUT_KEY, qsWASAPIInput)           \
-	PROCESS(audio_backend, WASAPI_OUTPUT_KEY, qsWASAPIOutput)         \
-	PROCESS(audio_backend, WASAPI_ROLE_KEY, qsWASAPIRole)             \
-	PROCESS(audio_backend, ALSA_INPUT_KEY, qsALSAInput)               \
-	PROCESS(audio_backend, ALSA_OUTPUT_KEY, qsALSAOutput)             \
-	PROCESS(audio_backend, PIPEWIRE_INPUT_KEY, pipeWireInput)         \
-	PROCESS(audio_backend, PIPEWIRE_OUTPUT_KEY, pipeWireOutput)       \
-	PROCESS(audio_backend, PULSEAUDIO_INPUT_KEY, qsPulseAudioInput)   \
-	PROCESS(audio_backend, PULSEAUDIO_OUTPUT_KEY, qsPulseAudioOutput) \
-	PROCESS(audio_backend, JACK_OUTPUT_KEY, qsJackAudioOutput)        \
-	PROCESS(audio_backend, JACK_START_SERVER_KEY, bJackStartServer)   \
-	PROCESS(audio_backend, JACK_AUTOCONNECT_KEY, bJackAutoConnect)    \
-	PROCESS(audio_backend, JACK_CLIENT_NAME_KEY, qsJackClientName)    \
-	PROCESS(audio_backend, OSS_INPUT_KEY, qsOSSInput)                 \
-	PROCESS(audio_backend, OSS_OUTPUT_KEY, qsOSSOutput)               \
-	PROCESS(audio_backend, COREAUDIO_INPUT_KEY, qsCoreAudioInput)     \
-	PROCESS(audio_backend, COREAUDIO_OUTPUT_KEY, qsCoreAudioOutput)   \
-	PROCESS(audio_backend, PORTAUDIO_INPUT_KEY, iPortAudioInput)      \
-	PROCESS(audio_backend, PORTAUDIO_OUTPUT_KEY, iPortAudioOutput)
+#define AUDIO_BACKEND_SETTINGS                                      \
+	PROCESS(audio_backend, COREAUDIO_INPUT_KEY, qsCoreAudioInput)   \
+	PROCESS(audio_backend, COREAUDIO_OUTPUT_KEY, qsCoreAudioOutput)
 
 
 #define TTS_SETTINGS                                    \
@@ -235,12 +214,6 @@
 #define HIDDEN_SETTINGS PROCESS(hidden, DISABLE_CONNECT_DIALOG_EDITING_KEY, disableConnectDialogEditing)
 
 
-#define WIN_OVERLAY_SETTINGS                                                            \
-	PROCESS(win_overlay, OVERLAY_WIN_HELPER_ENABLE_x86_KEY, bOverlayWinHelperX86Enable) \
-	PROCESS(win_overlay, OVERLAY_WIN_HELPER_ENABLE_x64_KEY, bOverlayWinHelperX64Enable) \
-	PROCESS(win_overlay, OVERLAY_WIN_HELPER_RESTART_COOLDOWN_TIME_KEY, iOverlayWinHelperRestartCooldownMsec)
-
-
 #define LCD_SETTINGS                                                         \
 	PROCESS(lcd, LCD_USERVIEW_MIN_COLUMN_WIDTH_KEY, iLCDUserViewMinColWidth) \
 	PROCESS(lcd, LCD_USERVIEW_SPLITTER_WIDTH_KEY, iLCDUserViewSplitterWidth)
@@ -267,61 +240,6 @@
 	PROCESS(search, SEARCH_WINDOW_POSITION_KEY, searchDialogPosition)
 
 
-#define OVERLAY_SETTINGS                                                 \
-	PROCESS(overlay, OVERLAY_ENABLE_KEY, bEnable)                        \
-	PROCESS(overlay, OVERLAY_STYLE_KEY, qsStyle)                         \
-	PROCESS(overlay, OVERLAY_SHOW_MODE_KEY, osShow)                      \
-	PROCESS(overlay, OVERLAY_ALWAYS_SELF_KEY, bAlwaysSelf)               \
-	PROCESS(overlay, OVERLAY_ACTIVE_TIME_KEY, uiActiveTime)              \
-	PROCESS(overlay, OVERLAY_SORT_MODE_KEY, osSort)                      \
-	PROCESS(overlay, OVERLAY_X_POS_KEY, fX)                              \
-	PROCESS(overlay, OVERLAY_Y_POS_KEY, fY)                              \
-	PROCESS(overlay, OVERLAY_ZOOM_KEY, fZoom)                            \
-	PROCESS(overlay, OVERLAY_COLUMNS_KEY, uiColumns)                     \
-	PROCESS(overlay, OVERLAY_USERNAME_COLORS_KEY, qcUserName)            \
-	PROCESS(overlay, OVERLAY_USERNAME_FONT_KEY, qfUserName)              \
-	PROCESS(overlay, OVERLAY_CHANNEL_COLOR_KEY, qcChannel)               \
-	PROCESS(overlay, OVERLAY_CHANNEL_FONT_KEY, qfChannel)                \
-	PROCESS(overlay, OVERLAY_FPS_COUNTER_COLOR_KEY, qcFps)               \
-	PROCESS(overlay, OVERLAY_FPS_COUNTER_FONT_KEY, qfFps)                \
-	PROCESS(overlay, OVERLAY_BOX_PAD_KEY, fBoxPad)                       \
-	PROCESS(overlay, OVERLAY_BOX_STROKE_WIDTH_KEY, fBoxPenWidth)         \
-	PROCESS(overlay, OVERLAY_BOX_COLOR_KEY, qcBoxPen)                    \
-	PROCESS(overlay, OVERLAY_BOX_FILL_COLOR_KEY, qcBoxFill)              \
-	PROCESS(overlay, OVERLAY_SHOW_USERNAME_KEY, bUserName)               \
-	PROCESS(overlay, OVERLAY_SHOW_CHANNEL_KEY, bChannel)                 \
-	PROCESS(overlay, OVERLAY_SHOW_MUTEDEAF_KEY, bMutedDeafened)          \
-	PROCESS(overlay, OVERLAY_SHOW_AVATAR_KEY, bAvatar)                   \
-	PROCESS(overlay, OVERLAY_SHOW_BOX_KEY, bBox)                         \
-	PROCESS(overlay, OVERLAY_SHOW_FPS_KEY, bFps)                         \
-	PROCESS(overlay, OVERLAY_SHOW_TIME_KEY, bTime)                       \
-	PROCESS(overlay, OVERLAY_USERNAME_OPACITY_KEY, fUserName)            \
-	PROCESS(overlay, OVERLAY_CHANNEL_OPACITY_KEY, fChannel)              \
-	PROCESS(overlay, OVERLAY_MUTEDEAF_OPACITY_KEY, fMutedDeafened)       \
-	PROCESS(overlay, OVERLAY_AVATAR_OPACITY_KEY, fAvatar)                \
-	PROCESS(overlay, OVERLAY_USERS_OPACITIES_KEY, fUser)                 \
-	PROCESS(overlay, OVERLAY_FPS_COUNTER_OPACITY_KEY, fFps)              \
-	PROCESS(overlay, OVERLAY_USERNAME_RECTANGLE_KEY, qrfUserName)        \
-	PROCESS(overlay, OVERLAY_CHANNEL_RECTANGLE_KEY, qrfChannel)          \
-	PROCESS(overlay, OVERLAY_MUTEDEAF_RECTANGLE_KEY, qrfMutedDeafened)   \
-	PROCESS(overlay, OVERLAY_AVATAR_RECTANGLE_KEY, qrfAvatar)            \
-	PROCESS(overlay, OVERLAY_FPS_COUNTER_RECTANGLE_KEY, qrfFps)          \
-	PROCESS(overlay, OVERLAY_TIME_RECTANGLE_KEY, qrfTime)                \
-	PROCESS(overlay, OVERLAY_USERNAME_ALIGNMENT_KEY, qaUserName)         \
-	PROCESS(overlay, OVERLAY_CHANNEL_ALIGNMENT_KEY, qaChannel)           \
-	PROCESS(overlay, OVERLAY_MUTEDEAF_ALIGNMENT_KEY, qaMutedDeafened)    \
-	PROCESS(overlay, OVERLAY_AVATAR_ALIGNMENT_KEY, qaAvatar)             \
-	PROCESS(overlay, OVERLAY_EXCLUSION_MODE_KEY, oemOverlayExcludeMode)  \
-	PROCESS(overlay, OVERLAY_LAUNCHERS_KEY, qslLaunchers)                \
-	PROCESS(overlay, OVERLAY_LAUNCHERS_EXCLUDE_KEY, qslLaunchersExclude) \
-	PROCESS(overlay, OVERLAY_WHITELIST_KEY, qslWhitelist)                \
-	PROCESS(overlay, OVERLAY_WHITELIST_EXCLUDE_KEY, qslWhitelistExclude) \
-	PROCESS(overlay, OVERLAY_PATHS_KEY, qslPaths)                        \
-	PROCESS(overlay, OVERLAY_PATHS_EXCLUDE_KEY, qslPathsExclude)         \
-	PROCESS(overlay, OVERLAY_BLACKLIST_KEY, qslBlacklist)                \
-	PROCESS(overlay, OVERLAY_BLACKLIST_EXCLUDE_KEY, qslBlacklistExclude)
-
-
 #define PROCESS_ALL_SETTINGS   \
 	MISC_SETTINGS              \
 	AUDIO_SETTINGS             \
@@ -340,13 +258,9 @@
 	PTT_WINDOW_SETTINGS        \
 	RECORDING_SETTINGS         \
 	HIDDEN_SETTINGS            \
-	WIN_OVERLAY_SETTINGS       \
 	LCD_SETTINGS               \
 	SHORTCUTS_SETTINGS         \
 	SEARCH_SETTINGS
-
-
-#define PROCESS_ALL_OVERLAY_SETTINGS OVERLAY_SETTINGS
 
 
 #define PROCESS_ALL_SETTINGS_WITH_INTERMEDIATE_OPERATION \
@@ -384,17 +298,11 @@
 	INTERMEDIATE_OPERATION                               \
 	HIDDEN_SETTINGS                                      \
 	INTERMEDIATE_OPERATION                               \
-	WIN_OVERLAY_SETTINGS                                 \
-	INTERMEDIATE_OPERATION                               \
 	LCD_SETTINGS                                         \
 	INTERMEDIATE_OPERATION                               \
 	SHORTCUTS_SETTINGS                                   \
 	INTERMEDIATE_OPERATION                               \
 	SEARCH_SETTINGS                                      \
-	INTERMEDIATE_OPERATION
-
-#define PROCESS_ALL_OVERLAY_SETTINGS_WITH_INTERMEDIATE_OPERATION \
-	OVERLAY_SETTINGS                                             \
 	INTERMEDIATE_OPERATION
 
 

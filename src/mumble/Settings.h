@@ -104,90 +104,6 @@ struct PluginSetting {
 };
 
 
-struct OverlaySettings {
-	enum OverlayPresets { AvatarAndName, LargeSquareAvatar };
-	enum OverlayShow { Talking, Active, HomeChannel, LinkedChannels };
-	enum OverlaySort { Alphabetical, LastStateChange };
-	enum OverlayExclusionMode { LauncherFilterExclusionMode, WhitelistExclusionMode, BlacklistExclusionMode };
-
-	bool bEnable = false;
-
-	QString qsStyle = {};
-
-	OverlayShow osShow = LinkedChannels;
-	bool bAlwaysSelf   = true;
-	// Time in seconds for a user to stay active after talking
-	int uiActiveTime   = 5;
-	OverlaySort osSort = Alphabetical;
-
-	float fX = 1.0f;
-	float fY = 0.0f;
-
-	qreal fZoom            = 0.875f;
-	unsigned int uiColumns = 1;
-
-	std::array< QColor, 5 > qcUserName = {};
-	QFont qfUserName                   = {};
-
-	QColor qcChannel = QColor(255, 255, 128);
-	QFont qfChannel  = {};
-
-	QColor qcFps = Qt::white;
-	QFont qfFps  = {};
-
-	qreal fBoxPad      = 0.0f;
-	qreal fBoxPenWidth = 0.0f;
-	QColor qcBoxPen    = QColor(0, 0, 0, 224);
-	QColor qcBoxFill   = QColor(0, 0, 0);
-
-	bool bUserName      = true;
-	bool bChannel       = false;
-	bool bMutedDeafened = true;
-	bool bAvatar        = true;
-	bool bBox           = false;
-	bool bFps           = false;
-	bool bTime          = false;
-
-	qreal fUserName              = 0.0f;
-	qreal fChannel               = 0.0f;
-	qreal fMutedDeafened         = 0.5f;
-	qreal fAvatar                = 0.0f;
-	std::array< qreal, 5 > fUser = {};
-	qreal fFps                   = 0.75f;
-
-	QRectF qrfUserName      = {};
-	QRectF qrfChannel       = {};
-	QRectF qrfMutedDeafened = {};
-	QRectF qrfAvatar        = {};
-	QRectF qrfFps           = QRectF(0.0f, 0.05f, -1, 0.023438f);
-	QRectF qrfTime          = QRectF(0.0f, 0.0f, -1, 0.023438f);
-
-	Qt::Alignment qaUserName      = Qt::AlignLeft;
-	Qt::Alignment qaChannel       = Qt::AlignLeft;
-	Qt::Alignment qaMutedDeafened = Qt::AlignLeft;
-	Qt::Alignment qaAvatar        = Qt::AlignLeft;
-
-	OverlayExclusionMode oemOverlayExcludeMode = LauncherFilterExclusionMode;
-	QStringList qslLaunchers                   = {};
-	QStringList qslLaunchersExclude            = {};
-	QStringList qslWhitelist                   = {};
-	QStringList qslWhitelistExclude            = {};
-	QStringList qslPaths                       = {};
-	QStringList qslPathsExclude                = {};
-	QStringList qslBlacklist                   = {};
-	QStringList qslBlacklistExclude            = {};
-
-	OverlaySettings();
-	void setPreset(const OverlayPresets preset = AvatarAndName);
-
-	void load(const QString &filename);
-	void savePresets(const QString &filename);
-	void legacyLoad(QSettings *settings);
-
-	friend bool operator==(const OverlaySettings &lhs, const OverlaySettings &rhs);
-	friend bool operator!=(const OverlaySettings &lhs, const OverlaySettings &rhs);
-};
-
 struct Settings {
 	enum AudioTransmit { Continuous, VAD, PushToTalk };
 	enum VADSource { Amplitude, SignalToNoise };
@@ -294,52 +210,8 @@ struct Settings {
 	bool bAttenuateLoopbacks            = false;
 	int iOutputDelay                    = 5;
 
-	QString qsALSAInput        = QStringLiteral("default");
-	QString qsALSAOutput       = QStringLiteral("default");
-	uint8_t pipeWireInput      = 1;
-	uint8_t pipeWireOutput     = 2;
-	QString qsPulseAudioInput  = {};
-	QString qsPulseAudioOutput = {};
-	QString qsJackClientName   = QStringLiteral("mumble");
-	QString qsJackAudioOutput  = QStringLiteral("1");
-	bool bJackStartServer      = false;
-	bool bJackAutoConnect      = true;
-	QString qsOSSInput         = {};
-	QString qsOSSOutput        = {};
-	int iPortAudioInput        = -1; // default device
-	int iPortAudioOutput       = -1; // default device
-
-	bool bASIOEnable                = true;
-	QString qsASIOclass             = {};
-	QList< QVariant > qlASIOmic     = {};
-	QList< QVariant > qlASIOspeaker = {};
-
 	QString qsCoreAudioInput  = {};
 	QString qsCoreAudioOutput = {};
-
-	QString qsWASAPIInput  = {};
-	QString qsWASAPIOutput = {};
-	/// qsWASAPIRole is configured via 'wasapi/role'.
-	/// It is a string explaining Mumble's purpose for opening
-	/// the audio device. This can be used to force Windows
-	/// to not treat Mumble as a communications program
-	/// (the default).
-	///
-	/// The default is "communications". When this is set,
-	/// Windows treats Mumble as a telephony app, including
-	/// potential audio ducking.
-	///
-	/// Other values include:
-	///
-	///   "console", which should be used for games, system
-	///              notification sounds, and voice commands.
-	///
-	///   "multimedia", which should be used for music, movies,
-	///                 narration, and live music recording.
-	///
-	/// This is practically a direct mapping of the ERole enum
-	/// from Windows: https://msdn.microsoft.com/en-us/library/windows/desktop/dd370842
-	QString qsWASAPIRole = {};
 
 	bool bExclusiveInput          = false;
 	bool bExclusiveOutput         = false;
@@ -353,12 +225,6 @@ struct Settings {
 	/// Contains the settings for each individual plugin. The key in this map is the Hex-represented SHA-1
 	/// hash of the plugin's UTF-8 encoded absolute file-path on the hard-drive.
 	QHash< QString, PluginSetting > qhPluginSettings = {};
-
-	OverlaySettings os = {};
-
-	int iOverlayWinHelperRestartCooldownMsec = 10000;
-	bool bOverlayWinHelperX86Enable          = true;
-	bool bOverlayWinHelperX64Enable          = true;
 
 	int iLCDUserViewMinColWidth        = 50;
 	int iLCDUserViewSplitterWidth      = 2;

@@ -113,46 +113,9 @@ const SettingsKey CONNECTION_TIMEOUT_KEY            = { "connection_timeout" };
 const SettingsKey FORCE_UDP_BIND_TO_TCP_ADDRESS_KEY = { "force_udp_bind_to_tcp_address" };
 const SettingsKey SSL_CIPHERS_KEY                   = { "ssl_ciphers" };
 
-// ASIO
-const SettingsKey ASIO_ENABLE_KEY     = { "enable_asio" };
-const SettingsKey ASIO_CLASS_KEY      = { "asio_class" };
-const SettingsKey ASIO_MICROPHONE_KEY = { "asio_microphone" };
-const SettingsKey ASIO_SPEAKER_KEY    = { "asio_speaker" };
-
-// WASAPI
-const SettingsKey WASAPI_INPUT_KEY  = { "wasapi_input" };
-const SettingsKey WASAPI_OUTPUT_KEY = { "wasapi_output" };
-const SettingsKey WASAPI_ROLE_KEY   = { "wasapi_role" };
-
-// ALSA
-const SettingsKey ALSA_INPUT_KEY  = { "alsa_input" };
-const SettingsKey ALSA_OUTPUT_KEY = { "alsa_output" };
-
-// PipeWire
-const SettingsKey PIPEWIRE_INPUT_KEY  = { "pipewire_input" };
-const SettingsKey PIPEWIRE_OUTPUT_KEY = { "pipewire_output" };
-
-// PulseAudio
-const SettingsKey PULSEAUDIO_INPUT_KEY  = { "pulseaudio_input" };
-const SettingsKey PULSEAUDIO_OUTPUT_KEY = { "pulseaudio_output" };
-
-// Jack Audio
-const SettingsKey JACK_OUTPUT_KEY       = { "jack_output" };
-const SettingsKey JACK_START_SERVER_KEY = { "jack_start_server" };
-const SettingsKey JACK_AUTOCONNECT_KEY  = { "jack_autoconnect" };
-const SettingsKey JACK_CLIENT_NAME_KEY  = { "jack_client_name" };
-
-// OSS
-const SettingsKey OSS_INPUT_KEY  = { "oss_input" };
-const SettingsKey OSS_OUTPUT_KEY = { "oss_output" };
-
 // CoreAudio
 const SettingsKey COREAUDIO_INPUT_KEY  = { "coreaudio_input" };
 const SettingsKey COREAUDIO_OUTPUT_KEY = { "coreaudio_output" };
-
-// PortAudio
-const SettingsKey PORTAUDIO_INPUT_KEY  = { "portaudio_input" };
-const SettingsKey PORTAUDIO_OUTPUT_KEY = { "portaudio_output" };
 
 // TTS
 const SettingsKey TTS_ENABLE_KEY        = { "enable_tts" };
@@ -189,7 +152,6 @@ const SettingsKey WINDOW_STATE_KEY                     = { "window_state" };
 const SettingsKey WINDOW_STATE_MINIMAL_VIEW_KEY        = { "minimal_view_window_state" };
 const SettingsKey CONFIG_GEOMETRY_KEY                  = { "config_geometry" };
 const SettingsKey WINDOW_LAYOUT_KEY                    = { "window_layout" };
-const SettingsKey OVERLAY_HEADER_STATE                 = { "overlay_header_state" };
 const SettingsKey SERVER_FILTER_MODE_KEY               = { "server_filter_mode" };
 const SettingsKey HIDE_IN_TRAY_KEY                     = { "hide_in_tray" };
 const SettingsKey DISPLAY_TALKING_STATE_IN_TRAY_KEY    = { "display_talking_state_in_tray" };
@@ -263,11 +225,6 @@ const SettingsKey RECORDING_FORMAT_KEY = { "recording_format" };
 // Hidden
 const SettingsKey DISABLE_CONNECT_DIALOG_EDITING_KEY = { "disable_connect_dialog_editing" };
 
-// Overlay (win)
-const SettingsKey OVERLAY_WIN_HELPER_ENABLE_x86_KEY            = { "enable_win_overlay_helper_x86" };
-const SettingsKey OVERLAY_WIN_HELPER_ENABLE_x64_KEY            = { "enable_win_overlay_helper_x64" };
-const SettingsKey OVERLAY_WIN_HELPER_RESTART_COOLDOWN_TIME_KEY = { "win_overlay_helper_restart_cooldown_time" };
-
 // LCD
 const SettingsKey LCD_USERVIEW_MIN_COLUMN_WIDTH_KEY = { "lcd_userview_min_column_width" };
 const SettingsKey LCD_USERVIEW_SPLITTER_WIDTH_KEY   = { "lcd_userview_splitter_width" };
@@ -290,61 +247,6 @@ const SettingsKey DISPLAY_SEARCH_OPTIONS_KEY = { "display_search_options" };
 const SettingsKey SEARCH_USER_ACTION_KEY     = { "user_action" };
 const SettingsKey SEARCH_CHANNEL_ACTION_KEY  = { "channel_action" };
 const SettingsKey SEARCH_WINDOW_POSITION_KEY = { "search_window_position" };
-
-// Overlay
-const SettingsKey OVERLAY_ENABLE_KEY                = { "enable_overlay" };
-const SettingsKey OVERLAY_STYLE_KEY                 = { "style" };
-const SettingsKey OVERLAY_SHOW_MODE_KEY             = { "show_mode" };
-const SettingsKey OVERLAY_ALWAYS_SELF_KEY           = { "always_self" };
-const SettingsKey OVERLAY_ACTIVE_TIME_KEY           = { "active_time" };
-const SettingsKey OVERLAY_SORT_MODE_KEY             = { "sort_mode" };
-const SettingsKey OVERLAY_X_POS_KEY                 = { "x_position" };
-const SettingsKey OVERLAY_Y_POS_KEY                 = { "y_position" };
-const SettingsKey OVERLAY_ZOOM_KEY                  = { "zoom" };
-const SettingsKey OVERLAY_COLUMNS_KEY               = { "columns" };
-const SettingsKey OVERLAY_USERNAME_COLORS_KEY       = { "username_colors" };
-const SettingsKey OVERLAY_USERNAME_FONT_KEY         = { "username_font" };
-const SettingsKey OVERLAY_CHANNEL_COLOR_KEY         = { "channel_color" };
-const SettingsKey OVERLAY_CHANNEL_FONT_KEY          = { "channel_font" };
-const SettingsKey OVERLAY_FPS_COUNTER_COLOR_KEY     = { "fps_counter_color" };
-const SettingsKey OVERLAY_FPS_COUNTER_FONT_KEY      = { "fps_counter_font" };
-const SettingsKey OVERLAY_BOX_PAD_KEY               = { "box_pad" };
-const SettingsKey OVERLAY_BOX_STROKE_WIDTH_KEY      = { "box_stroke_width" };
-const SettingsKey OVERLAY_BOX_COLOR_KEY             = { "box_color" };
-const SettingsKey OVERLAY_BOX_FILL_COLOR_KEY        = { "box_fill_color" };
-const SettingsKey OVERLAY_SHOW_USERNAME_KEY         = { "show_username" };
-const SettingsKey OVERLAY_SHOW_CHANNEL_KEY          = { "show_channel" };
-const SettingsKey OVERLAY_SHOW_MUTEDEAF_KEY         = { "show_mute_deaf" };
-const SettingsKey OVERLAY_SHOW_AVATAR_KEY           = { "show_avatar" };
-const SettingsKey OVERLAY_SHOW_BOX_KEY              = { "show_box" };
-const SettingsKey OVERLAY_SHOW_FPS_KEY              = { "show_fps_counter" };
-const SettingsKey OVERLAY_SHOW_TIME_KEY             = { "show_time" };
-const SettingsKey OVERLAY_USERNAME_OPACITY_KEY      = { "username_opacity" };
-const SettingsKey OVERLAY_CHANNEL_OPACITY_KEY       = { "channel_opacity" };
-const SettingsKey OVERLAY_MUTEDEAF_OPACITY_KEY      = { "mute_deaf_opacity" };
-const SettingsKey OVERLAY_AVATAR_OPACITY_KEY        = { "avatar_opacity" };
-const SettingsKey OVERLAY_USERS_OPACITIES_KEY       = { "user_opacities" };
-const SettingsKey OVERLAY_FPS_COUNTER_OPACITY_KEY   = { "fps_counter_opacity" };
-const SettingsKey OVERLAY_USERNAME_RECTANGLE_KEY    = { "username_rectangle" };
-const SettingsKey OVERLAY_CHANNEL_RECTANGLE_KEY     = { "channel_rectangle" };
-const SettingsKey OVERLAY_MUTEDEAF_RECTANGLE_KEY    = { "mute_deaf_rectangle" };
-const SettingsKey OVERLAY_AVATAR_RECTANGLE_KEY      = { "avatar_rectangle" };
-const SettingsKey OVERLAY_FPS_COUNTER_RECTANGLE_KEY = { "fps_counter_rectangle" };
-const SettingsKey OVERLAY_TIME_RECTANGLE_KEY        = { "time_rectangle" };
-const SettingsKey OVERLAY_USERNAME_ALIGNMENT_KEY    = { "username_alignment" };
-const SettingsKey OVERLAY_CHANNEL_ALIGNMENT_KEY     = { "channel_alignment" };
-const SettingsKey OVERLAY_MUTEDEAF_ALIGNMENT_KEY    = { "mute_deaf_alignment" };
-const SettingsKey OVERLAY_AVATAR_ALIGNMENT_KEY      = { "avatar_alignment" };
-const SettingsKey OVERLAY_EXCLUSION_MODE_KEY        = { "exclusion_mode" };
-const SettingsKey OVERLAY_LAUNCHERS_KEY             = { "launchers" };
-const SettingsKey OVERLAY_LAUNCHERS_EXCLUDE_KEY     = { "launchers_exclude" };
-const SettingsKey OVERLAY_WHITELIST_KEY             = { "whitelist" };
-const SettingsKey OVERLAY_WHITELIST_EXCLUDE_KEY     = { "whitelist_exclude" };
-const SettingsKey OVERLAY_PATHS_KEY                 = { "paths" };
-const SettingsKey OVERLAY_PATHS_EXCLUDE_KEY         = { "paths_exclude" };
-const SettingsKey OVERLAY_BLACKLIST_KEY             = { "blacklist" };
-const SettingsKey OVERLAY_BLACKLIST_EXCLUDE_KEY     = { "blacklist_exclude" };
-
 
 const SettingsKey SETTINGS_VERSION_KEY     = { "settings_version" };
 const SettingsKey CERTIFICATE_KEY          = { "certificate" };
