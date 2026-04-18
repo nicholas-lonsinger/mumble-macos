@@ -232,14 +232,7 @@ struct Settings {
 
 	bool bShortcutEnable             = true;
 	bool bSuppressMacEventTapWarning = false;
-	bool bEnableEvdev                = false;
-	bool bEnableXInput2              = true;
-	bool bEnableGKey                 = false;
-	bool bEnableXboxInput            = true;
-	/// Enable use of UIAccess (Windows's UI automation feature). This allows Mumble to receive WM_INPUT messages when
-	/// an application with elevated privileges is in foreground.
-	bool bEnableUIAccess          = true;
-	QList< Shortcut > qlShortcuts = {};
+	QList< Shortcut > qlShortcuts    = {};
 
 	int iMaxLogBlocks       = 0;
 	bool bLog24HourClock    = true;

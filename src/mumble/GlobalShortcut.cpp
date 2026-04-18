@@ -610,12 +610,6 @@ GlobalShortcutConfig::GlobalShortcutConfig(Settings &st) : ConfigWidget(st) {
 
 	qwWarningContainer->setVisible(false);
 
-#ifdef Q_OS_WIN
-	qgbWindowsShortcutEngines->setVisible(true);
-#else
-	qgbWindowsShortcutEngines->setVisible(false);
-#endif
-
 	qtwShortcuts->setColumnCount(canSuppress ? 4 : 3);
 	qtwShortcuts->setItemDelegate(new ShortcutDelegate(qtwShortcuts));
 
@@ -631,14 +625,6 @@ GlobalShortcutConfig::GlobalShortcutConfig(Settings &st) : ConfigWidget(st) {
 	}
 
 	qcbEnableGlobalShortcuts->setVisible(canDisable);
-
-	qlWaylandNote->setVisible(false);
-#ifdef Q_OS_LINUX
-	if (EnvUtils::waylandIsUsed()) {
-		// Our global shortcut system doesn't work properly with Wayland
-		qlWaylandNote->setVisible(true);
-	}
-#endif
 
 #ifdef Q_OS_MAC
 	// Help Mac users enable accessibility access for Mumble...
@@ -804,10 +790,6 @@ void GlobalShortcutConfig::load(const Settings &r) {
 		qwWarningContainer->setVisible(showWarning());
 	}
 
-	qcbEnableUIAccess->setChecked(r.bEnableUIAccess);
-	qcbEnableGKey->setChecked(r.bEnableGKey);
-	qcbEnableXboxInput->setChecked(r.bEnableXboxInput);
-
 	qcbEnableGlobalShortcuts->setCheckState(r.bShortcutEnable ? Qt::Checked : Qt::Unchecked);
 	on_qcbEnableGlobalShortcuts_stateChanged(qcbEnableGlobalShortcuts->checkState());
 	reload();
@@ -816,19 +798,6 @@ void GlobalShortcutConfig::load(const Settings &r) {
 void GlobalShortcutConfig::save() const {
 	s.qlShortcuts     = qlShortcuts;
 	s.bShortcutEnable = qcbEnableGlobalShortcuts->checkState() == Qt::Checked;
-
-	bool oldUIAccess  = s.bEnableUIAccess;
-	s.bEnableUIAccess = qcbEnableUIAccess->checkState() == Qt::Checked;
-
-	bool oldGKey  = s.bEnableGKey;
-	s.bEnableGKey = qcbEnableGKey->checkState() == Qt::Checked;
-
-	bool oldXboxInput  = s.bEnableXboxInput;
-	s.bEnableXboxInput = qcbEnableXboxInput->checkState() == Qt::Checked;
-
-	if (s.bEnableUIAccess != oldUIAccess || s.bEnableGKey != oldGKey || s.bEnableXboxInput != oldXboxInput) {
-		s.requireRestartToApply = true;
-	}
 
 	if (Global::get().sh && Global::get().sh->hasSynchronized()) {
 		// If we are connected to a server (that has finished synchronizing) there is the change, the user has

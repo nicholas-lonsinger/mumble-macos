@@ -232,11 +232,6 @@ const SettingsKey LCD_USERVIEW_SPLITTER_WIDTH_KEY   = { "lcd_userview_splitter_w
 // Shortcuts
 const SettingsKey ENABLE_GLOBAL_SHORTCUTS_KEY              = { "enable_global_shortcuts" };
 const SettingsKey SUPPRESS_MACOS_EVENT_TAPPING_WARNING_KEY = { "suppress_macos_event_tapping_message" };
-const SettingsKey ENABLE_EVDEV_KEY                         = { "enable_evdev" };
-const SettingsKey ENABLE_XINPUT2_KEY                       = { "enable_xinput2" };
-const SettingsKey ENABLE_GKEY_KEY                          = { "enable_gkey" };
-const SettingsKey ENABLE_XBOX_WIN_KEY                      = { "enable_xbox_win" };
-const SettingsKey WIN_UIACCESS_KEY                         = { "win_uiaccess" };
 
 // Search
 const SettingsKey SEARCH_FOR_USERS_KEY       = { "search_for_users" };

@@ -96,19 +96,6 @@
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="qlWaylandNote">
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mumble's Global Shortcuts system does currently not work properly in combination with the Wayland protocol. For more information, visit &lt;a href=&quot;https://github.com/mumble-voip/mumble/issues/5257&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0057ae;&quot;&gt;https://github.com/mumble-voip/mumble/issues/5257&lt;/span&gt;&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
-     <property name="openExternalLinks">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="QGroupBox" name="qgbShortcuts">
      <property name="title">
       <string>Shortcuts</string>
@@ -236,50 +223,6 @@
          </spacer>
         </item>
        </layout>
-      </item>
-      <item>
-       <widget class="QGroupBox" name="qgbWindowsShortcutEngines">
-        <property name="whatsThis">
-         <string>&lt;b&gt;Additional Shortcut Engines&lt;/b&gt;&lt;br /&gt;This section allows you to configure the use of additional GlobalShortcut engines.</string>
-        </property>
-        <property name="title">
-         <string>Additional Shortcut Engines</string>
-        </property>
-        <layout class="QVBoxLayout" name="verticalLayout_5">
-         <item>
-          <widget class="QCheckBox" name="qcbEnableUIAccess">
-           <property name="whatsThis">
-            <string>&lt;b&gt;Enable shortcuts in privileged applications&lt;/b&gt;.&lt;br /&gt;Also known as &quot;UIAccess&quot;. This allows Mumble to receive global shortcut events from programs running at high privilege levels, such as an Admin Command Prompt or older games that run with admin privileges.
-&lt;br /&gt;&lt;br /&gt;
-Without this option enabled, using Mumble's global shortcuts in privileged applications will not work. This can seem inconsistent: for example, if the Push-to-Talk button is pressed in a non-privileged program, but released in a privileged application, Mumble will not observe that it has been released and you will continue to talk until you press the Push-to-Talk button again.</string>
-           </property>
-           <property name="text">
-            <string>Enable shortcuts in privileged applications</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QCheckBox" name="qcbEnableGKey">
-           <property name="whatsThis">
-            <string>&lt;b&gt;Enable GKey&lt;/b&gt;.&lt;br /&gt;This setting enables support for the GKey shortcut engine, for &quot;G&quot;-keys found on Logitech keyboards.</string>
-           </property>
-           <property name="text">
-            <string>Enable GKey</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QCheckBox" name="qcbEnableXboxInput">
-           <property name="whatsThis">
-            <string>&lt;b&gt;Enable XInput&lt;/b&gt;&lt;br /&gt;This setting enables support for the XInput shortcut engine, for Xbox compatible controllers.</string>
-           </property>
-           <property name="text">
-            <string>Enable XInput</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
       </item>
      </layout>
     </widget>

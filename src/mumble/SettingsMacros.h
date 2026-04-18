@@ -221,12 +221,7 @@
 
 #define SHORTCUTS_SETTINGS                                                                    \
 	PROCESS(shortcuts, ENABLE_GLOBAL_SHORTCUTS_KEY, bShortcutEnable)                          \
-	PROCESS(shortcuts, SUPPRESS_MACOS_EVENT_TAPPING_WARNING_KEY, bSuppressMacEventTapWarning) \
-	PROCESS(shortcuts, ENABLE_EVDEV_KEY, bEnableEvdev)                                        \
-	PROCESS(shortcuts, ENABLE_XINPUT2_KEY, bEnableXInput2)                                    \
-	PROCESS(shortcuts, ENABLE_GKEY_KEY, bEnableGKey)                                          \
-	PROCESS(shortcuts, ENABLE_XBOX_WIN_KEY, bEnableXboxInput)                                 \
-	PROCESS(shortcuts, WIN_UIACCESS_KEY, bEnableUIAccess)
+	PROCESS(shortcuts, SUPPRESS_MACOS_EVENT_TAPPING_WARNING_KEY, bSuppressMacEventTapWarning)
 
 
 #define SEARCH_SETTINGS                                             \

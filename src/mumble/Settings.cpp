@@ -425,14 +425,6 @@ Settings::Settings() {
 	lmLoopMode = Server;
 #endif
 
-
-#ifdef Q_OS_LINUX
-	if (EnvUtils::waylandIsUsed()) {
-		// Due to the issues we're currently having on Wayland, we disable shortcuts by default
-		bShortcutEnable = false;
-	}
-#endif
-
 	for (int i = Log::firstMsgType; i <= Log::lastMsgType; ++i) {
 		qmMessages.insert(i,
 						  Settings::LogConsole | Settings::LogBalloon | Settings::LogTTS | Settings::LogMessageLimit);
@@ -793,11 +785,6 @@ void Settings::legacyLoad(const QString &path) {
 
 	LOAD(bShortcutEnable, "shortcut/enable");
 	LOAD(bSuppressMacEventTapWarning, "shortcut/mac/suppresswarning");
-	LOAD(bEnableEvdev, "shortcut/linux/evdev/enable");
-	LOAD(bEnableXInput2, "shortcut/x11/xinput2/enable");
-	LOAD(bEnableGKey, "shortcut/gkey");
-	LOAD(bEnableXboxInput, "shortcut/windows/xbox/enable");
-	LOAD(bEnableUIAccess, "shortcut/windows/uiaccess/enable");
 
 	// Search options
 	LOAD(searchForUsers, "search/search_for_users");
