@@ -12,14 +12,7 @@
 #include <QtNetwork/QNetworkInterface>
 #include <QtXml/QDomDocument>
 
-#include <Carbon/Carbon.h>
-#include <mach-o/arch.h>
 #include <sys/sysctl.h>
-#include <sys/types.h>
-
-// Ignore deprecation warnings for Gestalt.
-// See mumble-voip/mumble#3290 for more information.
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 QString OSInfo::getArchitecture(const bool build) {
 	QString architecture = build ? QSysInfo::buildCpuArchitecture() : QSysInfo::currentCpuArchitecture();
@@ -85,25 +78,14 @@ QString OSInfo::getOSDisplayableVersion(const bool appendArch) {
 }
 
 QString OSInfo::getOSVersion() {
-	SInt32 major, minor, bugfix;
-	OSErr err = Gestalt(gestaltSystemVersionMajor, &major);
-	if (err == noErr)
-		err = Gestalt(gestaltSystemVersionMinor, &minor);
-	if (err == noErr)
-		err = Gestalt(gestaltSystemVersionBugFix, &bugfix);
-	if (err != noErr)
-		return QSysInfo::productVersion();
+	const QString version = QSysInfo::productVersion();
 
-	char *buildno = nullptr;
 	char buildno_buf[32];
-	size_t sz_buildno_buf = sizeof(buildno);
-	int ret               = sysctlbyname("kern.osversion", buildno_buf, &sz_buildno_buf, nullptr, 0);
-	if (ret == 0) {
-		buildno = &buildno_buf[0];
+	size_t sz_buildno_buf = sizeof(buildno_buf);
+	if (sysctlbyname("kern.osversion", buildno_buf, &sz_buildno_buf, nullptr, 0) == 0) {
+		return version + QLatin1Char(' ') + QString::fromLatin1(buildno_buf);
 	}
-
-	return QString::asprintf("%lu.%lu.%lu %s", static_cast< unsigned long >(major), static_cast< unsigned long >(minor),
-							 static_cast< unsigned long >(bugfix), buildno ? buildno : "unknown");
+	return version;
 }
 
 void OSInfo::fillXml(QDomDocument &doc, QDomElement &root, const QList< QHostAddress > &qlBind) {
