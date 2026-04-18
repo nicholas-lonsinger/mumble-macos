@@ -7,7 +7,6 @@
 
 #include "MumbleApplication.h"
 #include "Net.h"
-#include "Utils.h"
 #include "Version.h"
 #include "Global.h"
 #include "GlobalShortcutTypes.h"

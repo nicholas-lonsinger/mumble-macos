@@ -30,7 +30,6 @@
 #include "UserEdit.h"
 #include "UserInformation.h"
 #include "UserModel.h"
-#include "Utils.h"
 #include "ViewCert.h"
 #include "crypto/CryptState.h"
 #include "Global.h"

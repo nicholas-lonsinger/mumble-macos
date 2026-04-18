@@ -14,7 +14,6 @@
 #include "MumbleConstants.h"
 #include "ServerHandler.h"
 #include "ServerResolver.h"
-#include "Utils.h"
 #include "WebFetch.h"
 #include "Global.h"
 

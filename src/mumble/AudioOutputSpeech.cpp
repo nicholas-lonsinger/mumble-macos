@@ -8,7 +8,6 @@
 #include "Audio.h"
 #include "ClientUser.h"
 #include "PacketDataStream.h"
-#include "Utils.h"
 #include "Global.h"
 
 #include <opus.h>

@@ -10,7 +10,6 @@
 #include "AudioOutputToken.h"
 #include "Log.h"
 #include "MainWindow.h"
-#include "Utils.h"
 #include "Global.h"
 #include "GlobalShortcut.h"
 #include "GlobalShortcutButtons.h"

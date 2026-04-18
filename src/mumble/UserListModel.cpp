@@ -7,7 +7,6 @@
 
 #include "Channel.h"
 #include "QtUtils.h"
-#include "Utils.h"
 
 #include <algorithm>
 #include <vector>

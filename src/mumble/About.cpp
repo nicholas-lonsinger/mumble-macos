@@ -8,7 +8,6 @@
 #include "License.h"
 #include "MainWindow.h"
 
-#include "Utils.h"
 
 #include <QtWidgets/QPushButton>
 

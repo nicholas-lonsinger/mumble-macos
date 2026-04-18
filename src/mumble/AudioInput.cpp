@@ -14,7 +14,6 @@
 #include "PluginManager.h"
 #include "ServerHandler.h"
 #include "User.h"
-#include "Utils.h"
 #include "VoiceRecorder.h"
 #include "Global.h"
 

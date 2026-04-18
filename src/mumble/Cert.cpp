@@ -15,7 +15,6 @@
 
 #include "Accessibility.h"
 #include "SelfSignedCertificate.h"
-#include "Utils.h"
 #include "Global.h"
 
 #include <QRegularExpression>

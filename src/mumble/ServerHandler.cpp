@@ -25,7 +25,6 @@
 #include "ServerResolver.h"
 #include "ServerResolverRecord.h"
 #include "User.h"
-#include "Utils.h"
 #include "Global.h"
 
 #include <QPainter>

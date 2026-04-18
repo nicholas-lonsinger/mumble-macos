@@ -8,7 +8,6 @@
 
 #include "SSL.h"
 #include "Timer.h"
-#include "Utils.h"
 #include "crypto/CryptStateOCB2.h"
 #include <string>
 

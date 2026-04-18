@@ -6,7 +6,6 @@
 #include "AudioStats.h"
 
 #include "AudioInput.h"
-#include "Utils.h"
 #include "smallft.h"
 #include "Global.h"
 

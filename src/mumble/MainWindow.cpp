@@ -51,7 +51,6 @@
 #include "UserLocalNicknameDialog.h"
 #include "UserLocalVolumeSlider.h"
 #include "UserModel.h"
-#include "Utils.h"
 #include "ViewCert.h"
 #include "VoiceRecorderDialog.h"
 #include "Global.h"

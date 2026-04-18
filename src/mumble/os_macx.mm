@@ -4,7 +4,6 @@
 // Mumble source tree or at <https://www.mumble.info/LICENSE>.
 
 #include "MainWindow.h"
-#include "Utils.h"
 #include "Global.h"
 
 #include <CoreFoundation/CoreFoundation.h>

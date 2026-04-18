@@ -9,7 +9,6 @@
 #include "Log.h"
 #include "MainWindow.h"
 #include "QtWidgetUtils.h"
-#include "Utils.h"
 #include "Global.h"
 
 #include <QMimeData>
