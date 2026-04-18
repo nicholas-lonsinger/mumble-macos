@@ -94,8 +94,6 @@
     <file alias="exported/config_ui.svg">Default/exported/config_ui.svg</file>
     <file alias="mimetypes/image-x-generic.svg">Default/mimetypes/image-x-generic.svg</file>
     <file alias="mimetypes/text-html.svg">Default/mimetypes/text-html.svg</file>
-    <file alias="OSX Dark.qss">Default/OSX Dark.qss</file>
-    <file alias="OSX Lite.qss">Default/OSX Lite.qss</file>
     <file alias="status/text-missing.svg">Default/status/text-missing.svg</file>
 </qresource>
 </RCC>
