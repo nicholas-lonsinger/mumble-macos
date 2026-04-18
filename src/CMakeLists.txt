@@ -188,12 +188,8 @@ target_link_libraries(shared
 		Qt6::Xml
 )
 
-if(WIN32)
-	target_link_libraries(shared PUBLIC qwave.lib)
-elseif(APPLE)
-	find_library(LIB_CORESERVICES "CoreServices")
-	target_link_libraries(shared PUBLIC ${LIB_CORESERVICES})
-endif()
+find_library(LIB_CORESERVICES "CoreServices")
+target_link_libraries(shared PUBLIC ${LIB_CORESERVICES})
 
 if(qssldiffiehellmanparameters)
 	target_compile_definitions(shared PUBLIC "USE_QSSLDIFFIEHELLMANPARAMETERS")
@@ -232,11 +228,6 @@ endif()
 
 if(client)
 	add_subdirectory(mumble)
-
-	if(UNIX AND NOT APPLE)
-		install(FILES "${CMAKE_SOURCE_DIR}/icons/mumble.svg" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps")
-		install(FILES "${CMAKE_SOURCE_DIR}/icons/mumble_256x256.png" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/256x256/apps" RENAME "mumble.png")
-	endif()
 endif()
 
 if(tests)

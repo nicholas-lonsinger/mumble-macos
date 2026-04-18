@@ -172,5 +172,3 @@ if(client)
 	add_subdirectory(src)
 endif()
 
-add_subdirectory(auxiliary_files)
-

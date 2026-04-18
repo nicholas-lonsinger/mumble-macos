@@ -169,11 +169,6 @@ Include languages other than English.
 Check for updates by default.
 (Default: ON)
 
-### use-pkgconf-install-paths
-
-Try to query install paths from pkgconf - this is incompatible to using CMAKE_INSTALL_PREFIX
-(Default: OFF)
-
 ### use-timestamps
 
 Allow using compile-time timestamps
