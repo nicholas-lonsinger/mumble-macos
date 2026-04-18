@@ -31,12 +31,16 @@ foreach(CURRENT_PLUGIN IN LISTS AVAILABLE_PLUGINS)
 		# Shared library on Windows (e.g. ".dll")
 		set_target_properties(${CURRENT_PLUGIN} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins")
 		install(TARGETS ${CURRENT_PLUGIN} RUNTIME DESTINATION "${MUMBLE_INSTALL_PLUGINDIR}" COMPONENT mumble_client)
+	elseif(APPLE)
+		target_compile_definitions(${CURRENT_PLUGIN} PRIVATE "OS_MACOS")
+
+		# Write straight into the .app bundle so PluginManager's
+		# Mumble.app/Contents/Plugins search path finds it at runtime;
+		# the `mumble` BUNDLE install rule already ships the whole .app.
+		set_target_properties(${CURRENT_PLUGIN} PROPERTIES
+			LIBRARY_OUTPUT_DIRECTORY "$<TARGET_BUNDLE_CONTENT_DIR:mumble>/Plugins")
 	elseif(UNIX)
-		if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-			target_compile_definitions(${CURRENT_PLUGIN} PRIVATE "OS_LINUX")
-		elseif(APPLE)
-			target_compile_definitions(${CURRENT_PLUGIN} PRIVATE "OS_MACOS")
-		endif()
+		target_compile_definitions(${CURRENT_PLUGIN} PRIVATE "OS_LINUX")
 
 		# Shared library on UNIX (e.g. ".so")
 		set_target_properties(${CURRENT_PLUGIN} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins")
