@@ -17,4 +17,5 @@ brew install \
 	flac \
 	libsndfile \
 	protobuf \
-	openssl
+	openssl \
+	poco

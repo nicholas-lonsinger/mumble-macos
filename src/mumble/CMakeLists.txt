@@ -800,6 +800,12 @@ elseif(WIN32)
 	endif()
 elseif(APPLE)
 	target_sources(mumble_client_object_lib PRIVATE "TextToSpeech_macx.mm")
+	# NSSpeechSynthesizer was deprecated in macOS 14 in favor of AVSpeechSynthesizer.
+	# Tracked for replacement in https://github.com/nicholas-lonsinger/mumble-macos/issues/1;
+	# suppress the deprecation warning locally until that port lands so the build
+	# stays green at our min deployment target (macOS 15).
+	set_source_files_properties("TextToSpeech_macx.mm"
+		PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 else()
 	target_sources(mumble_client_object_lib PRIVATE "TextToSpeech_unix.cpp")
 
