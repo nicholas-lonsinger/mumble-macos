@@ -9,24 +9,9 @@ An example would be `cmake -Dtests=ON ..`.
 
 ## Available options
 
-### alsa
-
-Build support for ALSA.
-(Default: ON)
-
-### asio
-
-Build support for ASIO audio input.
-(Default: OFF)
-
 ### benchmarks
 
 Build benchmarks
-(Default: OFF)
-
-### BUILD_OVERLAY_XCOMPILE
-
-Build an x86 overlay
 (Default: OFF)
 
 ### bundle-qt-translations
@@ -114,11 +99,6 @@ Build the g15helper executable in emulator mode. This will cause an emulated G15
 Build support for Logitech G-Keys. Note: This feature does not require any build-time dependencies, and requires Logitech Gaming Software to be installed to have any effect at runtime.
 (Default: ON)
 
-### jackaudio
-
-Build support for JackAudio.
-(Default: ON)
-
 ### lto
 
 Enables link-time optimizations for release builds
@@ -139,30 +119,10 @@ Whether or not tests that need a working internet connection should be included
 Build a heavily optimized version, specific to the machine it's being compiled on.
 (Default: OFF)
 
-### oss
-
-Build support for OSS.
-(Default: ON)
-
-### overlay
-
-Build overlay.
-(Default: ${client})
-
-### overlay-xcompile
-
-Build 32 bit overlay library, necessary for the overlay to work with 32 bit processes.
-(Default: ${client})
-
 ### packaging
 
 Build package.
 (Default: OFF)
-
-### pipewire
-
-Build support for PipeWire.
-(Default: ON)
 
 ### plugin-callback-debug
 
@@ -177,16 +137,6 @@ Build Mumble with debug output for plugin developers.
 ### plugins
 
 Build plugins.
-(Default: ON)
-
-### portaudio
-
-Build support for PortAudio
-(Default: ON)
-
-### pulseaudio
-
-Build support for PulseAudio.
 (Default: ON)
 
 ### qssldiffiehellmanparameters
@@ -213,11 +163,6 @@ Use RNNoise for machine learning noise reduction.
 
 Prevent rebuilding installer MSI files from source. Used to be able to include signed MSI files in the bundle.
 (Default: OFF)
-
-### speechd
-
-Build support for Speech Dispatcher.
-(Default: ON)
 
 ### static
 
@@ -267,11 +212,6 @@ Allow using compile-time timestamps
 ### warnings-as-errors
 
 All warnings are treated as errors.
-(Default: ON)
-
-### wasapi
-
-Build support for WASAPI.
 (Default: ON)
 
 ### xboxinput

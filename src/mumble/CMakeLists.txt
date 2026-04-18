@@ -28,27 +28,15 @@ option(manual-plugin "Include the built-in \"manual\" positional audio plugin." 
 
 option(qtspeech "Use Qt's text-to-speech system (part of the Qt Speech module) instead of Mumble's own OS-specific text-to-speech implementations." OFF)
 
-option(jackaudio "Build support for JackAudio." ON)
-option(portaudio "Build support for PortAudio" ON)
-
 option(plugin-debug "Build Mumble with debug output for plugin developers." OFF)
 option(plugin-callback-debug "Build Mumble with debug output for plugin callbacks inside of Mumble." OFF)
 
 if(WIN32)
-	option(asio "Build support for ASIO audio input." OFF)
-	option(wasapi "Build support for WASAPI." ON)
 	option(xboxinput "Build support for global shortcuts from Xbox controllers via the XInput DLL." ON)
 	option(gkey "Build support for Logitech G-Keys. Note: This feature does not require any build-time dependencies, and requires Logitech Gaming Software to be installed to have any effect at runtime." ON)
 elseif(UNIX)
 	if(APPLE)
 		option(coreaudio "Build support for CoreAudio." ON)
-	elseif(${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
-		option(oss "Build support for OSS." ON)
-	elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-		option(alsa "Build support for ALSA." ON)
-		option(pipewire "Build support for PipeWire." ON)
-		option(pulseaudio "Build support for PulseAudio." ON)
-		option(speechd "Build support for Speech Dispatcher." ON)
 	endif()
 
 	option(dbus "Enable DBus support/interface" ON)
@@ -957,39 +945,6 @@ if(zeroconf)
 	target_include_directories(mumble_client_object_lib PUBLIC "${3RDPARTY_DIR}/qqbonjour")
 endif()
 
-if(alsa)
-	find_pkg(ALSA REQUIRED)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"ALSAAudio.cpp"
-			"ALSAAudio.h"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_ALSA")
-	target_link_libraries(mumble_client_object_lib PUBLIC ALSA::ALSA)
-endif()
-
-if(asio)
-	if(NOT ASIO_DIR)
-		set(ASIO_DIR "${3RDPARTY_DIR}/asio")
-	endif()
-
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"ASIOInput.cpp"
-			"ASIOInput.h"
-			"ASIOInput.ui"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_ASIO")
-	target_include_directories(mumble_client_object_lib
-		SYSTEM PUBLIC
-			"${ASIO_DIR}/common"
-			"${ASIO_DIR}/host"
-			"${ASIO_DIR}/host/pc"
-	)
-endif()
-
 if(coreaudio)
 	find_library(LIB_AUDIOUNIT "AudioUnit")
 	find_library(LIB_COREAUDIO "CoreAudio")
@@ -1008,81 +963,6 @@ if(coreaudio)
 	)
 endif()
 
-if(jackaudio)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"JackAudio.cpp"
-			"JackAudio.h"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_JACKAUDIO")
-	target_include_directories(mumble_client_object_lib SYSTEM PUBLIC "${3RDPARTY_DIR}/jack")
-endif()
-
-if(oss)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"OSS.cpp"
-			"OSS.h"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_OSS")
-	target_include_directories(mumble_client_object_lib SYSTEM PUBLIC "/usr/lib/oss/include")
-endif()
-
-if(pipewire)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"PipeWire.cpp"
-			"PipeWire.h"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_PIPEWIRE")
-	target_include_directories(mumble_client_object_lib SYSTEM PUBLIC "${3RDPARTY_DIR}/pipewire")
-endif()
-
-if(portaudio)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"PAAudio.cpp"
-			"PAAudio.h"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_PORTAUDIO")
-	target_include_directories(mumble_client_object_lib SYSTEM PUBLIC "${3RDPARTY_DIR}/portaudio")
-endif()
-
-if(pulseaudio)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"PulseAudio.cpp"
-			"PulseAudio.h"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_PULSEAUDIO")
-	target_include_directories(mumble_client_object_lib SYSTEM PUBLIC "${3RDPARTY_DIR}/pulseaudio")
-endif()
-
-if(wasapi)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"WASAPI.cpp"
-			"WASAPI.h"
-			"WASAPINotificationClient.cpp"
-			"WASAPINotificationClient.h"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_WASAPI")
-	target_link_libraries(mumble_client_object_lib PUBLIC avrt.lib)
-	if(MINGW)
-		target_link_libraries(mumble_client_object_lib PUBLIC ksuser.lib)
-	endif()
-
-	if(MSVC)
-		set_property(TARGET mumble_client_object_lib APPEND_STRING PROPERTY LINK_FLAGS " /DELAYLOAD:avrt.dll")
-	endif()
-endif()
-
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.16.0")
 	if (APPLE)
 		# Prevent objective C files from being included in unity builds as that causes issues
@@ -1092,7 +972,6 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.16.0")
 			"GlobalShortcut_macx.mm"
 			"os_macx.mm"
 			"TextToSpeech_macx.mm"
-			"Overlay_macx.mm"
 			"CoreAudio.mm"
 			PROPERTIES
 				SKIP_UNITY_BUILD_INCLUSION TRUE
