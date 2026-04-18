@@ -94,15 +94,7 @@ namespace QtUtils {
 	bool operator>=(const CaseInsensitiveQString &lhs, const QString &rhs) { return rhs <= lhs; }
 
 	std::filesystem::path qstring_to_path(const QString &input) {
-		// Path handling uses wide character encoding on Windows.
-		// When converting from QStrings, we need to take that
-		// into account, otherwise raw file operations will fail when
-		// the path contains Unicode characters.
-#ifdef Q_OS_WIN
-		return std::filesystem::path(input.toStdWString());
-#else
 		return std::filesystem::path(input.toUtf8().data());
-#endif
 	}
 
 } // namespace QtUtils

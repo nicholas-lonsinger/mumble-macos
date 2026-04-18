@@ -16,12 +16,6 @@
 using MasterSink = spdlog::sinks::dup_filter_sink_st;
 using StdOutSink = spdlog::sinks::stdout_color_sink_st;
 
-#ifdef Q_OS_WIN
-#	include <spdlog/sinks/msvc_sink.h>
-
-using DebuggerSink = spdlog::sinks::msvc_sink_st;
-#endif
-
 using namespace mumble;
 
 static std::shared_ptr< MasterSink > masterSink;
@@ -63,9 +57,6 @@ void log::addSink(std::shared_ptr< spdlog::sinks::sink > sink) {
 void log::init(spdlog::level::level_enum logLevel) {
 	// Skips the message if the previous one is identical and less than 5 seconds have passed.
 	masterSink = std::make_shared< MasterSink >(std::chrono::seconds(5));
-#ifdef Q_OS_WIN
-	addSink(std::make_shared< DebuggerSink >());
-#endif
 	addSink(std::make_shared< StdOutSink >());
 
 	auto logger = std::make_shared< spdlog::logger >(MainLoggerName, masterSink);

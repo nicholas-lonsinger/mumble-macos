@@ -10,19 +10,10 @@
 
 namespace EnvUtils {
 
-// getenv is a wrapper around _wgetenv_s (on Windows)
-// and getenv (on everything else).
-//
-// On Windows, it expects a Unicode environment -- so variables
-// are expected to be UTF16.
-//
-// On everything else, it expects environment variables to use the
-// locale-defined encoding. (From a Qt-perspective, we use toLocal8Bit/fromLocal8Bit.)
+// Wrapper around getenv that returns a QString (locale-encoded).
 QString getenv(QString name);
 
 bool setenv(QString name, QString value);
-
-bool waylandIsUsed();
 
 } // namespace EnvUtils
 

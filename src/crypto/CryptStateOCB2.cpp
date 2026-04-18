@@ -10,17 +10,6 @@
  * https://www.cs.ucdavis.edu/~rogaway/ocb/ocb-faq.htm
  */
 
-#include <QtCore/QtGlobal>
-
-#ifndef __LP64__
-#	ifdef Q_OS_WIN
-#		include "win.h"
-#		include <winsock2.h>
-#	else
-#		include <arpa/inet.h>
-#	endif
-#endif
-
 #include "ByteSwap.h"
 #include "CryptStateOCB2.h"
 #include "CryptographicRandom.h"

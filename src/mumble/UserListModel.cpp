@@ -10,11 +10,6 @@
 #include "Utils.h"
 
 #include <algorithm>
-
-#ifdef _MSC_VER
-#	include <functional>
-#endif
-
 #include <vector>
 
 #include <QtCore/QTimeZone>
