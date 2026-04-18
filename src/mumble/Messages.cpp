@@ -31,7 +31,6 @@
 #include "UserInformation.h"
 #include "UserModel.h"
 #include "Utils.h"
-#include "VersionCheck.h"
 #include "ViewCert.h"
 #include "crypto/CryptState.h"
 #include "Global.h"

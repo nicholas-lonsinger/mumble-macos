@@ -33,7 +33,6 @@
 #include "Themes.h"
 #include "Translations.h"
 #include "Version.h"
-#include "VersionCheck.h"
 #include "Global.h"
 
 #include "widgets/TrayIcon.h"
@@ -666,24 +665,9 @@ int main(int argc, char **argv) {
 						   "or you will no longer be able to connect to servers you are registered on."));
 
 #ifdef QT_NO_DEBUG
-	// Only perform the version-check for non-debug builds
-	if (Global::get().s.bUpdateCheck) {
-		// Use different settings for the version checks depending on whether this is a snapshot build
-		// or a normal release build
-#	ifndef SNAPSHOT_BUILD
-		// release build
-		new VersionCheck(true, Global::get().mw);
-#	else
-		// snapshot build
-		new VersionCheck(false, Global::get().mw, true);
-#	endif
-	}
-
 	if (Global::get().s.bPluginCheck) {
 		Global::get().pluginManager->checkForPluginUpdates();
 	}
-#else  // QT_NO_DEBUG
-	Global::get().mw->msgBox(MainWindow::tr("Skipping version check in debug mode."));
 #endif // QT_NO_DEBUG
 
 	if (url.isValid()) {

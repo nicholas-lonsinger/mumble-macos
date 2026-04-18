@@ -176,7 +176,6 @@ const SettingsKey LAST_USERNAME_KEY    = { "username" };
 const SettingsKey LAST_SERVER_NAME_KEY = { "server_name" };
 
 // Updates
-const SettingsKey CHECK_FOR_UPDATES_KEY        = { "check_for_updates" };
 const SettingsKey CHECK_FOR_PLUGIN_UPDATES_KEY = { "check_for_plugin_updates" };
 const SettingsKey AUTO_UPDATE_PLUGINS_KEY      = { "auto_update_plugins" };
 

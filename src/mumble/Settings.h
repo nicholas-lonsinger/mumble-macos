@@ -313,7 +313,6 @@ struct Settings {
 
 	QString qsImagePath = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
 
-	bool bUpdateCheck      = true;
 	bool bPluginCheck      = true;
 	bool bPluginAutoUpdate = false;
 

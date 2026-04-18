@@ -12,8 +12,6 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/mumble.plist.in" "${MUMBLE_PLIST}")
 include(qt-utils)
 include(install-library)
 
-option(update "Check for updates by default." ON)
-
 option(translations "Include languages other than English." ON)
 option(bundle-qt-translations "Bundle Qt's translations as well" ${static}) 
 
@@ -227,8 +225,6 @@ set(MUMBLE_SOURCES
 	"UserModel.h"
 	"UserView.cpp"
 	"UserView.h"
-	"VersionCheck.cpp"
-	"VersionCheck.h"
 	"ViewCert.cpp"
 	"ViewCert.h"
 	"VoiceRecorder.cpp"
@@ -615,10 +611,6 @@ if(manual-plugin)
 	)
 
 target_compile_definitions(mumble_client_object_lib PUBLIC "USE_MANUAL_PLUGIN")
-endif()
-
-if(NOT update)
-	target_compile_definitions(mumble_client_object_lib PUBLIC "NO_UPDATE_CHECK")
 endif()
 
 if(translations)

@@ -106,7 +106,7 @@ public:
 	GlobalShortcut *gsSelfRegister, *gsAudioStats;
 	GlobalShortcut *gsConfigDialog, *gsAudioWizard, *gsConfigCert;
 	GlobalShortcut *gsAudioTTS;
-	GlobalShortcut *gsHelpAbout, *gsHelpAboutQt, *gsHelpVersionCheck;
+	GlobalShortcut *gsHelpAbout, *gsHelpAboutQt;
 	GlobalShortcut *gsTogglePositionalAudio;
 	GlobalShortcut *gsMoveBack;
 	GlobalShortcut *gsCycleListenerAttenuationMode, *gsListenerAttenuationUp, *gsListenerAttenuationDown;
@@ -296,7 +296,6 @@ public slots:
 	void on_qaHelpWhatsThis_triggered();
 	void on_qaHelpAbout_triggered();
 	void on_qaHelpAboutQt_triggered();
-	void on_qaHelpVersionCheck_triggered();
 	void on_qaQuit_triggered();
 	void on_qteChat_tabPressed();
 	void on_qteChat_backtabPressed();
@@ -343,7 +342,6 @@ public slots:
 	void on_gsAudioTTS_triggered(bool, QVariant);
 	void on_gsHelpAbout_triggered(bool, QVariant);
 	void on_gsHelpAboutQt_triggered(bool, QVariant);
-	void on_gsHelpVersionCheck_triggered(bool, QVariant);
 	void on_gsTogglePositionalAudio_triggered(bool, QVariant);
 	void on_gsMoveBack_triggered(bool, QVariant);
 	void on_gsCycleListenerAttenuationMode_triggered(bool, QVariant);
@@ -468,7 +466,6 @@ public:
 	void enableAudioTTS(bool enable);
 	void openAboutDialog();
 	void openAboutQtDialog();
-	void versionCheck();
 	void enablePositionalAudio(bool enable);
 };
 

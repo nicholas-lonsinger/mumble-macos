@@ -52,7 +52,6 @@
 #include "UserLocalVolumeSlider.h"
 #include "UserModel.h"
 #include "Utils.h"
-#include "VersionCheck.h"
 #include "ViewCert.h"
 #include "VoiceRecorderDialog.h"
 #include "Global.h"
@@ -385,11 +384,6 @@ void MainWindow::createActions() {
 		new GlobalShortcut(this, GlobalShortcutType::HelpAboutQt, tr("Open about Qt dialog", "Global Shortcut"));
 	gsHelpAboutQt->setObjectName(QLatin1String("gsHelpAboutQt"));
 	gsHelpAboutQt->qsWhatsThis = tr("This will open the about Qt dialog");
-
-	gsHelpVersionCheck =
-		new GlobalShortcut(this, GlobalShortcutType::HelpVersionCheck, tr("Check for update", "Global Shortcut"));
-	gsHelpVersionCheck->setObjectName(QLatin1String("gsHelpVersionCheck"));
-	gsHelpVersionCheck->qsWhatsThis = tr("This will check if mumble is up to date");
 
 	gsTogglePositionalAudio = new GlobalShortcut(this, GlobalShortcutType::TogglePositionalAudio,
 												 tr("Toggle positional audio", "Global Shortcut"));
@@ -2788,10 +2782,6 @@ void MainWindow::on_qaHelpAboutQt_triggered() {
 	openAboutQtDialog();
 }
 
-void MainWindow::on_qaHelpVersionCheck_triggered() {
-	versionCheck();
-}
-
 void MainWindow::on_gsMuteSelf_down(QVariant v) {
 	int val = v.toInt();
 	if (((val > 0) && !Global::get().s.bMute) || ((val < 0) && Global::get().s.bMute) || (val == 0)) {
@@ -3335,14 +3325,6 @@ void MainWindow::on_gsHelpAboutQt_triggered(bool down, QVariant) {
 	}
 
 	openAboutQtDialog();
-}
-
-void MainWindow::on_gsHelpVersionCheck_triggered(bool down, QVariant) {
-	if (!down) {
-		return;
-	}
-
-	versionCheck();
 }
 
 void MainWindow::on_gsTogglePositionalAudio_triggered(bool down, QVariant) {
@@ -4166,10 +4148,6 @@ void MainWindow::openAboutDialog() {
 
 void MainWindow::openAboutQtDialog() {
 	QMessageBox::aboutQt(this, tr("About Qt"));
-}
-
-void MainWindow::versionCheck() {
-	new VersionCheck(false, this);
 }
 
 void MainWindow::enablePositionalAudio(bool enable) {

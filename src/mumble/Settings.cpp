@@ -389,10 +389,6 @@ Settings::Settings() {
 	// Therefore we disable it by default until the issues are fixed.
 	echoOption = EchoCancelOptionID::DISABLED;
 	bHideInTray = QSystemTrayIcon::isSystemTrayAvailable();
-#ifdef NO_UPDATE_CHECK
-	bUpdateCheck = false;
-	bPluginCheck = false;
-#endif
 #if defined(AUDIO_TEST)
 	lmLoopMode = Server;
 #endif
@@ -647,7 +643,6 @@ void Settings::legacyLoad(const QString &path) {
 	LOAD(qsLastServer, "ui/server");
 	LOADENUM(ssFilter, "ui/serverfilter");
 
-	LOAD(bUpdateCheck, "ui/updatecheck");
 	LOAD(bPluginCheck, "ui/plugincheck");
 	LOAD(bPluginAutoUpdate, "ui/pluginAutoUpdate");
 

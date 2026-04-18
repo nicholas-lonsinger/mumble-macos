@@ -65,8 +65,6 @@
     <addaction name="separator"/>
     <addaction name="qaHelpAbout"/>
     <addaction name="qaHelpAboutQt"/>
-    <addaction name="separator"/>
-    <addaction name="qaHelpVersionCheck"/>
    </widget>
    <widget class="QMenu" name="qmServer">
     <property name="title">
@@ -739,17 +737,6 @@ the channel's context menu.</string>
    </property>
    <property name="menuRole">
     <enum>QAction::AboutQtRole</enum>
-   </property>
-  </action>
-  <action name="qaHelpVersionCheck">
-   <property name="text">
-    <string>Check for &amp;Updates</string>
-   </property>
-   <property name="toolTip">
-    <string>Check for new version of Mumble</string>
-   </property>
-   <property name="whatsThis">
-    <string>Connects to the Mumble webpage to check if a new version is available, and notifies you with an appropriate download URL if this is the case.</string>
    </property>
   </action>
   <action name="qaChannelSendMessage">

@@ -162,7 +162,6 @@
 
 
 #define UPDATE_SETTINGS                                         \
-	PROCESS(update, CHECK_FOR_UPDATES_KEY, bUpdateCheck)        \
 	PROCESS(update, CHECK_FOR_PLUGIN_UPDATES_KEY, bPluginCheck) \
 	PROCESS(update, AUTO_UPDATE_PLUGINS_KEY, bPluginAutoUpdate)
 
