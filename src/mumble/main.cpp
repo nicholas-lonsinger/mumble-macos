@@ -20,7 +20,6 @@
 #include "Channel.h"
 #include "ChannelListenerManager.h"
 #include "ClientUser.h"
-#include "CrashReporter.h"
 #include "EnvUtils.h"
 #include "License.h"
 #include "MumbleApplication.h"
@@ -569,12 +568,6 @@ int main(int argc, char **argv) {
 	NetworkConfig::SetupProxy();
 
 	Global::get().nam = new QNetworkAccessManager();
-
-#ifndef NO_CRASH_REPORT
-	CrashReporter *cr = new CrashReporter();
-	cr->run();
-	delete cr;
-#endif
 
 	// Initialize database
 	Global::get().db = new Database(QLatin1String("main"));

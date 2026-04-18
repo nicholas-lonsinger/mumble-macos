@@ -411,9 +411,6 @@ struct Settings {
 	/// Path to SQLite-DB
 	QString qsDatabaseLocation = {};
 
-	/// The email address that has been specified most recently in the crash reporter
-	QString crashReportEmail = {};
-
 	// Nonsaved
 	bool bSuppressIdentity = false;
 	LoopMode lmLoopMode    = None;

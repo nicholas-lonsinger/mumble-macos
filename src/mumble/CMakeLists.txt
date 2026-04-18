@@ -29,7 +29,6 @@ option(plugin-debug "Build Mumble with debug output for plugin developers." OFF)
 option(plugin-callback-debug "Build Mumble with debug output for plugin callbacks inside of Mumble." OFF)
 
 option(coreaudio "Build support for CoreAudio." ON)
-option(crash-report "Include support for reporting crashes to the Mumble developers." ON)
 
 find_pkg(Qt6
 	COMPONENTS
@@ -605,16 +604,6 @@ else()
 	# stays green at our min deployment target (macOS 15).
 	set_source_files_properties("TextToSpeech_macx.mm"
 		PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
-endif()
-
-if(crash-report)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"CrashReporter.cpp"
-			"CrashReporter.h"
-	)
-else()
-	target_compile_definitions(mumble_client_object_lib PUBLIC "NO_CRASH_REPORT")
 endif()
 
 if(manual-plugin)

@@ -15,8 +15,7 @@
 	PROCESS(misc, DATABASE_LOCATION_KEY, qsDatabaseLocation)                        \
 	PROCESS(misc, IMAGE_DIRECTORY_KEY, qsImagePath)                                 \
 	PROCESS(misc, AUDIO_WIZARD_SHOWN_KEY, audioWizardShown)                         \
-	PROCESS(misc, SERVER_PING_CONSENT_MESSAGE_VIEWED_KEY, bPingServersDialogViewed) \
-	PROCESS(misc, CRASH_EMAIL_ADDRESS_KEY, crashReportEmail)
+	PROCESS(misc, SERVER_PING_CONSENT_MESSAGE_VIEWED_KEY, bPingServersDialogViewed)
 
 #define AUDIO_SETTINGS                                                                      \
 	PROCESS(audio, UNMUTE_ON_UNDEAF_KEY, unmuteOnUndeaf)                                    \

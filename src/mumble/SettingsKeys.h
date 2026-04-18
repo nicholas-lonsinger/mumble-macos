@@ -185,7 +185,6 @@ const SettingsKey DATABASE_LOCATION_KEY                  = { "database_location"
 const SettingsKey IMAGE_DIRECTORY_KEY                    = { "image_directory" };
 const SettingsKey SERVER_PING_CONSENT_MESSAGE_VIEWED_KEY = { "viewed_server_ping_consent_message" };
 const SettingsKey AUDIO_WIZARD_SHOWN_KEY                 = { "audio_wizard_has_been_shown" };
-const SettingsKey CRASH_EMAIL_ADDRESS_KEY                = { "crash_report_email_address" };
 
 
 // TalkingUI
