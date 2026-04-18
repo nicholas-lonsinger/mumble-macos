@@ -507,9 +507,7 @@ target_sources(mumble_client_object_lib PRIVATE "SharedMemory_unix.cpp")
 find_library(LIB_APPKIT "AppKit")
 find_library(LIB_APPLICATIONSERVICES "ApplicationServices")
 find_library(LIB_CARBON "Carbon")
-find_library(LIB_SCRIPTINGBRIDGE "ScriptingBridge")
 find_library(LIB_SECURITY "Security")
-find_library(LIB_XAR "xar")
 
 target_sources(mumble_client_object_lib
 	PRIVATE
@@ -531,9 +529,7 @@ target_link_libraries(mumble_client_object_lib
 		${LIB_APPKIT}
 		${LIB_APPLICATIONSERVICES}
 		${LIB_CARBON}
-		${LIB_SCRIPTINGBRIDGE}
 		${LIB_SECURITY}
-		${LIB_XAR}
 )
 
 find_pkg("opus;Opus" REQUIRED)
