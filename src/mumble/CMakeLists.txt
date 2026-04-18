@@ -3,13 +3,10 @@
 # that can be found in the LICENSE file at the root of the
 # Mumble source tree or at <https://www.mumble.info/LICENSE>.
 
-set(MUMBLE_RC "${CMAKE_CURRENT_BINARY_DIR}/mumble.rc")
 set(MUMBLE_PLIST "${CMAKE_CURRENT_BINARY_DIR}/mumble.plist")
 
-set(MUMBLE_ICON "${CMAKE_SOURCE_DIR}/icons/mumble.ico")
 set(MUMBLE_ICNS "${CMAKE_SOURCE_DIR}/icons/mumble.icns")
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/mumble.rc.in" "${MUMBLE_RC}")
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/mumble.plist.in" "${MUMBLE_PLIST}")
 
 include(qt-utils)
@@ -31,36 +28,8 @@ option(qtspeech "Use Qt's text-to-speech system (part of the Qt Speech module) i
 option(plugin-debug "Build Mumble with debug output for plugin developers." OFF)
 option(plugin-callback-debug "Build Mumble with debug output for plugin callbacks inside of Mumble." OFF)
 
-if(WIN32)
-	option(xboxinput "Build support for global shortcuts from Xbox controllers via the XInput DLL." ON)
-	option(gkey "Build support for Logitech G-Keys. Note: This feature does not require any build-time dependencies, and requires Logitech Gaming Software to be installed to have any effect at runtime." ON)
-elseif(UNIX)
-	if(APPLE)
-		option(coreaudio "Build support for CoreAudio." ON)
-	endif()
-
-	option(dbus "Enable DBus support/interface" ON)
-
-	# scripts/generate_cmake_options_docs.py does not cope with duplicate option() lines,
-	# so single out common options into combined conditions.
-	# https://github.com/mumble-voip/mumble/issues/5488
-	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" OR
-	   ${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
-		option(xinput2 "Build support for XI2." ON)
-	endif()
-endif()
-
-if(NOT APPLE)
-	option(g15 "Include support for the G15 keyboard (and compatible devices)." OFF)
-endif()
-
-if(WIN32 OR APPLE)
-	option(crash-report "Include support for reporting crashes to the Mumble developers." ON)
-endif()
-
-if(MSVC)
-	option(elevation "Set \"uiAccess=true\", required for global shortcuts to work with privileged applications. Requires the client's executable to be signed with a trusted code signing certificate." OFF)
-endif()
+option(coreaudio "Build support for CoreAudio." ON)
+option(crash-report "Include support for reporting crashes to the Mumble developers." ON)
 
 find_pkg(Qt6
 	COMPONENTS
@@ -346,34 +315,17 @@ list(APPEND MUMBLE_SOURCES "${CMAKE_BINARY_DIR}/mumble_flags.qrc")
 add_library(mumble_client_object_lib OBJECT ${MUMBLE_SOURCES})
 target_link_libraries(mumble_client_object_lib PUBLIC smallft)
 
-if(WIN32 AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-	# We don't want the console to appear in release builds.
-	add_executable(mumble WIN32 "main.cpp")
-else()
-	add_executable(mumble "main.cpp")
-endif()
+add_executable(mumble "main.cpp")
 
-if(WIN32)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"${CMAKE_SOURCE_DIR}/auxiliary_files/mumble.appcompat.manifest"
-			"${MUMBLE_RC}"
-	)
+set_source_files_properties("${MUMBLE_ICNS}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+target_sources(mumble PRIVATE "${MUMBLE_ICNS}")
 
-	if(elevation)
-		set_property(TARGET mumble APPEND_STRING PROPERTY LINK_FLAGS " /MANIFESTUAC:\"level=\'asInvoker\' uiAccess=\'true\'\"")
-	endif()
-elseif(APPLE)
-	set_source_files_properties("${MUMBLE_ICNS}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-	target_sources(mumble PRIVATE "${MUMBLE_ICNS}")
-
-	set_target_properties(mumble
-		PROPERTIES
-			OUTPUT_NAME "Mumble"
-			MACOSX_BUNDLE TRUE
-			MACOSX_BUNDLE_INFO_PLIST ${MUMBLE_PLIST}
-	)
-endif()
+set_target_properties(mumble
+	PROPERTIES
+		OUTPUT_NAME "Mumble"
+		MACOSX_BUNDLE TRUE
+		MACOSX_BUNDLE_INFO_PLIST ${MUMBLE_PLIST}
+)
 
 add_custom_command(
 	OUTPUT "ApplicationPalette.h"
@@ -411,15 +363,7 @@ set_target_properties(mumble
 		AUTOUIC ON
 )
 
-if(WIN32)
-	install(TARGETS mumble RUNTIME DESTINATION "${MUMBLE_INSTALL_EXECUTABLEDIR}" COMPONENT mumble_client)
-else()
-	if(NOT APPLE)
-		install(TARGETS mumble RUNTIME DESTINATION "${MUMBLE_INSTALL_EXECUTABLEDIR}" COMPONENT mumble_client)
-	else()
-		install(TARGETS mumble BUNDLE DESTINATION "${MUMBLE_INSTALL_EXECUTABLEDIR}" COMPONENT mumble_client)
-	endif()
-endif()
+install(TARGETS mumble BUNDLE DESTINATION "${MUMBLE_INSTALL_EXECUTABLEDIR}" COMPONENT mumble_client)
 
 # This is used to invalidate the saved widget state if a change in the source is detected.
 get_numerical_file_hash("${CMAKE_CURRENT_SOURCE_DIR}/MainWindow.ui" MAINWINDOW_UI_HASH)
@@ -575,143 +519,41 @@ if(static)
 	endif()
 endif()
 
-if(MSVC)
-	target_compile_definitions(mumble_client_object_lib PUBLIC "RESTRICT=")
-else()
-	target_compile_definitions(mumble_client_object_lib PUBLIC "RESTRICT=__restrict__")
+target_compile_definitions(mumble_client_object_lib PUBLIC "RESTRICT=__restrict__")
+
+target_sources(mumble_client_object_lib PRIVATE "SharedMemory_unix.cpp")
+
+find_library(LIB_APPKIT "AppKit")
+find_library(LIB_APPLICATIONSERVICES "ApplicationServices")
+find_library(LIB_CARBON "Carbon")
+find_library(LIB_SCRIPTINGBRIDGE "ScriptingBridge")
+find_library(LIB_SECURITY "Security")
+find_library(LIB_XAR "xar")
+
+target_sources(mumble_client_object_lib
+	PRIVATE
+		"AppNap.h"
+		"AppNap.mm"
+		"ThemeSwitch_macx.mm"
+		"GlobalShortcut_macx.h"
+		"GlobalShortcut_macx.mm"
+		"os_macx.mm"
+)
+
+if(static AND TARGET Qt6::QCocoaIntegrationPlugin)
+	include_qt_plugin(mumble_client_object_lib PRIVATE QCocoaIntegrationPlugin)
+	target_link_libraries(mumble_client_object_lib PUBLIC Qt6::QCocoaIntegrationPlugin)
 endif()
 
-if(WIN32)
-	target_sources(mumble_client_object_lib PRIVATE
-		"GlobalShortcut_win.cpp"
-		"GlobalShortcut_win.h"
-		"SharedMemory_win.cpp"
-		"TaskList.cpp"
-		"UserLockFile_win.cpp"
-		"WinGUIDs.cpp"
-		"os_early_win.cpp"
-		"os_win.cpp"
-
-		"${CMAKE_SOURCE_DIR}/overlay/ods.cpp"
-	)
-
-	# WinGUIDs.cpp includes initguid.h which causes a macro definition in guiddef.h to be
-	# changed in such a way that subsequent usages break (redefinition errors).
-	# Thus we must not package this source file in a unity build allowing other files
-	# to include plain guiddef.h without having to worry about side-effects.
-	set_source_files_properties("WinGUIDs.cpp" PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
-
-	find_pkg(Boost
-		COMPONENTS
-			system
-			thread
-		REQUIRED
-	)
-
-	if(static AND TARGET Qt6::QWindowsIntegrationPlugin)
-		include_qt_plugin(mumble_client_object_lib PRIVATE QWindowsIntegrationPlugin)
-		target_link_libraries(mumble_client_object_lib PUBLIC Qt6::QWindowsIntegrationPlugin)
-	endif()
-
-	add_subdirectory("${3RDPARTY_DIR}/SPSCQueue" "${CMAKE_CURRENT_BINARY_DIR}/SPSCQueue" EXCLUDE_FROM_ALL)
-	add_subdirectory("${3RDPARTY_DIR}/xinputcheck-build" "${CMAKE_CURRENT_BINARY_DIR}/xinputcheck" EXCLUDE_FROM_ALL)
-
-	# Disable all warnings that the xinputcheck code may emit
-	disable_warnings_for_all_targets_in("${3RDPARTY_DIR}/xinputcheck-build")
-
-	target_link_libraries(mumble_client_object_lib
-		PUBLIC
-			SPSCQueue
-			xinputcheck
-	)
-
-	if(MSVC)
-		target_link_libraries(mumble_client_object_lib
-			PUBLIC
-				Boost::dynamic_linking
-				Delayimp.lib
-			)
-		set_property(TARGET mumble_client_object_lib APPEND_STRING PROPERTY LINK_FLAGS " /DELAYLOAD:user32.dll /DELAYLOAD:qwave.dll")
-	endif()
-
-	target_link_libraries(mumble_client_object_lib
-		PUBLIC
-			Boost::system
-			Boost::thread
-	)
-
-	target_link_libraries(mumble_client_object_lib
-		PUBLIC
-			dbghelp.lib
-			dxguid.lib
-			hid.lib
-			wintrust.lib
-	)
-else()
-	target_sources(mumble_client_object_lib PRIVATE "SharedMemory_unix.cpp")
-
-	if(NOT APPLE)
-		find_pkg(X11 COMPONENTS Xext REQUIRED)
-
-		if(xinput2)
-			find_pkg(X11 COMPONENTS Xi REQUIRED)
-			target_link_libraries(mumble_client_object_lib PUBLIC X11::Xi)
-		else()
-			target_compile_definitions(mumble_client_object_lib PUBLIC "NO_XINPUT2")
-		endif()
-
-		if(static AND TARGET Qt6::QXcbIntegrationPlugin)
-			include_qt_plugin(mumble_client_object_lib PRIVATE QXcbIntegrationPlugin)
-			target_link_libraries(mumble_client_object_lib PUBLIC Qt6::QXcbIntegrationPlugin)
-		endif()
-
-		target_sources(mumble_client_object_lib
-			PRIVATE
-				"GlobalShortcut_unix.cpp"
-				"GlobalShortcut_unix.h"
-				"os_unix.cpp"
-		)
-
-		if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-			find_library(LIB_RT rt)
-			target_link_libraries(mumble_client_object_lib PUBLIC ${LIB_RT})
-		endif()
-
-		target_link_libraries(mumble_client_object_lib PUBLIC X11::Xext)
-	else()
-		find_library(LIB_APPKIT "AppKit")
-		find_library(LIB_APPLICATIONSERVICES "ApplicationServices")
-		find_library(LIB_CARBON "Carbon")
-		find_library(LIB_SCRIPTINGBRIDGE "ScriptingBridge")
-		find_library(LIB_SECURITY "Security")
-		find_library(LIB_XAR "xar")
-
-		target_sources(mumble_client_object_lib
-			PRIVATE
-				"AppNap.h"
-				"AppNap.mm"
-				"ThemeSwitch_macx.mm"
-				"GlobalShortcut_macx.h"
-				"GlobalShortcut_macx.mm"
-				"os_macx.mm"
-		)
-
-		if(static AND TARGET Qt6::QCocoaIntegrationPlugin)
-			include_qt_plugin(mumble_client_object_lib PRIVATE QCocoaIntegrationPlugin)
-			target_link_libraries(mumble_client_object_lib PUBLIC Qt6::QCocoaIntegrationPlugin)
-		endif()
-
-		target_link_libraries(mumble_client_object_lib
-			PUBLIC
-				${LIB_APPKIT}
-				${LIB_APPLICATIONSERVICES}
-				${LIB_CARBON}
-				${LIB_SCRIPTINGBRIDGE}
-				${LIB_SECURITY}
-				${LIB_XAR}
-		)
-	endif()
-endif()
+target_link_libraries(mumble_client_object_lib
+	PUBLIC
+		${LIB_APPKIT}
+		${LIB_APPLICATIONSERVICES}
+		${LIB_CARBON}
+		${LIB_SCRIPTINGBRIDGE}
+		${LIB_SECURITY}
+		${LIB_XAR}
+)
 
 find_pkg("opus;Opus" REQUIRED)
 target_include_directories(mumble_client_object_lib PUBLIC ${opus_INCLUDE_DIRS})
@@ -732,13 +574,7 @@ if(bundled-speex)
 
 	target_link_libraries(mumble_client_object_lib PUBLIC speexdsp)
 
-	if(WIN32)
-		# Shared library on Windows (e.g. ".dll")
-		set_target_properties(speexdsp PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-	else()
-		# Shared library on UNIX (e.g. ".so")
-		set_target_properties(speexdsp PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-	endif()
+	set_target_properties(speexdsp PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 	install_library(speexdsp mumble_client)
 else()
@@ -761,13 +597,7 @@ if(rnnoise)
 
 		target_link_libraries(mumble_client_object_lib PRIVATE rnnoise)
 
-		if(WIN32)
-			# Shared library on Windows (e.g. ".dll")
-			set_target_properties(rnnoise PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-		else()
-			# Shared library on UNIX (e.g. ".so")
-			set_target_properties(rnnoise PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-		endif()
+		set_target_properties(rnnoise PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 		install_library(rnnoise mumble_client)
 	else()
@@ -781,12 +611,7 @@ if(qtspeech)
 	find_pkg(Qt6 COMPONENTS TextToSpeech REQUIRED)
 	target_sources(mumble_client_object_lib PRIVATE "TextToSpeech.cpp")
 	target_link_libraries(mumble_client_object_lib PUBLIC Qt6::TextToSpeech)
-elseif(WIN32)
-	target_sources(mumble_client_object_lib PRIVATE "TextToSpeech_win.cpp")
-	if(MINGW)
-		target_link_libraries(mumble_client_object_lib PUBLIC sapi.lib)
-	endif()
-elseif(APPLE)
+else()
 	target_sources(mumble_client_object_lib PRIVATE "TextToSpeech_macx.mm")
 	# NSSpeechSynthesizer was deprecated in macOS 14 in favor of AVSpeechSynthesizer.
 	# Tracked for replacement in https://github.com/nicholas-lonsinger/mumble-macos/issues/1;
@@ -794,21 +619,6 @@ elseif(APPLE)
 	# stays green at our min deployment target (macOS 15).
 	set_source_files_properties("TextToSpeech_macx.mm"
 		PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
-else()
-	target_sources(mumble_client_object_lib PRIVATE "TextToSpeech_unix.cpp")
-
-	if(speechd)
-		find_pkg("speech-dispatcher" REQUIRED)
-
-		target_compile_definitions(mumble_client_object_lib
-			PUBLIC
-				"USE_SPEECHD"
-				"USE_SPEECHD_PKGCONFIG"
-		)
-		target_link_libraries(mumble_client_object_lib PUBLIC ${speech-dispatcher_LIBRARIES})
-	else()
-		target_compile_definitions(mumble_client_object_lib PUBLIC "USE_NO_TTS")
-	endif()
 endif()
 
 if(crash-report)
@@ -836,19 +646,6 @@ if(NOT update)
 	target_compile_definitions(mumble_client_object_lib PUBLIC "NO_UPDATE_CHECK")
 endif()
 
-if(dbus AND (NOT WIN32 AND NOT APPLE))
-	find_pkg(Qt6 COMPONENTS DBus REQUIRED)
-
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"DBus.cpp"
-			"DBus.h"
-	)
-	
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_DBUS")
-	target_link_libraries(mumble_client_object_lib PUBLIC Qt6::DBus)
-endif()
-
 if(translations)
 	# Glob for all translation files in the source dir
 	file(GLOB TS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.ts")
@@ -867,67 +664,7 @@ if(plugins)
 	add_dependencies(mumble plugins)
 endif()
 
-if(xboxinput)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"XboxInput.cpp"
-			"XboxInput.h"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_XBOXINPUT")
-endif()
-
-if(gkey)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"GKey.cpp"
-			"GKey.h"
-	)
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_GKEY")
-endif()
-
-if(g15)
-	if(WIN32 OR APPLE)
-		target_sources(mumble_client_object_lib
-			PRIVATE
-				"G15LCDEngine_helper.cpp"
-				"G15LCDEngine_helper.h"
-		)
-	target_include_directories(mumble_client_object_lib PUBLIC "${CMAKE_SOURCE_DIR}/helpers")
-	add_dependencies(mumble g15-helper)
-	else()
-		find_library(LIB_G15DAEMON_CLIENT "g15daemon_client")
-		if(LIB_G15DAEMON_CLIENT-NOTFOUND)
-			message(FATAL_ERROR "G15 library not found!")
-		endif()
-
-		target_sources(mumble_client_object_lib
-			PRIVATE
-				"G15LCDEngine_unix.cpp"
-				"G15LCDEngine_unix.h"
-		)
-
-		target_compile_definitions(mumble_client_object_lib PUBLIC "USE_G15")
-		target_link_libraries(mumble_client_object_lib PUBLIC ${LIB_G15DAEMON_CLIENT})
-	endif()
-endif()
-
 if(zeroconf)
-	if(NOT APPLE)
-		find_pkg(avahi-compat-libdns_sd QUIET)
-		if(avahi-compat-libdns_sd_FOUND)
-			target_include_directories(mumble_client_object_lib PUBLIC ${avahi-compat-libdns_sd_INCLUDE_DIRS})
-			target_link_libraries(mumble_client_object_lib PUBLIC ${avahi-compat-libdns_sd_LIBRARIES})
-		else()
-			find_library(LIB_DNSSD "dnssd")
-			if(${LIB_DNSSD} STREQUAL "LIB_DNSSD-NOTFOUND")
-				message(FATAL_ERROR "DNS-SD library not found!")
-			endif()
-			target_link_libraries(mumble_client_object_lib PUBLIC ${LIB_DNSSD})
-		endif()
-	endif()
-
 	target_sources(mumble_client_object_lib
 		PRIVATE
 			"Zeroconf.cpp"
@@ -964,27 +701,17 @@ if(coreaudio)
 endif()
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.16.0")
-	if (APPLE)
-		# Prevent objective C files from being included in unity builds as that causes issues
-		set_source_files_properties(
-			"AppNap.mm"
-			"ThemeSwitch_macx.mm"
-			"GlobalShortcut_macx.mm"
-			"os_macx.mm"
-			"TextToSpeech_macx.mm"
-			"CoreAudio.mm"
-			PROPERTIES
-				SKIP_UNITY_BUILD_INCLUSION TRUE
-		)
-	elseif(UNIX)
-		# Exclude source files that include the X11 headers as these define
-		# an awful lot of macros that can conflict with other code
-		set_source_files_properties(
-			"GlobalShortcut_unix.cpp"
-			PROPERTIES
-				SKIP_UNITY_BUILD_INCLUSION TRUE
-		)
-	endif()
+	# Prevent objective C files from being included in unity builds as that causes issues
+	set_source_files_properties(
+		"AppNap.mm"
+		"ThemeSwitch_macx.mm"
+		"GlobalShortcut_macx.mm"
+		"os_macx.mm"
+		"TextToSpeech_macx.mm"
+		"CoreAudio.mm"
+		PROPERTIES
+			SKIP_UNITY_BUILD_INCLUSION TRUE
+	)
 endif()
 
 if(plugin-debug)
@@ -994,17 +721,6 @@ endif()
 if(plugin-callback-debug)
 	target_compile_definitions(mumble_client_object_lib PUBLIC "MUMBLE_PLUGIN_CALLBACK_DEBUG")
 endif()
-
-if(UNIX)
-	if(${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
-		# On FreeBSD we need the util library for src/ProcessResolver.cpp to work
-		target_link_libraries(mumble_client_object_lib PUBLIC util)
-	elseif(${CMAKE_SYSTEM_NAME} MATCHES ".*BSD")
-		# On any other BSD we need the kvm library for src/ProcessResolver.cpp to work
-		target_link_libraries(mumble_client_object_lib PUBLIC kvm)
-	endif()
-endif()
-
 
 # Workaround for a cmake bug that causes the auto-generated UI files (AutoUIC) to not be added
 # to the target's interface include directories. This can cause missing include errors in targets
@@ -1022,65 +738,3 @@ target_include_directories(${TARGET_NAME} INTERFACE
   $<BUILD_INTERFACE:${AUTOGEN_INCLUDE_DIR}>
 )
 
-if(packaging AND WIN32)
-	set(overlay ON)
-	set(plugins ON)
-
-	if(translations)
-		list(APPEND installer_vars "--all-languages")
-	endif()
-
-
-	list(APPEND installer_vars
-		"--version" ${PROJECT_VERSION}
-		"--arch" "${MUMBLE_TARGET_ARCH}"
-		"--vc-redist-required" "${VC_REDIST_VERSION}"
-	)
-
-	if(overlay)
-		list(APPEND installer_vars
-			"--overlay"
-		)
-	endif()
-
-	if(g15)
-		list(APPEND installer_vars
-			"--g15"
-		)
-	endif()
-
-	if(rnnoise)
-		list(APPEND installer_vars
-			"--rnnoise"
-		)
-	endif()
-
-	if(skip-msi-rebuild)
-		message(STATUS "Skip MSI rebuild")
-		list(APPEND installer_vars
-			"--skip-msi-rebuild"
-		)
-	endif()
-
-	file(COPY
-		${CMAKE_SOURCE_DIR}/installer/MumbleInstall.cs
-		${CMAKE_SOURCE_DIR}/installer/ClientInstaller.cs
-		DESTINATION
-			${CMAKE_BINARY_DIR}/installer/client
-	)
-
-	if (64_BIT AND overlay-xcompile)
-		# Compilation of the xcompiled overlay binaries is handled by means of an external project
-		# We make the mumble target depend on the custom target created by ExternalProject_Add
-		# to ensure that the external project is built before the mumble target, ensuring that
-		# the POST_BUILD command below will find these binaries.
-		add_dependencies(mumble mumble_overlay_xcompile)
-	endif()
-
-	add_custom_command(TARGET mumble
-		POST_BUILD
-		COMMAND cscs.exe -cd MumbleInstall.cs
-		COMMAND cscs.exe ClientInstaller.cs ${installer_vars}
-		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/installer/client
-	)
-endif()

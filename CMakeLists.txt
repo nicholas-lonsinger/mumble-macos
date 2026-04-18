@@ -63,10 +63,6 @@ option(packaging "Build package." OFF)
 option(tests "Build tests." ${packaging})
 option(plugins "Build plugins." ON)
 
-if (WIN32)
-	option(skip-msi-rebuild "Prevent rebuilding installer MSI files from source. Used to be able to include signed MSI files in the bundle." OFF)
-endif()
-
 option(debug-dependency-search "Prints extended information during the search for the needed dependencies" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -131,15 +127,10 @@ if(tests)
 	include(CTest)
 endif()
 
-if (WIN32)
-	set(MUMBLE_TARGET_OS "windows")
-elseif (APPLE)
-	set(MUMBLE_TARGET_OS "macos")
-elseif (UNIX)
-	set(MUMBLE_TARGET_OS "linux")
-else()
-	message(FATAL_ERROR "Unable to determine target OS")
+if(NOT APPLE)
+	message(FATAL_ERROR "This fork only targets macOS")
 endif()
+set(MUMBLE_TARGET_OS "macos")
 
 # Get compilation year
 if (use-timestamps)
@@ -173,42 +164,8 @@ else()
 	add_library(utfcpp ALIAS utf8cpp::utf8cpp)
 endif()
 
-if(g15 AND WIN32)
-	add_subdirectory("helpers/g15helper")
-endif()
-
 if(plugins AND client)
 	add_subdirectory(plugins)
-endif()
-
-if (packaging AND WIN32)
-	set(VC_REDIST_PATH "${PROJECT_BINARY_DIR}/installer/VC_redist.x64.exe")
-	file(
-		DOWNLOAD "https://aka.ms/vs/17/release/vc_redist.x64.exe" "${VC_REDIST_PATH}"
-		STATUS VC_REDIST_DOWNLOAD_STATUS
-	)
-
-	list(GET VC_REDIST_DOWNLOAD_STATUS 0 STATUS_CODE)
-	if (NOT (STATUS_CODE EQUAL "0"))
-		list(GET VC_REDIST_DOWNLOAD_STATUS 1 ERROR_MSG)
-		message(FATAL_ERROR "Failed at downloading the VC redist installer: ${ERROR_MSG}")
-	endif()
-
-	execute_process(COMMAND
-		powershell -Command "
-			$exe = (Get-Item -path '${VC_REDIST_PATH}')
-			$exe.VersionInfo.ProductVersion"
-		OUTPUT_VARIABLE VC_REDIST_VERSION
-		RESULT_VARIABLE VC_REDIST_VERSION_STATUS
-	)
-
-	if (NOT (VC_REDIST_VERSION_STATUS EQUAL "0"))
-		message(FATAL_ERROR "Failed at extracting the VC redist version")
-	endif()
-
-	string(STRIP "${VC_REDIST_VERSION}" VC_REDIST_VERSION)
-
-	message(STATUS "Using VC redist >= ${VC_REDIST_VERSION} as dependency")
 endif()
 
 if(client)
@@ -217,30 +174,3 @@ endif()
 
 add_subdirectory(auxiliary_files)
 
-if(packaging)
-	file(COPY
-		${CMAKE_SOURCE_DIR}/installer/gpl.txt
-		${CMAKE_SOURCE_DIR}/installer/lgpl.txt
-		${CMAKE_SOURCE_DIR}/installer/Mumble.rtf
-		${CMAKE_SOURCE_DIR}/installer/portaudio.txt
-		${CMAKE_SOURCE_DIR}/installer/qt.txt
-		${CMAKE_SOURCE_DIR}/installer/speex.txt
-		DESTINATION
-			${CMAKE_BINARY_DIR}/licenses
-	)
-	if(WIN32)
-		file(COPY
-			${CMAKE_SOURCE_DIR}/installer/bannrbmp.bmp
-			${CMAKE_SOURCE_DIR}/installer/dlgbmp.bmp
-			${CMAKE_SOURCE_DIR}/installer/Theme.xml
-			DESTINATION
-				${CMAKE_BINARY_DIR}/installer
-		)
-
-		file(COPY
-			${CMAKE_SOURCE_DIR}/icons/mumble.ico
-			DESTINATION
-				${CMAKE_BINARY_DIR}/installer/icons
-		)
-	endif()
-endif()

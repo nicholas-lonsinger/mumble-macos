@@ -31,7 +31,6 @@ licenses = [
     ["licenseQtTranslations", "src/mumble/qttranslations/LICENSE",
         "Additional Qt translations", "https://www.virtualbox.org/ticket/2018", "USING_BUNDLED_QT_TRANSLATIONS"],
     ["licenseFlagIcons", "3rdparty/flag-icons/LICENSE", "flag-icons", "https://flagicons.lipis.dev/" ],
-    ["licenseXInputCheck", "3rdparty/xinputcheck-src/COPYING.txt", "XInputCheck (SDL_IsXInput function)", "https://www.libsdl.org/"],
     ["licenseQQBonjour", "3rdparty/qqbonjour/LICENSE", "QQBonjour", "https://doc.qt.io/archives/qq/qq23-bonjour.html"],
     ["licenseSmallFT", "3rdparty/smallft/LICENSE", "smallft", "https://www.xiph.org"],
     ["licenseOldStyleLicenseHeaders", "3rdPartyLicenses/mumble-old-license-headers/LICENSE.txt", "Old-style Mumble license headers", "https://www.mumble.info"],

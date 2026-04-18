@@ -64,11 +64,6 @@ Build support for CoreAudio.
 Include support for reporting crashes to the Mumble developers.
 (Default: ON)
 
-### dbus
-
-Enable DBus support/interface
-(Default: ON)
-
 ### debug-dependency-search
 
 Prints extended information during the search for the needed dependencies
@@ -78,26 +73,6 @@ Prints extended information during the search for the needed dependencies
 
 Print out base install paths during project configuration
 (Default: OFF)
-
-### elevation
-
-Set \"uiAccess=true\", required for global shortcuts to work with privileged applications. Requires the client's executable to be signed with a trusted code signing certificate.
-(Default: OFF)
-
-### g15
-
-Include support for the G15 keyboard (and compatible devices).
-(Default: OFF)
-
-### g15-emulator
-
-Build the g15helper executable in emulator mode. This will cause an emulated G15 window to appear on screen. Allows the use of Mumble's G15 support without owning the physical hardware.
-(Default: OFF)
-
-### gkey
-
-Build support for Logitech G-Keys. Note: This feature does not require any build-time dependencies, and requires Logitech Gaming Software to be installed to have any effect at runtime.
-(Default: ON)
 
 ### lto
 
@@ -159,11 +134,6 @@ Build redacted (outdated) plugins as well
 Use RNNoise for machine learning noise reduction.
 (Default: ON)
 
-### skip-msi-rebuild
-
-Prevent rebuilding installer MSI files from source. Used to be able to include signed MSI files in the bundle.
-(Default: OFF)
-
 ### static
 
 Build static binaries.
@@ -212,16 +182,6 @@ Allow using compile-time timestamps
 ### warnings-as-errors
 
 All warnings are treated as errors.
-(Default: ON)
-
-### xboxinput
-
-Build support for global shortcuts from Xbox controllers via the XInput DLL.
-(Default: ON)
-
-### xinput2
-
-Build support for XI2.
 (Default: ON)
 
 ### zeroconf
