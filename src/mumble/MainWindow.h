@@ -17,7 +17,6 @@
 #include "Mumble.pb.h"
 #include "MumbleProtocol.h"
 #include "QtUtils.h"
-#include "Usage.h"
 #include "UserLocalNicknameDialog.h"
 
 #include <memory>
@@ -156,7 +155,6 @@ public:
 	void openUserLocalNicknameDialog(const ClientUser &p);
 
 protected:
-	Usage uUsage;
 	QTimer *qtReconnect;
 	std::unique_ptr< NotificationSoundBlocker > m_reconnectSoundBlocker;
 

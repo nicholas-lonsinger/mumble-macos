@@ -145,7 +145,6 @@
 	PROCESS(ui, SERVER_FILTER_MODE_KEY, ssFilter)                                \
 	PROCESS(ui, HIDE_IN_TRAY_KEY, bHideInTray)                                   \
 	PROCESS(ui, DISPLAY_TALKING_STATE_IN_TRAY_KEY, bStateInTray)                 \
-	PROCESS(ui, SEND_USAGE_STATISTICS_KEY, bUsage)                               \
 	PROCESS(ui, DISPLAY_USER_COUNT_KEY, bShowUserCount)                          \
 	PROCESS(ui, DISPLAY_VOLUME_ADJUSTMENTS_KEY, bShowVolumeAdjustments)          \
 	PROCESS(ui, DISPLAY_NICKNAMES_ONLY_KEY, bShowNicknamesOnly)                  \
@@ -214,11 +213,6 @@
 #define HIDDEN_SETTINGS PROCESS(hidden, DISABLE_CONNECT_DIALOG_EDITING_KEY, disableConnectDialogEditing)
 
 
-#define LCD_SETTINGS                                                         \
-	PROCESS(lcd, LCD_USERVIEW_MIN_COLUMN_WIDTH_KEY, iLCDUserViewMinColWidth) \
-	PROCESS(lcd, LCD_USERVIEW_SPLITTER_WIDTH_KEY, iLCDUserViewSplitterWidth)
-
-
 #define SHORTCUTS_SETTINGS                                                                    \
 	PROCESS(shortcuts, ENABLE_GLOBAL_SHORTCUTS_KEY, bShortcutEnable)                          \
 	PROCESS(shortcuts, SUPPRESS_MACOS_EVENT_TAPPING_WARNING_KEY, bSuppressMacEventTapWarning)
@@ -253,7 +247,6 @@
 	PTT_WINDOW_SETTINGS        \
 	RECORDING_SETTINGS         \
 	HIDDEN_SETTINGS            \
-	LCD_SETTINGS               \
 	SHORTCUTS_SETTINGS         \
 	SEARCH_SETTINGS
 
@@ -292,8 +285,6 @@
 	RECORDING_SETTINGS                                   \
 	INTERMEDIATE_OPERATION                               \
 	HIDDEN_SETTINGS                                      \
-	INTERMEDIATE_OPERATION                               \
-	LCD_SETTINGS                                         \
 	INTERMEDIATE_OPERATION                               \
 	SHORTCUTS_SETTINGS                                   \
 	INTERMEDIATE_OPERATION                               \

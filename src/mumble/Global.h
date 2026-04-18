@@ -26,7 +26,6 @@ class Database;
 class Log;
 class PluginManager;
 class QSettings;
-class LCD;
 class Zeroconf;
 class DeveloperConsole;
 class TalkingUI;
@@ -59,7 +58,6 @@ public:
 	Log *l;
 	/// A pointer to the PluginManager that is used in this session
 	PluginManager *pluginManager;
-	LCD *lcd;
 	Zeroconf *zeroconf;
 	QNetworkAccessManager *nam;
 	DeveloperConsole *c;

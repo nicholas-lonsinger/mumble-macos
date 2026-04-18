@@ -11,6 +11,7 @@
 #include "ServerHandler.h"
 #include "Global.h"
 
+#include <QtCore/QBuffer>
 #include <QtCore/QProcessEnvironment>
 #include <QtCore/QUrlQuery>
 #include <QtNetwork/QLocalServer>

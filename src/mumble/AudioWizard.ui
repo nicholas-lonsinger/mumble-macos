@@ -933,9 +933,6 @@ Speak loudly, as when you are annoyed or excited. Decrease the volume in the sou
        <string>&lt;p&gt;
 Congratulations. You should now be ready to enjoy a richer sound experience with Mumble.
 &lt;/p&gt;
-&lt;p&gt;
-Mumble is under continuous development, and the development team wants to focus on the features that benefit the most users. To this end, Mumble supports submitting anonymous statistics about your configuration to the developers. These statistics are essential for future development, and also make sure the features you use aren't deprecated.
-&lt;/p&gt;
 </string>
       </property>
       <property name="wordWrap">
@@ -943,13 +940,6 @@ Mumble is under continuous development, and the development team wants to focus 
       </property>
       <property name="textInteractionFlags">
        <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QCheckBox" name="qcbUsage">
-      <property name="text">
-       <string>Submit anonymous statistics to the Mumble project</string>
       </property>
      </widget>
     </item>
@@ -1018,7 +1008,6 @@ Mumble is under continuous development, and the development team wants to focus 
   <tabstop>qrbNotificationCustom</tabstop>
   <tabstop>qcbHeadphone</tabstop>
   <tabstop>qgvView</tabstop>
-  <tabstop>qcbUsage</tabstop>
  </tabstops>
  <resources/>
  <connections/>

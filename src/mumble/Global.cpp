@@ -94,7 +94,6 @@ Global::Global(const QString &qsConfigPath) {
 	recordingAllowed = true;
 
 	zeroconf = nullptr;
-	lcd      = nullptr;
 	l        = nullptr;
 
 	bHappyEaster = false;

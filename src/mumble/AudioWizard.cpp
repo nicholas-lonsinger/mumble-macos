@@ -40,9 +40,6 @@ AudioWizard::AudioWizard(QWidget *p) : QWizard(p) {
 	Mumble::Accessibility::setDescriptionFromLabel(qrbQualityUltra, qlQualityUltra);
 	Mumble::Accessibility::setDescriptionFromLabel(qrbQualityCustom, qlQualityCustom);
 
-	// Done
-	qcbUsage->setChecked(Global::get().s.bUsage);
-
 	// Device
 	if (AudioOutputRegistrar::qmNew) {
 		for (AudioOutputRegistrar *aor : *AudioOutputRegistrar::qmNew) {
@@ -445,7 +442,6 @@ void AudioWizard::accept() {
 		}
 	}
 
-	Global::get().s.bUsage = qcbUsage->isChecked();
 	Global::get().bPosTest = false;
 	restartAudio(false);
 	Global::get().bInAudioWizard = false;

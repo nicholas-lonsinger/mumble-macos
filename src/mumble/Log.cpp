@@ -26,6 +26,7 @@
 #include <type_traits>
 
 #include <QSignalBlocker>
+#include <QtCore/QBuffer>
 #include <QtCore/QMutexLocker>
 #include <QtCore/QRegularExpression>
 #include <QtGui/QImageWriter>

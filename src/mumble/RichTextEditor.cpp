@@ -10,6 +10,7 @@
 #include "XMLTools.h"
 #include "Global.h"
 
+#include <QtCore/QBuffer>
 #include <QtCore/QMimeData>
 #include <QtCore/QRegularExpression>
 #include <QtGui/QImageReader>

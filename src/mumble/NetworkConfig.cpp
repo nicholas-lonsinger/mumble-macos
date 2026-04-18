@@ -69,7 +69,6 @@ void NetworkConfig::load(const Settings &r) {
 	loadCheckBox(qcbAutoUpdate, r.bUpdateCheck);
 	loadCheckBox(qcbPluginUpdateCheck, r.bPluginCheck);
 	loadCheckBox(qcbPluginAutoUpdate, r.bPluginAutoUpdate);
-	loadCheckBox(qcbUsage, r.bUsage);
 }
 
 void NetworkConfig::save() const {
@@ -90,7 +89,6 @@ void NetworkConfig::save() const {
 	s.bUpdateCheck      = qcbAutoUpdate->isChecked();
 	s.bPluginCheck      = qcbPluginUpdateCheck->isChecked();
 	s.bPluginAutoUpdate = qcbPluginAutoUpdate->isChecked();
-	s.bUsage            = qcbUsage->isChecked();
 }
 
 static QNetworkProxy::ProxyType local_to_qt_proxy(Settings::ProxyType pt) {

@@ -60,6 +60,7 @@
 #include "AppNap.h"
 
 #include <QAccessible>
+#include <QtCore/QBuffer>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QUrlQuery>
 #include <QtGui/QClipboard>

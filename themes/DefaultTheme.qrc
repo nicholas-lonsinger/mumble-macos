@@ -11,7 +11,6 @@
     <file alias="config_audio_input.png">Default/config_audio_input.png</file>
     <file alias="config_audio_output.png">Default/config_audio_output.png</file>
     <file alias="config_basic.png">Default/config_basic.png</file>
-    <file alias="config_lcd.png">Default/config_lcd.png</file>
     <file alias="config_msgs.png">Default/config_msgs.png</file>
     <file alias="config_network.png">Default/config_network.png</file>
     <file alias="config_osd.png">Default/config_osd.png</file>
@@ -87,7 +86,6 @@
     <file alias="exported/config_audio_input.svg">Default/exported/config_audio_input.svg</file>
     <file alias="exported/config_audio_output.svg">Default/exported/config_audio_output.svg</file>
     <file alias="exported/config_basic.svg">Default/exported/config_basic.svg</file>
-    <file alias="exported/config_lcd.svg">Default/exported/config_lcd.svg</file>
     <file alias="exported/config_msgs.svg">Default/exported/config_msgs.svg</file>
     <file alias="exported/config_network.svg">Default/exported/config_network.svg</file>
     <file alias="exported/config_osd.svg">Default/exported/config_osd.svg</file>

@@ -226,10 +226,6 @@ struct Settings {
 	/// hash of the plugin's UTF-8 encoded absolute file-path on the hard-drive.
 	QHash< QString, PluginSetting > qhPluginSettings = {};
 
-	int iLCDUserViewMinColWidth        = 50;
-	int iLCDUserViewSplitterWidth      = 2;
-	QMap< QString, bool > qmLCDDevices = {};
-
 	bool bShortcutEnable             = true;
 	bool bSuppressMacEventTapWarning = false;
 	QList< Shortcut > qlShortcuts    = {};
@@ -291,7 +287,6 @@ struct Settings {
 	bool bLockLayout                     = false;
 	bool bHideInTray                     = false;
 	bool bStateInTray                    = true;
-	bool bUsage                          = true;
 	bool bShowUserCount                  = false;
 	bool bShowVolumeAdjustments          = true;
 	bool bShowNicknamesOnly              = false;

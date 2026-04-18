@@ -29,6 +29,7 @@
 #include "Global.h"
 
 #include <QPainter>
+#include <QtCore/QBuffer>
 #include <QtCore/QtEndian>
 #include <QtGui/QImageReader>
 #include <QtNetwork/QSslConfiguration>

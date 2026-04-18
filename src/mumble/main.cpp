@@ -9,7 +9,6 @@
 #include "Cert.h"
 #include "Database.h"
 #include "DeveloperConsole.h"
-#include "LCD.h"
 #include "Log.h"
 #include "Logger.h"
 #include "MainWindow.h"
@@ -590,8 +589,6 @@ int main(int argc, char **argv) {
 	Global::get().pluginManager = new PluginManager();
 	Global::get().pluginManager->rescanPlugins();
 
-	Global::get().lcd = new LCD();
-
 	// Process any waiting events before initializing our MainWindow.
 	// The mumble:// URL support for Mac OS X happens through AppleEvents,
 	// so we need to loop a little before we begin.
@@ -765,7 +762,6 @@ int main(int argc, char **argv) {
 	sh.reset();
 
 	delete Global::get().nam;
-	delete Global::get().lcd;
 
 	delete Global::get().db;
 	delete Global::get().l;

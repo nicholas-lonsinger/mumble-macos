@@ -653,7 +653,6 @@ void Settings::legacyLoad(const QString &path) {
 
 	LOAD(bHideInTray, "ui/hidetray");
 	LOAD(bStateInTray, "ui/stateintray");
-	LOAD(bUsage, "ui/usage");
 	LOAD(bShowUserCount, "ui/showusercount");
 	LOAD(bShowVolumeAdjustments, "ui/showVolumeAdjustments");
 	LOAD(bShowNicknamesOnly, "ui/showNicknamesOnly");
@@ -715,10 +714,6 @@ void Settings::legacyLoad(const QString &path) {
 	LOAD(disableConnectDialogEditing, "ui/disableconnectdialogediting");
 	LOAD(bPingServersDialogViewed, "consent/pingserversdialogviewed");
 
-	// LCD
-	LOAD(iLCDUserViewMinColWidth, "lcd/userview/mincolwidth");
-	LOAD(iLCDUserViewSplitterWidth, "lcd/userview/splitterwidth");
-
 	QByteArray qba = qvariant_cast< QByteArray >(settings_ptr->value(QLatin1String("net/certificate")));
 	if (!qba.isEmpty())
 		kpCertificate = CertWizard::importCert(qba);
@@ -766,12 +761,6 @@ void Settings::legacyLoad(const QString &path) {
 		LOAD(qmMessageSounds[it.key()], "logsound");
 	}
 	settings_ptr->endArray();
-
-	settings_ptr->beginGroup(QLatin1String("lcd/devices"));
-	for (const QString &d : settings_ptr->childKeys()) {
-		qmLCDDevices.insert(d, settings_ptr->value(d, true).toBool());
-	}
-	settings_ptr->endGroup();
 
 	// Plugins
 	settings_ptr->beginGroup(QLatin1String("plugins"));

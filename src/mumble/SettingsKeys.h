@@ -155,7 +155,6 @@ const SettingsKey WINDOW_LAYOUT_KEY                    = { "window_layout" };
 const SettingsKey SERVER_FILTER_MODE_KEY               = { "server_filter_mode" };
 const SettingsKey HIDE_IN_TRAY_KEY                     = { "hide_in_tray" };
 const SettingsKey DISPLAY_TALKING_STATE_IN_TRAY_KEY    = { "display_talking_state_in_tray" };
-const SettingsKey SEND_USAGE_STATISTICS_KEY            = { "send_usage_statistics" };
 const SettingsKey DISPLAY_USER_COUNT_KEY               = { "display_user_count" };
 const SettingsKey DISPLAY_VOLUME_ADJUSTMENTS_KEY       = { "display_volume_adjustments" };
 const SettingsKey DISPLAY_NICKNAMES_ONLY_KEY           = { "display_nicknames_only" };
@@ -224,10 +223,6 @@ const SettingsKey RECORDING_FORMAT_KEY = { "recording_format" };
 
 // Hidden
 const SettingsKey DISABLE_CONNECT_DIALOG_EDITING_KEY = { "disable_connect_dialog_editing" };
-
-// LCD
-const SettingsKey LCD_USERVIEW_MIN_COLUMN_WIDTH_KEY = { "lcd_userview_min_column_width" };
-const SettingsKey LCD_USERVIEW_SPLITTER_WIDTH_KEY   = { "lcd_userview_splitter_width" };
 
 // Shortcuts
 const SettingsKey ENABLE_GLOBAL_SHORTCUTS_KEY              = { "enable_global_shortcuts" };
