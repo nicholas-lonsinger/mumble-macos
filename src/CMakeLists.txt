@@ -143,6 +143,7 @@ add_custom_command(
 	OUTPUT "licenses.h"
 	COMMAND Python::Interpreter
 	ARGS "${CMAKE_SOURCE_DIR}/scripts/generate_license_header.py" --output "licenses.h"
+	DEPENDS "${CMAKE_SOURCE_DIR}/scripts/generate_license_header.py"
 	COMMENT "Generating licenses.h"
 )
 add_custom_target(generate_license_header
