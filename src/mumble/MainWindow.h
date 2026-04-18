@@ -93,9 +93,6 @@ public:
 
 	GlobalShortcut *gsPushTalk, *gsResetAudio, *gsMuteSelf, *gsDeafSelf;
 	GlobalShortcut *gsUnlink, *gsPushMute, *gsJoinChannel;
-#ifdef USE_OVERLAY
-	GlobalShortcut *gsToggleOverlay;
-#endif
 	GlobalShortcut *gsMinimal, *gsVolumeUp, *gsVolumeDown, *gsWhisper, *gsLinkChannel, *gsListenChannel;
 	GlobalShortcut *gsCycleTransmitMode, *gsToggleMainWindowVisibility, *gsTransmitModePushToTalk,
 		*gsTransmitModeContinuous, *gsTransmitModeVAD;

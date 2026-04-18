@@ -24,9 +24,6 @@
 #include "NetworkConfig.h"
 #include "GlobalShortcut.h"
 #include "GlobalShortcutTypes.h"
-#ifdef USE_OVERLAY
-#	include "OverlayClient.h"
-#endif
 #include "../SignalCurry.h"
 #include "ChannelListenerManager.h"
 #include "FailedConnectionDialog.h"
@@ -266,16 +263,6 @@ void MainWindow::createActions() {
 						   QVariant::fromValue(ChannelTarget()));
 	gsListenChannel->setObjectName(QLatin1String("gsListenChannel"));
 	gsListenChannel->qsToolTip = tr("Toggles listening to the given channel.", "Global Shortcut");
-
-#ifdef USE_OVERLAY
-	gsToggleOverlay =
-		new GlobalShortcut(this, GlobalShortcutType::ToggleOverlay, tr("Toggle Overlay", "Global Shortcut"));
-	gsToggleOverlay->setObjectName(QLatin1String("ToggleOverlay"));
-	gsToggleOverlay->qsToolTip   = tr("Toggle state of in-game overlay.", "Global Shortcut");
-	gsToggleOverlay->qsWhatsThis = tr("This will switch the states of the in-game overlay.", "Global Shortcut");
-
-	connect(gsToggleOverlay, SIGNAL(down(QVariant)), Global::get().o, SLOT(toggleShow()));
-#endif
 
 	gsMinimal =
 		new GlobalShortcut(this, GlobalShortcutType::ToggleMinimalView, tr("Toggle Minimal", "Global Shortcut"));
@@ -745,13 +732,6 @@ void MainWindow::closeEvent(QCloseEvent *e) {
 }
 
 void MainWindow::hideEvent(QHideEvent *e) {
-#ifdef USE_OVERLAY
-	if (Global::get().ocIntercept) {
-		QMetaObject::invokeMethod(Global::get().ocIntercept, "hideGui", Qt::QueuedConnection);
-		e->ignore();
-		return;
-	}
-#endif
 	QMainWindow::hideEvent(e);
 }
 
@@ -3906,15 +3886,6 @@ void MainWindow::customEvent(QEvent *evt) {
 
 void MainWindow::on_qteLog_anchorClicked(const QUrl &url) {
 	if (!handleSpecialContextMenu(url, QCursor::pos(), true)) {
-#if defined(Q_OS_MAC) && defined(USE_OVERLAY)
-		// Clicking a link can cause the user's default browser to pop up while
-		// we're intercepting all events. This can be very confusing (because
-		// the user can't click on anything before they dismiss the overlay
-		// by hitting their toggle hotkey), so let's disallow clicking links
-		// when embedded into the overlay for now.
-		if (Global::get().ocIntercept)
-			return;
-#endif
 		if (url.scheme() != QLatin1String("file") && url.scheme() != QLatin1String("qrc") && !url.isRelative())
 			QDesktopServices::openUrl(url);
 	}

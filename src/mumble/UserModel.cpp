@@ -13,9 +13,6 @@
 #include "Log.h"
 #include "MainWindow.h"
 #include "MumbleConstants.h"
-#ifdef USE_OVERLAY
-#	include "Overlay.h"
-#endif
 #include "ChannelListenerManager.h"
 #include "ServerHandler.h"
 #include "Usage.h"
@@ -638,10 +635,6 @@ QVariant UserModel::otherRoles(const QModelIndex &idx, int role) const {
 									MumbleProto::RequestBlob mprb;
 									mprb.add_session_texture(p->uiSession);
 									Global::get().sh->sendMessage(mprb);
-								} else {
-#ifdef USE_OVERLAY
-									Global::get().o->verifyTexture(p);
-#endif
 								}
 							}
 							if (!p->qbaTexture.isEmpty()) {
@@ -1983,9 +1976,6 @@ bool UserModel::dropMimeData(const QMimeData *md, Qt::DropAction, int row, int c
 }
 
 void UserModel::updateOverlay() const {
-#ifdef USE_OVERLAY
-	Global::get().o->updateOverlay();
-#endif
 	Global::get().lcd->updateUserView();
 }
 

@@ -126,11 +126,6 @@ Global::Global(const QString &qsConfigPath) {
 	lcd      = nullptr;
 	l        = nullptr;
 
-#ifdef USE_OVERLAY
-	ocIntercept = nullptr;
-	o           = nullptr;
-#endif
-
 	bHappyEaster = false;
 
 	bQuit            = false;

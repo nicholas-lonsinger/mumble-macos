@@ -3,18 +3,12 @@
 // that can be found in the LICENSE file at the root of the
 // Mumble source tree or at <https://www.mumble.info/LICENSE>.
 
-#ifdef USE_OVERLAY
-#	include "Overlay.h"
-#endif
 #include "AudioInput.h"
 #include "AudioOutput.h"
 #include "AudioWizard.h"
 #include "Cert.h"
 #include "Database.h"
 #include "DeveloperConsole.h"
-#ifdef Q_OS_WIN
-#	include "GlobalShortcut_win.h"
-#endif
 #include "LCD.h"
 #include "Log.h"
 #include "Logger.h"
@@ -747,11 +741,6 @@ int main(int argc, char **argv) {
 	Global::get().pluginManager = new PluginManager();
 	Global::get().pluginManager->rescanPlugins();
 
-#ifdef USE_OVERLAY
-	Global::get().o = new Overlay();
-	Global::get().o->setActive(Global::get().s.os.bEnable);
-#endif
-
 	Global::get().lcd = new LCD();
 
 	// Process any waiting events before initializing our MainWindow.
@@ -951,10 +940,6 @@ int main(int argc, char **argv) {
 
 #ifdef USE_ZEROCONF
 	delete Global::get().zeroconf;
-#endif
-
-#ifdef USE_OVERLAY
-	delete Global::get().o;
 #endif
 
 	delete Global::get().c;

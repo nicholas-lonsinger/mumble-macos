@@ -21,9 +21,6 @@
 #include "MainWindow.h"
 #include "MumbleConstants.h"
 #include "GlobalShortcut.h"
-#ifdef USE_OVERLAY
-#	include "Overlay.h"
-#endif
 #include "ChannelListenerManager.h"
 #include "PluginManager.h"
 #include "ProtoUtils.h"
@@ -794,9 +791,6 @@ void MainWindow::msgUserState(const MumbleProto::UserState &msg) {
 	if (msg.has_texture_hash()) {
 		pDst->qbaTextureHash = blob(msg.texture_hash());
 		pDst->qbaTexture     = QByteArray();
-#ifdef USE_OVERLAY
-		Global::get().o->verifyTexture(pDst);
-#endif
 	}
 	if (msg.has_texture()) {
 		pDst->qbaTexture = blob(msg.texture());
@@ -806,9 +800,6 @@ void MainWindow::msgUserState(const MumbleProto::UserState &msg) {
 			pDst->qbaTextureHash = sha1(pDst->qbaTexture);
 			Global::get().db->setBlob(pDst->qbaTextureHash, pDst->qbaTexture);
 		}
-#ifdef USE_OVERLAY
-		Global::get().o->verifyTexture(pDst);
-#endif
 	}
 	if (msg.has_comment_hash())
 		pmModel->setCommentHash(pDst, blob(msg.comment_hash()));
