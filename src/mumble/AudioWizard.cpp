@@ -75,10 +75,6 @@ AudioWizard::AudioWizard(QWidget *p) : QWizard(p) {
 
 	qcbHighContrast->setChecked(Global::get().s.bHighContrast);
 	on_qcbHighContrast_clicked(Global::get().s.bHighContrast);
-#ifdef Q_OS_WIN
-	// On windows we can autodetect this
-	qcbHighContrast->setVisible(false);
-#endif
 
 	// Settings
 	if (Global::get().s.iQuality == 16000 && Global::get().s.iFramesPerPacket == 6)

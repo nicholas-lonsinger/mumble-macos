@@ -7,13 +7,6 @@
 
 #include <QtCore/QStandardPaths>
 
-#ifdef Q_OS_WIN
-#	ifndef NOMINMAX
-#		define NOMINMAX
-#	endif
-#	include <shlobj.h>
-#endif
-
 // We define a global macro called 'g'. This can lead to issues when included code uses 'g' as a type or parameter name
 // (like protobuf 3.7 does). As such, for now, we have to make this our last include.
 #include "Global.h"
@@ -34,26 +27,6 @@ void Global::migrateDataDir(const QDir &toDir) {
 
 #ifdef Q_OS_MAC
 	oldPaths << QDir::homePath() + "/Library/Preferences/Mumble";
-#endif
-
-// Qt4 used another data directory on Unix-like systems, to ensure a seamless
-// transition we must first move the users data to the new directory.
-#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
-	oldPaths << QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/data/Mumble";
-#endif
-
-#ifdef Q_OS_WIN
-	// Get AppData dir
-	QString appdata;
-	wchar_t appData[MAX_PATH];
-	if (SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_APPDATA, nullptr, SHGFP_TYPE_CURRENT, appData))) {
-		appdata = QDir::fromNativeSeparators(QString::fromWCharArray(appData));
-
-		if (!appdata.isEmpty()) {
-			appdata.append(QLatin1String("/Mumble"));
-			oldPaths << appdata;
-		}
-	}
 #endif
 
 	for (const QString &current : oldPaths) {

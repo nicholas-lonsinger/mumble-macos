@@ -46,9 +46,6 @@ bool Database::findOrCreateDatabase() {
 
 	datapaths << Global::get().qdBasePath.absolutePath();
 	datapaths << QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
-	datapaths << QDir::homePath() + QLatin1String("/.config/Mumble");
-#endif
 	datapaths << QDir::homePath();
 	datapaths << QDir::currentPath();
 	datapaths << qApp->applicationDirPath();
@@ -252,12 +249,7 @@ Database::Database(const QString &dbname) {
 	execQueryAndLogFailure(query, QLatin1String("VACUUM"));
 
 	execQueryAndLogFailure(query, QLatin1String("PRAGMA synchronous = NORMAL"));
-#ifdef Q_OS_WIN
-	// Windows can not handle TRUNCATE with multiple connections to the DB. Thus less performant DELETE.
-	execQueryAndLogFailure(query, QLatin1String("PRAGMA journal_mode = DELETE"));
-#else
 	execQueryAndLogFailure(query, QLatin1String("PRAGMA journal_mode = TRUNCATE"));
-#endif
 
 	execQueryAndLogFailure(query, QLatin1String("SELECT sqlite_version()"));
 	while (query.next())

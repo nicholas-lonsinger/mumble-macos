@@ -12,12 +12,6 @@
 #include <QReadWriteLock>
 #include <QString>
 #include <QTimer>
-#ifdef Q_OS_WIN
-#	ifndef NOMINMAX
-#		define NOMINMAX
-#	endif
-#	include <windows.h>
-#endif
 #include "MumbleApplication.h"
 #include "Plugin.h"
 #include "PositionalData.h"
@@ -52,12 +46,6 @@ protected:
 	QHash< plugin_id_t, plugin_ptr_t > m_pluginHashMap;
 	/// A set of directories to search plugins in
 	QSet< QString > m_pluginSearchPaths;
-#ifdef Q_OS_WIN
-	// This stuff is apparently needed on Windows in order to deal with DLLs
-	HANDLE m_hToken;
-	TOKEN_PRIVILEGES m_tpPrevious;
-	DWORD m_cbPrevious;
-#endif
 	/// The PositionalData object holding the current positional data (as retrieved by the respective plugin)
 	PositionalData m_positionalData;
 

@@ -37,15 +37,6 @@
 #include <memory>
 #include <vector>
 
-#ifdef Q_OS_WIN
-#	include <tlhelp32.h>
-#	include <string>
-#endif
-
-#ifdef Q_OS_LINUX
-#	include <QtCore/QStringList>
-#endif
-
 PluginManager::PluginManager(QSet< QString > *additionalSearchPaths, QObject *p)
 	: QObject(p), m_pluginCollectionLock(QReadWriteLock::NonRecursive), m_pluginHashMap(), m_positionalData(),
 	  m_positionalDataCheckTimer(), m_sentDataMutex(), m_sentData(),
@@ -87,31 +78,6 @@ PluginManager::PluginManager(QSet< QString > *additionalSearchPaths, QObject *p)
 		}
 	}
 
-#ifdef Q_OS_WIN
-	// According to MS KB Q131065, we need this to OpenProcess()
-
-	m_hToken = nullptr;
-
-	if (!OpenThreadToken(GetCurrentThread(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, FALSE, &m_hToken)) {
-		if (GetLastError() == ERROR_NO_TOKEN) {
-			ImpersonateSelf(SecurityImpersonation);
-			OpenThreadToken(GetCurrentThread(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, FALSE, &m_hToken);
-		}
-	}
-
-	TOKEN_PRIVILEGES tp;
-	LUID luid;
-	m_cbPrevious = sizeof(TOKEN_PRIVILEGES);
-
-	LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid);
-
-	tp.PrivilegeCount           = 1;
-	tp.Privileges[0].Luid       = luid;
-	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-	AdjustTokenPrivileges(m_hToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), &m_tpPrevious, &m_cbPrevious);
-#endif
-
 	// Synchronize the positional data in a regular interval
 	// By making this the parent of the created timer, we don't have to delete it explicitly
 	QTimer *serverSyncTimer = new QTimer(this);
@@ -138,11 +104,6 @@ PluginManager::PluginManager(QSet< QString > *additionalSearchPaths, QObject *p)
 
 PluginManager::~PluginManager() {
 	clearPlugins();
-
-#ifdef Q_OS_WIN
-	AdjustTokenPrivileges(m_hToken, FALSE, &m_tpPrevious, m_cbPrevious, NULL, NULL);
-	CloseHandle(m_hToken);
-#endif
 }
 
 bool PluginManager::eventFilter(QObject *target, QEvent *event) {

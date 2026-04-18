@@ -6,10 +6,6 @@
 #include <QSslConfiguration>
 #include <QtCore/QtGlobal>
 
-#ifdef Q_OS_WIN
-#	include "win.h"
-#endif
-
 #include "ServerHandler.h"
 
 #include "AudioInput.h"
@@ -44,24 +40,8 @@
 #include <chrono>
 #include <span>
 
-#ifdef Q_OS_WIN
-// <delayimp.h> is not protected with an include guard on MinGW, resulting in
-// redefinitions if the PCH header is used.
-// The workaround consists in including the header only if _DELAY_IMP_VER
-// (defined in the header) is not defined.
-#	ifndef _DELAY_IMP_VER
-#		include <delayimp.h>
-#	endif
-#	include <qos2.h>
-#	include <wincrypt.h>
-#	include <winsock2.h>
-#else
-#	if defined(Q_OS_FREEBSD) || defined(Q_OS_OPENBSD)
-#		include <netinet/in.h>
-#	endif
-#	include <netinet/ip.h>
-#	include <sys/socket.h>
-#endif
+#include <netinet/ip.h>
+#include <sys/socket.h>
 
 // Init ServerHandler::nextConnectionID
 int ServerHandler::nextConnectionID = -1;
@@ -74,41 +54,6 @@ ServerHandlerMessageEvent::ServerHandlerMessageEvent(const QByteArray &msg, Mumb
 	this->type = type;
 	bFlush     = flush;
 }
-
-#ifdef Q_OS_WIN
-static HANDLE loadQoS() {
-	HANDLE hQoS = nullptr;
-
-	HRESULT hr = E_FAIL;
-
-// We don't support delay-loading QoS on MinGW. Only enable it for MSVC.
-#	ifdef _MSC_VER
-	__try {
-		hr = __HrLoadAllImportsForDll("qwave.dll");
-	}
-
-	__except (EXCEPTION_EXECUTE_HANDLER) {
-		hr = E_FAIL;
-	}
-#	endif
-
-	if (!SUCCEEDED(hr)) {
-		qWarning("ServerHandler: Failed to load qWave.dll, no QoS available");
-	} else {
-		QOS_VERSION qvVer;
-		qvVer.MajorVersion = 1;
-		qvVer.MinorVersion = 0;
-
-		if (!QOSCreateHandle(&qvVer, &hQoS)) {
-			qWarning("ServerHandler: Failed to create QOS2 handle");
-			hQoS = nullptr;
-		} else {
-			qWarning("ServerHandler: QOS2 loaded");
-		}
-	}
-	return hQoS;
-}
-#endif
 
 ServerHandler::ServerHandler() : database(new Database(QLatin1String("ServerHandler"))) {
 	cConnection.reset();
@@ -159,12 +104,6 @@ ServerHandler::ServerHandler() : database(new Database(QLatin1String("ServerHand
 		qWarning("ServerHandler: TLS cipher preference is \"%s\"", qPrintable(pref.join(QLatin1String(":"))));
 	}
 
-#ifdef Q_OS_WIN
-	hQoS = loadQoS();
-	if (hQoS)
-		Connection::setQoS(hQoS);
-#endif
-
 	QObject::connect(this, &ServerHandler::pingRequested, this, &ServerHandler::sendPingInternal, Qt::QueuedConnection);
 	QObject::connect(this, &ServerHandler::abortRequested, this, &ServerHandler::abortConnection);
 }
@@ -172,12 +111,6 @@ ServerHandler::ServerHandler() : database(new Database(QLatin1String("ServerHand
 ServerHandler::~ServerHandler() {
 	wait();
 	cConnection.reset();
-#ifdef Q_OS_WIN
-	if (hQoS) {
-		QOSCloseHandle(hQoS);
-		Connection::setQoS(nullptr);
-	}
-#endif
 }
 
 void ServerHandler::customEvent(QEvent *evt) {
@@ -512,17 +445,6 @@ void ServerHandler::run() {
 		if (qusUdp) {
 			QMutexLocker qml(&qmUdp);
 
-#ifdef Q_OS_WIN
-			if (hQoS) {
-				if (!QOSRemoveSocketFromFlow(hQoS, 0, dwFlowUDP, 0)) {
-					qWarning("ServerHandler: Failed to remove UDP from QoS. QOSRemoveSocketFromFlow() failed with "
-							 "error %lu!",
-							 GetLastError());
-				}
-
-				dwFlowUDP = 0;
-			}
-#endif
 			delete qusUdp;
 			qusUdp = nullptr;
 		}
@@ -543,10 +465,6 @@ void ServerHandler::run() {
 	} while (shouldTryNextTargetServer && !qlAddresses.isEmpty());
 }
 
-#ifdef Q_OS_WIN
-extern DWORD WinVerifySslCert(const QByteArray &cert);
-#endif
-
 void ServerHandler::setSslErrors(const QList< QSslError > &errors) {
 	ConnectionPtr connection(cConnection);
 	if (!connection)
@@ -554,36 +472,6 @@ void ServerHandler::setSslErrors(const QList< QSslError > &errors) {
 
 	qscCert                      = connection->peerCertificateChain();
 	QList< QSslError > newErrors = errors;
-
-#ifdef Q_OS_WIN
-	bool bRevalidate = false;
-	QList< QSslError > errorsToRemove;
-	for (const QSslError &e : errors) {
-		switch (e.error()) {
-			case QSslError::UnableToGetLocalIssuerCertificate:
-			case QSslError::SelfSignedCertificateInChain:
-				bRevalidate = true;
-				errorsToRemove << e;
-				break;
-			default:
-				break;
-		}
-	}
-
-	if (bRevalidate) {
-		QByteArray der    = qscCert.first().toDer();
-		DWORD errorStatus = WinVerifySslCert(der);
-		if (errorStatus == CERT_TRUST_NO_ERROR) {
-			for (const QSslError &e : errorsToRemove) {
-				newErrors.removeOne(e);
-			}
-		}
-		if (newErrors.isEmpty()) {
-			connection->proceedAnyway();
-			return;
-		}
-	}
-#endif
 
 	bStrong = false;
 	if ((qscCert.size() > 0)
@@ -893,20 +781,6 @@ void ServerHandler::serverConnectionConnected() {
 				}
 			}
 #	endif
-#elif defined(Q_OS_WIN)
-			if (hQoS) {
-				struct sockaddr_in addr;
-				memset(&addr, 0, sizeof(addr));
-				addr.sin_family      = AF_INET;
-				addr.sin_port        = htons(usPort);
-				addr.sin_addr.s_addr = htonl(qhaRemote.toIPv4Address());
-
-				dwFlowUDP = 0;
-				if (!QOSAddSocketToFlow(hQoS, qusUdp->socketDescriptor(), reinterpret_cast< sockaddr * >(&addr),
-										QOSTrafficTypeVoice, QOS_NON_ADAPTIVE_FLOW,
-										reinterpret_cast< PQOS_FLOWID >(&dwFlowUDP)))
-					qWarning("ServerHandler: Failed to add UDP to QOS");
-			}
 #endif
 		}
 	}

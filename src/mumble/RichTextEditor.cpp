@@ -18,10 +18,6 @@
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QToolTip>
 
-#ifdef Q_OS_WIN
-#	include <shlobj.h>
-#endif
-
 RichTextHtmlEdit::RichTextHtmlEdit(QWidget *p) : QTextEdit(p) {
 	m_document = new LogDocument(this);
 	m_document->setDefaultStyleSheet(qApp->styleSheet());
@@ -108,13 +104,7 @@ void RichTextHtmlEdit::insertFromMimeData(const QMimeData *source) {
 
 	if (uri.isEmpty()) {
 		QStringList urls;
-#ifdef Q_OS_WIN
-		urls = decodeMimeString(
-				   source->data(QLatin1String("application/x-qt-windows-mime;value=\"UniformResourceLocatorW\"")))
-				   .split(newline);
-		if (urls.isEmpty())
-#endif
-			urls = decodeMimeString(source->data(QLatin1String("text/uri-list"))).split(newline);
+		urls = decodeMimeString(source->data(QLatin1String("text/uri-list"))).split(newline);
 		if (!urls.isEmpty())
 			uri = urls.at(0).trimmed();
 	}
@@ -125,19 +115,6 @@ void RichTextHtmlEdit::insertFromMimeData(const QMimeData *source) {
 			uri = url.toString();
 		}
 	}
-
-#ifdef Q_OS_WIN
-	if (title.isEmpty()
-		&& source->hasFormat(QLatin1String("application/x-qt-windows-mime;value=\"FileGroupDescriptorW\""))) {
-		QByteArray qba = source->data(QLatin1String("application/x-qt-windows-mime;value=\"FileGroupDescriptorW\""));
-		if (qba.length() == sizeof(FILEGROUPDESCRIPTORW)) {
-			const FILEGROUPDESCRIPTORW *ptr = reinterpret_cast< const FILEGROUPDESCRIPTORW * >(qba.constData());
-			title                           = QString::fromWCharArray(ptr->fgd[0].cFileName);
-			if (title.endsWith(QLatin1String(".url"), Qt::CaseInsensitive))
-				title = title.left(title.length() - 4);
-		}
-	}
-#endif
 
 	if (!uri.isEmpty()) {
 		if (title.isEmpty())

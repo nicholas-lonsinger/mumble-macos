@@ -57,10 +57,6 @@
 #include "VoiceRecorderDialog.h"
 #include "Global.h"
 
-#ifdef Q_OS_WIN
-#	include "TaskList.h"
-#endif
-
 #ifdef Q_OS_MAC
 #	include "AppNap.h"
 #endif
@@ -83,10 +79,6 @@
 #include "widgets/BanDialog.h"
 #include "widgets/ResponsiveImageDialog.h"
 #include "widgets/SemanticSlider.h"
-
-#ifdef Q_OS_WIN
-#	include <dbt.h>
-#endif
 
 #include <algorithm>
 #include <optional>
@@ -136,9 +128,6 @@ MainWindow::MainWindow(QWidget *p)
 	setWindowIcon(qiIcon);
 #endif
 
-#ifdef Q_OS_WIN
-	uiNewHardware = 1;
-#endif
 	forceQuit     = false;
 	restartOnQuit = false;
 
@@ -572,10 +561,6 @@ void MainWindow::setupGui() {
 
 	updateTransmitModeComboBox(Global::get().s.atTransmit);
 
-#ifdef Q_OS_WIN
-	setupView(false);
-#endif
-
 	loadState(Global::get().s.bMinimalView);
 
 	setupView(false);
@@ -644,16 +629,6 @@ void MainWindow::msgBox(QString msg) {
 	MessageBoxEvent *mbe = new MessageBoxEvent(msg);
 	QApplication::postEvent(this, mbe);
 }
-
-#ifdef Q_OS_WIN
-bool MainWindow::nativeEvent(const QByteArray &, void *message, qintptr *) {
-	MSG *msg = reinterpret_cast< MSG * >(message);
-	if (msg->message == WM_DEVICECHANGE && msg->wParam == DBT_DEVNODES_CHANGED)
-		uiNewHardware++;
-
-	return false;
-}
-#endif
 
 void MainWindow::closeEvent(QCloseEvent *e) {
 	ServerHandlerPtr sh               = Global::get().sh;
@@ -1650,14 +1625,6 @@ void MainWindow::on_qmServer_aboutToShow() {
 	qmServer->addAction(qaServerTokens);
 	qmServer->addAction(qaServerUserList);
 	qmServer->addAction(qaServerBanList);
-#ifndef Q_OS_MACOS
-	// On macOS, the "Quit" action is automatically placed in the application menu
-	// by Qt when the QAction's menuRole is set to QAction::QuitRole (see MainWindow.ui).
-	// Adding it manually to the "Server" menu would result in duplicate entries.
-	// See GitHub issue #7151: Move the Quit button to the "Mumble" application menu on macOS.
-	qmServer->addSeparator();
-	qmServer->addAction(qaQuit);
-#endif
 
 	qaServerBanList->setEnabled(Global::get().pPermissions & (ChanACL::Ban | ChanACL::Write));
 	qaServerUserList->setEnabled(Global::get().pPermissions & (ChanACL::Register | ChanACL::Write));
@@ -1777,16 +1744,6 @@ void MainWindow::qmUser_aboutToShow() {
 		qmUser->addAction(qaAudioMute);
 		qmUser->addAction(qaAudioDeaf);
 	}
-
-#ifndef Q_OS_MAC
-	if (Global::get().s.bMinimalView) {
-		qmUser->addSeparator();
-		qmUser->addMenu(qmServer);
-		qmUser->addMenu(qmSelf);
-		qmUser->addMenu(qmConfig);
-		qmUser->addMenu(qmHelp);
-	}
-#endif
 
 	if (!qlUserActions.isEmpty()) {
 		qmUser->addSeparator();
@@ -2311,16 +2268,6 @@ void MainWindow::qmChannel_aboutToShow() {
 		qmChannel->addAction(qaChannelHide);
 		qmChannel->addAction(qaChannelPin);
 	}
-
-#ifndef Q_OS_MAC
-	if (Global::get().s.bMinimalView) {
-		qmChannel->addSeparator();
-		qmChannel->addMenu(qmServer);
-		qmChannel->addMenu(qmSelf);
-		qmChannel->addMenu(qmConfig);
-		qmChannel->addMenu(qmHelp);
-	}
-#endif
 
 	if (!qlChannelActions.isEmpty()) {
 		qmChannel->addSeparator();
@@ -3544,10 +3491,6 @@ void MainWindow::serverConnected() {
 	qmChannel_aboutToShow();
 	qmUser_aboutToShow();
 	on_qmConfig_aboutToShow();
-
-#ifdef Q_OS_WIN
-	TaskList::addToRecentList(Global::get().s.qsLastServer, uname, host, port);
-#endif
 
 	qdwMinimalViewNote->hide();
 }

@@ -8,19 +8,12 @@
 
 #include <QtCore/QtGlobal>
 
-#ifdef Q_OS_WIN
-#	include "win.h"
-#endif
-
 #include <QtCore/QString>
 
 /// UserLockFile implements an atomic lock file
 /// that can be used as a mutex between different
 /// processes run by the same user.
 class UserLockFile {
-#if defined(Q_OS_WIN)
-	HANDLE m_handle;
-#endif
 	QString m_path;
 
 public:

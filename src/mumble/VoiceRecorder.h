@@ -8,10 +8,6 @@
 
 #include <QtCore/QtGlobal>
 
-#ifdef Q_OS_WIN
-#	include "win.h"
-#endif
-
 #include <QtCore/QDateTime>
 #include <QtCore/QHash>
 #include <QtCore/QMutex>
@@ -20,10 +16,6 @@
 #include <QtCore/QWaitCondition>
 
 #include <memory>
-
-#ifdef Q_OS_WIN
-#	define ENABLE_SNDFILE_WINDOWS_PROTOTYPES 1
-#endif
 
 #include <sndfile.h>
 

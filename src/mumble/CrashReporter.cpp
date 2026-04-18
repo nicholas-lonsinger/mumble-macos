@@ -118,14 +118,7 @@ void CrashReporter::run() {
 		return;
 	}
 
-#if defined(Q_OS_WIN)
-	/* On Windows, the .dmp file is a real minidump. */
-
-	if (qfCrashDump.peek(4) != "MDMP")
-		return;
-	qbaDumpContents = qfCrashDump.readAll();
-
-#elif defined(Q_OS_MAC)
+#ifdef Q_OS_MAC
 	/*
 	 * On OSX, the .dmp file is simply a dummy file that we
 	 * use to find the *real* crash dump, made by the OSX
@@ -165,38 +158,6 @@ void CrashReporter::run() {
 #endif
 
 	QString details;
-#ifdef Q_OS_WIN
-	{
-		QTemporaryFile qtf;
-		if (qtf.open()) {
-			qtf.close();
-
-			QProcess qp;
-			QStringList qsl;
-
-			qsl << QLatin1String("/t");
-			qsl << qtf.fileName();
-
-			QString app        = QLatin1String("dxdiag.exe");
-			QString systemRoot = EnvUtils::getenv(QLatin1String("SystemRoot"));
-
-			if (!systemRoot.isEmpty()) {
-				app = QDir::fromNativeSeparators(systemRoot + QLatin1String("/System32/dxdiag.exe"));
-			}
-
-			qp.start(app, qsl);
-			if (qp.waitForFinished(30000)) {
-				if (qtf.open()) {
-					QByteArray qba = qtf.readAll();
-					details        = QString::fromLocal8Bit(qba);
-				}
-			} else {
-				details = QLatin1String("Failed to run dxdiag");
-			}
-			qp.kill();
-		}
-	}
-#endif
 
 	if (qbaDumpContents.isEmpty()) {
 		qWarning("CrashReporter: Empty crash dump file, not reporting.");

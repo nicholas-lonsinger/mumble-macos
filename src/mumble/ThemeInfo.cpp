@@ -13,11 +13,7 @@
 #include <optional>
 
 QFileInfo ThemeInfo::StyleInfo::getPlatformQss() const {
-#if defined(Q_OS_WIN)
-	return qssFiles.value(QLatin1String("WIN"), defaultQss);
-#elif defined(Q_OS_LINUX)
-	return qssFiles.value(QLatin1String("LINUX"), defaultQss);
-#elif defined(Q_OS_MAC)
+#ifdef Q_OS_MAC
 	return qssFiles.value(QLatin1String("MAC"), defaultQss);
 #else
 	return defaultQss;

@@ -48,18 +48,6 @@ void UserDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
 	QIcon::Mode iconMode = QIcon::Normal;
 
 	QPalette::ColorRole colorRole = ((o.state & QStyle::State_Selected) ? QPalette::HighlightedText : QPalette::Text);
-#if defined(Q_OS_WIN)
-	// Qt's Vista Style has the wrong highlight color for treeview items
-	// We can't check for QStyleSheetStyle so we have to search the children list search for a QWindowsVistaStyle
-	QList< QObject * > hierarchy = style->findChildren< QObject * >();
-	hierarchy.insert(0, style);
-	for (QObject *obj : hierarchy) {
-		if (QString::fromUtf8(obj->metaObject()->className()) == QString::fromUtf8("QWindowsVistaStyle")) {
-			colorRole = QPalette::Text;
-			break;
-		}
-	}
-#endif
 
 	// draw background
 	style->drawPrimitive(QStyle::PE_PanelItemViewItem, &o, painter, o.widget);

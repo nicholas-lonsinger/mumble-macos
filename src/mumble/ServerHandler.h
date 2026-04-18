@@ -8,10 +8,6 @@
 
 #include <QtCore/QtGlobal>
 
-#ifdef Q_OS_WIN
-#	include "win.h"
-#endif
-
 #ifndef Q_MOC_RUN
 #	include <boost/accumulators/accumulators.hpp>
 #	include <boost/accumulators/statistics/mean.hpp>
@@ -99,11 +95,6 @@ protected:
 	/// Flag indicating whether the server we are currently connected to has
 	/// finished synchronizing already.
 	bool serverSynchronized = false;
-
-#ifdef Q_OS_WIN
-	HANDLE hQoS;
-	DWORD dwFlowUDP;
-#endif
 
 	QHostAddress qhaRemote;
 	QHostAddress qhaLocal;

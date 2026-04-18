@@ -16,10 +16,6 @@
 #include "SettingsMacros.h"
 #include "Global.h"
 
-#if defined(Q_OS_WIN)
-#	include "GlobalShortcut_win.h"
-#endif
-
 #include <QByteArray>
 #include <QDataStream>
 #include <QFileInfo>
@@ -44,9 +40,6 @@
 #include <nlohmann/json.hpp>
 
 constexpr const char *BACKUP_FILE_EXTENSION = ".back";
-#ifdef Q_OS_WINDOWS
-constexpr const char *REGISTRY_ID = ":::::REGISTRY:::::";
-#endif
 
 const QPoint Settings::UNSPECIFIED_POSITION =
 	QPoint(std::numeric_limits< int >::min(), std::numeric_limits< int >::max());
@@ -291,14 +284,6 @@ void Settings::load(bool skipSettingsBackupPrompt) {
 			qInfo() << "Loading settings from legacy settings file" << legacySettingsPath;
 			legacyLoad(legacySettingsPath);
 		}
-#ifdef Q_OS_WIN
-		else {
-			// On Windows, we previously used the registry, so if we did not find an old config file (which would
-			// probably be very archaic), we can check the registry
-			qInfo() << "Loading legacy settings from the registry";
-			legacyLoad(QLatin1String(REGISTRY_ID));
-		}
-#endif
 	}
 }
 
@@ -394,9 +379,6 @@ Settings::Settings() {
 	verifySettingsKeys();
 #endif
 
-#if defined(Q_OS_WIN)
-	GlobalShortcutWin::registerMetaTypes();
-#endif
 	qRegisterMetaType< ShortcutTarget >("ShortcutTarget");
 	qRegisterMetaType< ChannelTarget >("ChannelTarget");
 	qRegisterMetaType< QVariant >("QVariant");
@@ -409,14 +391,9 @@ Settings::Settings() {
 	// Therefore we disable it by default until the issues are fixed.
 	echoOption = EchoCancelOptionID::DISABLED;
 #endif
-#ifdef Q_OS_WIN
-	// Don't enable minimize to tray by default on Windows >= 7
-	bHideInTray = QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows7;
-#else
 	const bool isUnityDesktop =
 		QProcessEnvironment::systemEnvironment().value(QLatin1String("XDG_CURRENT_DESKTOP")) == QLatin1String("Unity");
 	bHideInTray = !isUnityDesktop && QSystemTrayIcon::isSystemTrayAvailable();
-#endif
 #ifdef NO_UPDATE_CHECK
 	bUpdateCheck = false;
 	bPluginCheck = false;
@@ -539,13 +516,7 @@ void Settings::legacyLoad(const QString &path) {
 	std::unique_ptr< QSettings > settings_ptr;
 	QSettings::Format format = QSettings::IniFormat;
 
-#ifdef Q_OS_WINDOWS
-	if (path == QLatin1String(REGISTRY_ID)) {
-		// Search the registry
-		settings_ptr = std::make_unique< QSettings >();
-	} else
-#endif
-		settings_ptr = std::make_unique< QSettings >(path.isEmpty() ? findSettingsLocation(true) : path, format);
+	settings_ptr = std::make_unique< QSettings >(path.isEmpty() ? findSettingsLocation(true) : path, format);
 
 
 	LOAD(qsDatabaseLocation, "databaselocation");
@@ -619,30 +590,6 @@ void Settings::legacyLoad(const QString &path) {
 	if (settings_ptr->contains("audio/echooptionid")) {
 		// Load the new echo cancel option instead
 		LOADFLAG(echoOption, "audio/echooptionid");
-	} else {
-#ifndef Q_OS_MACOS
-		// Compatibility layer for overtaking the old (now deprecated) settings
-		// This block should only be called once at the first start of the new Mumble version
-		// As echo cancellation was not available on macOS before, we don't have to run this compatibility
-		// code on macOS (instead simply use the new default as set in the constructor).
-		if (settings_ptr->contains("audio/echo")) {
-			bool deprecatedEcho      = false;
-			bool deprecatedEchoMulti = false;
-
-			LOAD(deprecatedEcho, "audio/echo");
-			LOAD(deprecatedEchoMulti, "audio/echomulti");
-
-			if (deprecatedEcho) {
-				if (deprecatedEchoMulti) {
-					echoOption = EchoCancelOptionID::SPEEX_MULTICHANNEL;
-				} else {
-					echoOption = EchoCancelOptionID::SPEEX_MIXED;
-				}
-			} else {
-				echoOption = EchoCancelOptionID::DISABLED;
-			}
-		}
-#endif
 	}
 
 	LOAD(iJitterBufferSize, "net/jitterbuffer");
@@ -879,23 +826,9 @@ void Settings::legacyLoad(const QString &path) {
 				iaeIdleAction = Settings::Deafen;                                              // Old behavior
 			}
 			// Fallthrough
-#ifdef Q_OS_WIN
-		case 2: {
-			QList< Shortcut > &shortcuts              = qlShortcuts;
-			const QList< Shortcut > migratedShortcuts = GlobalShortcutWin::migrateSettings(shortcuts);
-			if (shortcuts.size() > migratedShortcuts.size()) {
-				const uint32_t num = shortcuts.size() - migratedShortcuts.size();
-				QMessageBox::warning(
-					nullptr, QObject::tr("Shortcuts migration incomplete"),
-					QObject::tr("Unfortunately %1 shortcut(s) could not be migrated.\nYou can register them again.")
-						.arg(num));
-			}
-
-			shortcuts = migratedShortcuts;
-		}
-#endif
 	}
 }
+
 
 void Settings::migratePluginSettings(const MigratedPath &path) {
 	std::vector< PluginSetting > migratedSettings;

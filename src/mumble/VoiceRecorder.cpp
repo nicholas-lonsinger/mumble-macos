@@ -51,38 +51,8 @@ QString VoiceRecorder::sanitizeFilenameOrPathComponent(const QString &str) const
 	if (res.isEmpty())
 		return QLatin1String("_");
 
-#ifdef Q_OS_WIN
-	// Rules according to http://en.wikipedia.org/wiki/Filename#Comparison_of_file_name_limitations
-	// and http://msdn.microsoft.com/en-us/library/aa365247(VS.85).aspx
-
-	// Make sure name doesn't end in "."
-	if (res.at(res.length() - 1) == QLatin1Char('.')) {
-		if (res.length() == 255) { // Prevents possible infinite recursion later on
-			res[254] = QLatin1Char('_');
-		} else {
-			res = res.append(QLatin1Char('_'));
-		}
-	}
-
-	// Replace < > : " / \ | ? * as well as chr(0) to chr(31)
-	res = res.replace(QRegularExpression(QLatin1String("[<>:\"/\\\\|\\?\\*\\x00-\\x1F]")), QLatin1String("_"));
-
-	// Prepend reserved filenames CON, PRN, AUX, NUL, COM1, COM2, COM3, COM4, COM5, COM6, COM7, COM8, COM9, LPT1, LPT2,
-	// LPT3, LPT4, LPT5, LPT6, LPT7, LPT8, and LPT9
-	res = res.replace(QRegularExpression(QLatin1String("^((CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\\.|$))"),
-										 QRegularExpression::CaseInsensitiveOption),
-					  QLatin1String("_\\1"));
-
-	// Make sure we do not exceed 255 characters
-	if (res.length() > 255) {
-		res.truncate(255);
-		// Call ourselves recursively to make sure we do not end up violating any of our rules because of this
-		res = sanitizeFilenameOrPathComponent(res);
-	}
-#else
-	// For the rest just make sure the string doesn't contain a \0 or any forward-slashes
+	// Make sure the string doesn't contain a \0 or any forward-slashes
 	res           = res.replace(QRegularExpression(QLatin1String("\\x00|/")), QLatin1String("_"));
-#endif
 	return res;
 }
 
@@ -276,12 +246,7 @@ bool VoiceRecorder::ensureFileIsOpenedFor(SF_INFO &soundFileInfo, std::shared_pt
 		return false;
 	}
 
-#ifdef Q_OS_WIN
-	// This is needed for unicode filenames on Windows.
-	ri->soundFile = sf_wchar_open(filename.toStdWString().c_str(), SFM_WRITE, &soundFileInfo);
-#else
 	ri->soundFile = sf_open(qPrintable(filename), SFM_WRITE, &soundFileInfo);
-#endif
 	if (!ri->soundFile) {
 		qWarning() << "Failed to open file for recorder: " << sf_strerror(nullptr);
 		m_recording = false;

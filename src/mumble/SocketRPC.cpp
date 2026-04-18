@@ -235,9 +235,6 @@ SocketRPC::SocketRPC(const QString &basename, QObject *p) : QObject(p) {
 
 	QString pipepath;
 
-#ifdef Q_OS_WIN
-	pipepath = basename;
-#else
 	{
 		QString xdgRuntimePath = QProcessEnvironment::systemEnvironment().value(QLatin1String("XDG_RUNTIME_DIR"));
 		QDir xdgRuntimeDir     = QDir(xdgRuntimePath);
@@ -256,7 +253,6 @@ SocketRPC::SocketRPC(const QString &basename, QObject *p) : QObject(p) {
 			f.remove();
 		}
 	}
-#endif
 
 	if (!qlsServer->listen(pipepath)) {
 		qWarning() << "SocketRPC: Listen failed";
@@ -279,9 +275,6 @@ void SocketRPC::newConnection() {
 bool SocketRPC::send(const QString &basename, const QString &request, const QMap< QString, QVariant > &param) {
 	QString pipepath;
 
-#ifdef Q_OS_WIN
-	pipepath = basename;
-#else
 	{
 		QString xdgRuntimePath = QProcessEnvironment::systemEnvironment().value(QLatin1String("XDG_RUNTIME_DIR"));
 		QDir xdgRuntimeDir     = QDir(xdgRuntimePath);
@@ -292,7 +285,6 @@ bool SocketRPC::send(const QString &basename, const QString &request, const QMap
 			pipepath = QDir::home().absoluteFilePath(QLatin1String(".") + basename + QLatin1String("Socket"));
 		}
 	}
-#endif
 
 	QLocalSocket qls;
 	qls.connectToServer(pipepath);

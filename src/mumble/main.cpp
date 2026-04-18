@@ -70,10 +70,6 @@
 #	include <QtDBus/QDBusInterface>
 #endif
 
-#ifdef Q_OS_WIN
-#	include <shellapi.h>
-#endif
-
 
 #ifdef BOOST_NO_EXCEPTIONS
 namespace boost {
@@ -103,16 +99,11 @@ void initLog(QTextBrowser *textBox = nullptr) {
 	static constexpr std::size_t maxSize  = 5 * 1024 * 2024;
 	static constexpr std::size_t maxFiles = 3;
 
-#ifndef Q_OS_MACOS
-	const auto filePath = Global::get().qdBasePath.filePath(QLatin1String("Console.txt")).toStdString();
-	log::addSink(std::make_shared< FileSink >(filePath, maxSize, maxFiles));
-#else
 	std::string filePath = "/Library/Logs/Mumble.log";
 	if (const char *homePath = std::getenv("HOME")) {
 		filePath.insert(0, homePath);
 		log::addSink(std::make_shared< FileSink >(filePath, maxSize, maxFiles));
 	}
-#endif
 
 	if (textBox) {
 		static constexpr int maxLines = 1000;
@@ -197,14 +188,6 @@ QPoint getTalkingUIPosition() {
 
 	return talkingUIPos;
 }
-
-#ifdef Q_OS_WIN
-// from os_early_win.cpp
-extern int os_early_init();
-// from os_win.cpp
-extern HWND mumble_mw_hwnd;
-#endif // Q_OS_WIN
-
 
 struct CLIOptions {
 	int exitCode                  = 0;
@@ -364,21 +347,6 @@ CLIOptions parseCLI(int argc, char **argv) {
 int main(int argc, char **argv) {
 	int res = 0;
 
-#if defined(Q_OS_WIN)
-	int ret = os_early_init();
-	if (ret != 0) {
-		return ret;
-	}
-#endif
-
-#if defined(Q_OS_WIN)
-	SetDllDirectory(L"");
-#else
-#	ifndef Q_OS_MAC
-	EnvUtils::setenv(QLatin1String("AVAHI_COMPAT_NOWARN"), QLatin1String("1"));
-#	endif
-#endif
-
 	// Initialize application object.
 	MumbleApplication a(argc, argv);
 	a.setApplicationName(QLatin1String("Mumble"));
@@ -387,10 +355,6 @@ int main(int argc, char **argv) {
 	a.setQuitOnLastWindowClosed(false);
 
 	a.setDesktopFileName("info.mumble.Mumble");
-
-#ifdef Q_OS_WIN
-	a.installNativeEventFilter(&a);
-#endif
 
 	MumbleSSL::initialize();
 	CLIOptions options = parseCLI(argc, argv);
@@ -475,12 +439,8 @@ int main(int argc, char **argv) {
 		localeOverwrite = QString::fromStdString(*options.locale);
 	}
 	if (options.startHiddenInTray) {
-#ifndef Q_OS_MAC
-		qInfo("Starting hidden in system tray");
-#else
 		// When Qt addresses hide() on macOS to use native hiding, this can be fixed.
 		qWarning("Can not start Mumble hidden in system tray on macOS");
-#endif
 	}
 	if (options.hyperlink) {
 		if (PluginInstaller::canBePluginFile(QFileInfo(QString::fromStdString(*options.hyperlink)))) {
@@ -511,47 +471,10 @@ int main(int argc, char **argv) {
 			counter++;
 		}
 
-#if defined(Q_OS_WIN)
-		QMessageBox::information(nullptr, QObject::tr("Invocation"), infoString);
-#else
 		printf("%s", qUtf8Printable(infoString));
-#endif
 
 		return 0;
 	}
-
-#ifdef USE_DBUS
-#	ifdef Q_OS_WIN
-	// By default, windbus expects the path to dbus-daemon to be in PATH, and the path
-	// should contain bin\\, and the path to the config is hardcoded as ..\etc
-
-	{
-		size_t reqSize;
-		if (_wgetenv_s(&reqSize, nullptr, 0, L"PATH") != 0) {
-			qWarning() << "Failed to get PATH. Not adding application directory to PATH. DBus bindings may not work.";
-		} else if (reqSize > 0) {
-			std::vector< wchar_t > buff;
-			buff.resize(reqSize + 1);
-			if (_wgetenv_s(&reqSize, buff, reqSize, L"PATH") != 0) {
-				qWarning()
-					<< "Failed to get PATH. Not adding application directory to PATH. DBus bindings may not work.";
-			} else {
-				QString path =
-					QString::fromLatin1("%1;%2")
-						.arg(QDir::toNativeSeparators(MumbleApplication::instance()->applicationVersionRootPath()))
-						.arg(QString::fromWCharArray(buff));
-				static std::vector< wchar_t > outBuffer;
-				outBuffer.resize(path.length() + 1);
-				wchar_t *buffout = outBuffer.data();
-				path.toWCharArray(buffout);
-				if (_wputenv_s(L"PATH", buffout) != 0) {
-					qWarning() << "Failed to set PATH. DBus bindings may not work.";
-				}
-			}
-		}
-	}
-#	endif
-#endif
 
 	if (options.rpcMode) {
 		bool sent = false;
@@ -600,26 +523,6 @@ int main(int argc, char **argv) {
 		}
 	}
 
-#ifdef Q_OS_WIN
-	// The code above this block is somewhat racy, in that it might not
-	// be possible to do RPC/DBus if two processes start at almost the
-	// same time.
-	//
-	// In order to be completely sure we don't open multiple copies of
-	// Mumble, we open a lock file. The file is opened without any sharing
-	// modes enabled. This gives us exclusive access to the file.
-	// If another Mumble instance attempts to open the file, it will fail,
-	// and that instance will know to terminate itself.
-	UserLockFile userLockFile(Global::get().qdBasePath.filePath(QLatin1String("mumble.lock")));
-	if (!options.allowMultiple) {
-		if (!userLockFile.acquire()) {
-			qWarning("Another process has already acquired the lock file at '%s'. Terminating...",
-					 qPrintable(userLockFile.path()));
-			return 1;
-		}
-	}
-#endif
-
 	// Load preferences
 	if (settingsFile.isEmpty()) {
 		Global::get().s.load();
@@ -637,19 +540,6 @@ int main(int argc, char **argv) {
 
 		Global::get().s.save();
 	}
-
-	// Check whether we need to enable accessibility features
-#ifdef Q_OS_WIN
-	// Only windows for now. Could not find any information on how to query this for osx or linux
-	{
-		HIGHCONTRAST hc;
-		hc.cbSize = sizeof(HIGHCONTRAST);
-		SystemParametersInfo(SPI_GETHIGHCONTRAST, sizeof(HIGHCONTRAST), &hc, 0);
-
-		if (hc.dwFlags & HCF_HIGHCONTRASTON)
-			Global::get().s.bHighContrast = true;
-	}
-#endif
 
 	DeferInit::run_initializers();
 
@@ -773,12 +663,6 @@ int main(int argc, char **argv) {
 	Global::get().l->processDeferredLogs();
 
 	Global::get().trayIcon = new TrayIcon();
-
-#ifdef Q_OS_WIN
-	// Set mumble_mw_hwnd in os_win.cpp.
-	// Used in ASIOInput and GlobalShortcut_win by APIs that require a HWND.
-	mumble_mw_hwnd = reinterpret_cast< HWND >(Global::get().mw->winId());
-#endif
 
 #ifdef USE_DBUS
 	new MumbleDBus(Global::get().mw);
@@ -948,16 +832,6 @@ int main(int argc, char **argv) {
 #	endif
 #endif
 
-#ifdef Q_OS_WIN
-	// Release the userLockFile.
-	//
-	// It is important that we release it before we attempt to
-	// restart Mumble (if requested). If we do not release it
-	// before that, the new instance might not be able to start
-	// correctly.
-	userLockFile.release();
-#endif
-
 	// Tear down OpenSSL state.
 	MumbleSSL::destroy();
 
@@ -980,26 +854,7 @@ int main(int argc, char **argv) {
 
 		qWarning() << "Triggering restart of Mumble with arguments: " << arguments;
 
-#ifdef Q_OS_WIN
-		// Work around bug related to QTBUG-7645. Mumble has uiaccess=true set
-		// on windows which makes normal CreateProcess calls (like Qt uses in
-		// startDetached) fail unless they specifically enable additional privileges.
-		// Note that we do not actually require user interaction by UAC nor full admin
-		// rights but only the right token on launch. Here we use ShellExecuteEx
-		// which handles this transparently for us.
-		const std::wstring applicationFilePath = qApp->applicationFilePath().toStdWString();
-		const std::wstring argumentsString     = arguments.join(QLatin1String(" ")).toStdWString();
-
-		SHELLEXECUTEINFO si;
-		ZeroMemory(&si, sizeof(SHELLEXECUTEINFO));
-		si.cbSize       = sizeof(SHELLEXECUTEINFO);
-		si.lpFile       = applicationFilePath.data();
-		si.lpParameters = argumentsString.data();
-
-		bool ok = (ShellExecuteEx(&si) == TRUE);
-#else
 		bool ok = QProcess::startDetached(qApp->applicationFilePath(), arguments);
-#endif
 		if (!ok) {
 			QMessageBox::warning(nullptr, QApplication::tr("Failed to restart mumble"),
 								 QApplication::tr("Mumble failed to restart itself. Please restart it manually."));

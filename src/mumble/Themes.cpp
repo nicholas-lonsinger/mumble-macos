@@ -172,29 +172,12 @@ bool Themes::detectSystemDarkTheme() {
 	QPalette defaultPalette;
 	return defaultPalette.color(QPalette::WindowText).lightness() > defaultPalette.color(QPalette::Window).lightness();
 #else
-#	if defined(Q_OS_WIN)
-	QSettings settings("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-					   QSettings::NativeFormat);
-	return settings.value("AppsUseLightTheme", 1).toInt() == 0; // 0 means dark mode
-#	elif defined(Q_OS_MAC)
 	QProcess process;
 	process.start("defaults", { "read", "-g", "AppleInterfaceStyle" });
 	process.waitForFinished(100);
 	QString output = process.readAllStandardOutput().trimmed();
 	// If no output, assume Light Mode
 	return output == "Dark";
-#	else
-	// Fallback for other OSes
-	QByteArray platform = qgetenv("QT_QPA_PLATFORM");
-	if (platform.contains("darkmode=2")) {
-		return true;
-	} else if (platform.contains("darkmode=1")) {
-		QPalette defaultPalette;
-		return defaultPalette.color(QPalette::WindowText).lightness()
-			   > defaultPalette.color(QPalette::Window).lightness();
-	}
-	return false;
-#	endif
 #endif
 }
 
