@@ -27,7 +27,7 @@ repository's tracker.
 │   ├── dev             — development docs (you are reading one)
 │   └── media
 ├── icons
-├── plugins             — per-game positional-audio plugins
+├── plugins             — MumbleLink positional-audio plugin + plugin ABI header
 ├── samples             — audio cue .ogg files
 ├── screenshots
 ├── scripts             — build-time code generators and dev tooling

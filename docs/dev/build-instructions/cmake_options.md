@@ -124,11 +124,6 @@ Build support for custom Diffie-Hellman parameters.
 Use Qt's text-to-speech system (part of the Qt Speech module) instead of Mumble's own OS-specific text-to-speech implementations.
 (Default: OFF)
 
-### retracted-plugins
-
-Build redacted (outdated) plugins as well
-(Default: OFF)
-
 ### rnnoise
 
 Use RNNoise for machine learning noise reduction.
