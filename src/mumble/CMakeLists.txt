@@ -875,56 +875,6 @@ elseif(bundle-qt-translations)
 	message(WARNING "Can't bundle Qt translations if translations are disabled!")
 endif()
 
-if(overlay)
-	target_sources(mumble_client_object_lib
-		PRIVATE
-			"Overlay.cpp"
-			"Overlay.h"
-			"Overlay.ui"
-			"OverlayClient.cpp"
-			"OverlayClient.h"
-			"OverlayConfig.cpp"
-			"OverlayConfig.h"
-			"OverlayEditor.cpp"
-			"OverlayEditor.h"
-			"OverlayEditor.ui"
-			"OverlayEditorScene.cpp"
-			"OverlayEditorScene.h"
-			"OverlayPositionableItem.cpp"
-			"OverlayPositionableItem.h"
-			"OverlayText.cpp"
-			"OverlayText.h"
-			"OverlayUser.cpp"
-			"OverlayUser.h"
-			"OverlayUserGroup.cpp"
-			"OverlayUserGroup.h"
-			"PathListWidget.cpp"
-			"PathListWidget.h"
-	)
-
-	if(WIN32)
-		target_sources(mumble_client_object_lib
-			PRIVATE
-				"Overlay_win.cpp"
-				"Overlay_win.h"
-		)
-
-		add_dependencies(mumble overlay)
-	else()
-		if(APPLE)
-			target_sources(mumble_client_object_lib PRIVATE "Overlay_macx.mm")
-		else()
-			target_sources(mumble_client_object_lib PRIVATE "Overlay_unix.cpp")
-		endif()
-
-                if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64")
-			add_dependencies(mumble overlay_gl)
-		endif()
-	endif()
-
-	target_compile_definitions(mumble_client_object_lib PUBLIC "USE_OVERLAY")
-endif()
-
 if(plugins)
 	add_dependencies(mumble plugins)
 endif()

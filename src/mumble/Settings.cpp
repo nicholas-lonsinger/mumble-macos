@@ -20,8 +20,6 @@
 #	include "GlobalShortcut_win.h"
 #endif
 
-#include "../../overlay/overlay.h"
-
 #include <QByteArray>
 #include <QDataStream>
 #include <QFileInfo>

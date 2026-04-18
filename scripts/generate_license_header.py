@@ -28,7 +28,6 @@ licenses = [
     ["licenseOgg", "3rdPartyLicenses/libogg_license.txt", "libogg", "http://www.xiph.org/"],
     ["licenseVorbis", "3rdPartyLicenses/libvorbis_license.txt", "libvorbis", "http://www.xiph.org/"],
     ["licenseFLAC", "3rdPartyLicenses/libflac_license.txt", "libFLAC", "http://flac.sourceforge.net/"],
-    ["licenseMachOverride", "3rdPartyLicenses/mach_override_license.txt", "mach_override", "https://github.com/rentzsch/mach_star", "Q_OS_MAC"],
     ["licenseMinHook", "3rdparty/minhook/LICENSE.txt", "MinHook", "https://github.com/TsudaKageyu/minhook", "Q_OS_WIN64"],
     ["licenseQtTranslations", "src/mumble/qttranslations/LICENSE",
         "Additional Qt translations", "https://www.virtualbox.org/ticket/2018", "USING_BUNDLED_QT_TRANSLATIONS"],
