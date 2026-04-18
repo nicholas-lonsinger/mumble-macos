@@ -131,12 +131,6 @@ void MumbleSSL::addSystemCA() {
 
 QString MumbleSSL::protocolToString(QSsl::SslProtocol protocol) {
 	switch (protocol) {
-#if QT_VERSION < QT_VERSION_CHECK(6, 3, 0)
-		case QSsl::TlsV1_0:
-			return QLatin1String("TLS 1.0");
-		case QSsl::TlsV1_1:
-			return QLatin1String("TLS 1.1");
-#endif
 		case QSsl::TlsV1_2:
 			return QLatin1String("TLS 1.2");
 		case QSsl::TlsV1_3:

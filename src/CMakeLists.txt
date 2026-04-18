@@ -19,7 +19,7 @@ option(bundled-spdlog "Use the bundled spdlog version instead of looking for one
 option(bundled-cli11 "Use the bundled CLI11 version instead of looking for one on the system" ON)
 
 find_pkg(Qt6
-	VERSION 6.2
+	VERSION 6.5
 	COMPONENTS
 		Core
 		Network

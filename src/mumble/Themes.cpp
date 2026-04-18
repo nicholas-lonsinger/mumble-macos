@@ -155,23 +155,13 @@ bool Themes::apply() {
 }
 
 bool Themes::detectSystemDarkTheme() {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
 	Qt::ColorScheme colorScheme = QGuiApplication::styleHints()->colorScheme();
 	if (colorScheme != Qt::ColorScheme::Unknown) {
 		return colorScheme == Qt::ColorScheme::Dark;
 	}
-	// colorScheme() can return Unknown on some platforms (e.g. wlroots compositors),
-	// so fall back to comparing palette lightness values
+	// Fall back to comparing palette lightness values when the platform reports Unknown.
 	QPalette defaultPalette;
 	return defaultPalette.color(QPalette::WindowText).lightness() > defaultPalette.color(QPalette::Window).lightness();
-#else
-	QProcess process;
-	process.start("defaults", { "read", "-g", "AppleInterfaceStyle" });
-	process.waitForFinished(100);
-	QString output = process.readAllStandardOutput().trimmed();
-	// If no output, assume Light Mode
-	return output == "Dark";
-#endif
 }
 
 ThemeMap Themes::getThemes() {
