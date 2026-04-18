@@ -7,7 +7,6 @@
 #include <QtCore>
 #include <QtTest>
 
-#include "PlatformCheck.h"
 #include "ServerResolver.h"
 
 void signalSpyWait(QSignalSpy &spy) {
@@ -27,12 +26,6 @@ private slots:
 };
 
 void TestServerResolver::simpleSrv() {
-	// Qt 5's SRV resolver does not work in Wine.
-	// For more info, see https://bugs.winehq.org/show_bug.cgi?id=44296
-	if (PlatformCheck::IsWine()) {
-		return;
-	}
-
 	ServerResolver r;
 	QSignalSpy spy(&r, SIGNAL(resolved()));
 
@@ -76,12 +69,6 @@ void TestServerResolver::simpleSrv() {
 }
 
 void TestServerResolver::srvCustomPort() {
-	// Qt 5's SRV resolver does not work in Wine.
-	// For more info, see https://bugs.winehq.org/show_bug.cgi?id=44296
-	if (PlatformCheck::IsWine()) {
-		return;
-	}
-
 	ServerResolver r;
 	QSignalSpy spy(&r, SIGNAL(resolved()));
 
