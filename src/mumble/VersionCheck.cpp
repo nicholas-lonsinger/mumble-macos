@@ -25,11 +25,7 @@ VersionCheck::VersionCheck(bool autocheck, QObject *p, bool focus) : QObject(p),
 		QList< QPair< QString, QString > > queryItems;
 		queryItems << qMakePair(QString::fromLatin1("ver"),
 								QString::fromLatin1(QUrl::toPercentEncoding(Version::getRelease())));
-#if defined(USE_MAC_UNIVERSAL)
-		queryItems << qMakePair(QString::fromLatin1("os"), QString::fromLatin1("MacOSX-Universal"));
-#else
 		queryItems << qMakePair(QString::fromLatin1("os"), QString::fromLatin1("MacOSX"));
-#endif
 		if (!Global::get().s.bUsage)
 			queryItems << qMakePair(QString::fromLatin1("nousage"), QString::fromLatin1("1"));
 		if (autocheck)
