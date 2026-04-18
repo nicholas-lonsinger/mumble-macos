@@ -9,20 +9,15 @@
 #include "Settings.h"
 #include "Global.h"
 
-#ifdef Q_OS_MAC
-#	include <QProcess>
-#endif
-
+#include <QProcess>
 #include <QStyleHints>
 
 #include <optional>
 
-#ifdef Q_OS_MAC
 // declared in ThemeSwitch_macx.mm
 extern void setLightAppearance();
 extern void setDarkAppearance();
 extern void resetAppearanceToSystem();
-#endif
 
 std::optional< ThemeInfo::StyleInfo > Themes::getThemeStyle(const Settings &settings, bool darkMode) {
 	QString themeStyleName = darkMode ? settings.themeDarkStyleName : settings.themeStyleName;
@@ -108,7 +103,6 @@ bool Themes::applyConfigured() {
 	qWarning() << "Style:" << style->name;
 	qWarning() << "--> qss:" << qssFile.absoluteFilePath();
 
-#ifdef Q_OS_MAC
 	switch (Global::get().s.styleType) {
 		case StyleType::Light:
 			setLightAppearance();
@@ -120,7 +114,6 @@ bool Themes::applyConfigured() {
 			resetAppearanceToSystem();
 			break;
 	}
-#endif
 
 	QFile file(qssFile.absoluteFilePath());
 	if (!file.open(QFile::ReadOnly)) {

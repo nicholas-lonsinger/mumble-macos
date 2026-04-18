@@ -130,7 +130,6 @@ endif()
 if(NOT APPLE)
 	message(FATAL_ERROR "This fork only targets macOS")
 endif()
-set(MUMBLE_TARGET_OS "macos")
 
 # Get compilation year
 if (use-timestamps)
@@ -148,9 +147,6 @@ add_compile_definitions(_USE_MATH_DEFINES)
 
 # Provide the information about the target architecture to all Mumble source files in form of a macro
 add_compile_definitions(MUMBLE_TARGET_ARCH="${MUMBLE_TARGET_ARCH}")
-
-# Also provide information about the target OS
-add_compile_definitions(MUMBLE_TARGET_OS="${MUMBLE_TARGET_OS}")
 
 
 set(CMAKE_UNITY_BUILD_BATCH_SIZE 40)

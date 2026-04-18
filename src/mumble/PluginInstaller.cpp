@@ -106,14 +106,13 @@ void PluginInstaller::init() {
 					tr("Error while processing manifest: %1").arg(QString::fromUtf8(e.what())));
 			}
 
-			if (!manifest.specifiesPluginPath(MUMBLE_TARGET_OS, MUMBLE_TARGET_ARCH)) {
+			if (!manifest.specifiesPluginPath("macos", MUMBLE_TARGET_ARCH)) {
 				throw PluginInstallException(
-					tr("Unable to find plugin for the current OS (\"%1\") and architecture (\"%2\")")
-						.arg(QString::fromUtf8(MUMBLE_TARGET_OS))
+					tr("Unable to find plugin for macOS on architecture \"%1\"")
 						.arg(QString::fromUtf8(MUMBLE_TARGET_ARCH)));
 			}
 
-			std::string pluginPath = manifest.getPluginPath(MUMBLE_TARGET_OS, MUMBLE_TARGET_ARCH);
+			std::string pluginPath = manifest.getPluginPath("macos", MUMBLE_TARGET_ARCH);
 
 			// Unpack the plugin library into the tmp dir
 			// We don't have to create the directory structure as we're only interested in the library itself
