@@ -36,10 +36,8 @@ LookConfig::LookConfig(Settings &st) : ConfigWidget(st) {
 		qgbTray->hide();
 	}
 
-#ifdef Q_OS_MAC
 	// Qt can not hide the window via the native macOS hide function. This should be re-evaluated with new Qt versions.
 	qcbHideTray->hide();
-#endif
 
 	qcbLanguage->addItem(tr("System default"));
 	QDir d(QLatin1String(":"), QLatin1String("mumble_*.qm"), QDir::Name, QDir::Files);

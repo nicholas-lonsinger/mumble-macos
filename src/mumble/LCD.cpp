@@ -157,15 +157,11 @@ void LCDConfig::on_qsSplitterWidth_valueChanged(int v) {
 /* --- */
 
 LCD::LCD() : QObject() {
-#ifdef Q_OS_MAC
 	qfNormal.setStyleStrategy(QFont::NoAntialias);
 	qfNormal.setKerning(false);
 	qfNormal.setPointSize(10);
 	qfNormal.setFixedPitch(true);
 	qfNormal.setFamily(QString::fromLatin1("Andale Mono"));
-#else
-	qfNormal = QFont(QString::fromLatin1("Arial"), 7);
-#endif
 
 	qfItalic = qfNormal;
 	qfItalic.setItalic(true);

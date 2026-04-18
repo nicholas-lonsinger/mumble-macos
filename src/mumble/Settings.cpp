@@ -384,12 +384,10 @@ Settings::Settings() {
 	qRegisterMetaType< PluginSetting >("PluginSetting");
 	qRegisterMetaType< Search::SearchDialog::UserAction >("SearchDialog::UserAction");
 	qRegisterMetaType< Search::SearchDialog::ChannelAction >("SearchDialog::ChannelAction");
-#ifdef Q_OS_MACOS
 	// The echo cancellation feature on macOS is experimental and known to be able to cause problems
 	// (e.g. muting the user instead of only cancelling echo - https://github.com/mumble-voip/mumble/issues/4912)
 	// Therefore we disable it by default until the issues are fixed.
 	echoOption = EchoCancelOptionID::DISABLED;
-#endif
 	bHideInTray = QSystemTrayIcon::isSystemTrayAvailable();
 #ifdef NO_UPDATE_CHECK
 	bUpdateCheck = false;
@@ -499,15 +497,13 @@ BOOST_TYPEOF_REGISTER_TEMPLATE(QList, 1)
 // it. This causes such settings to fall back
 // to their defaults, instead of being set to
 // a zero value.
-#ifdef Q_OS_MACOS
-#	undef LOAD
-#	define LOAD(var, name)                                                                              \
-		do {                                                                                             \
-			if (settings_ptr->value(QLatin1String(name)).toString() != QLatin1String("@Variant(")) {     \
-				var = qvariant_cast< BOOST_TYPEOF(var) >(settings_ptr->value(QLatin1String(name), var)); \
-			}                                                                                            \
-		} while (0)
-#endif
+#undef LOAD
+#define LOAD(var, name)                                                                              \
+	do {                                                                                             \
+		if (settings_ptr->value(QLatin1String(name)).toString() != QLatin1String("@Variant(")) {     \
+			var = qvariant_cast< BOOST_TYPEOF(var) >(settings_ptr->value(QLatin1String(name), var)); \
+		}                                                                                            \
+	} while (0)
 
 void Settings::legacyLoad(const QString &path) {
 	std::unique_ptr< QSettings > settings_ptr;

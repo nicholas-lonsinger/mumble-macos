@@ -920,9 +920,7 @@ void ConnectDialogEdit::on_qcbShowPassword_toggled(bool checked) {
 
 ConnectDialog::ConnectDialog(QWidget *p, bool autoconnect) : QDialog(p), bAutoConnect(autoconnect) {
 	setupUi(this);
-#ifdef Q_OS_MAC
 	setWindowModality(Qt::WindowModal);
-#endif
 	bPublicInit = false;
 
 	siAutoConnect = nullptr;

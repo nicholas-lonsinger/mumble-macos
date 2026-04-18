@@ -13,11 +13,7 @@
 #include <optional>
 
 QFileInfo ThemeInfo::StyleInfo::getPlatformQss() const {
-#ifdef Q_OS_MAC
 	return qssFiles.value(QLatin1String("MAC"), defaultQss);
-#else
-	return defaultQss;
-#endif
 }
 
 std::optional< ThemeInfo::StyleInfo > readStyleFromConfig(QSettings &themeConfig, const QString &styleId,

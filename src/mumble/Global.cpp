@@ -25,9 +25,7 @@ void Global::migrateDataDir(const QDir &toDir) {
 
 	QStringList oldPaths;
 
-#ifdef Q_OS_MAC
 	oldPaths << QDir::homePath() + "/Library/Preferences/Mumble";
-#endif
 
 	for (const QString &current : oldPaths) {
 		QDir currentDir(current);

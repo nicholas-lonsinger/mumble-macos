@@ -50,10 +50,8 @@ PluginManager::PluginManager(QSet< QString > *additionalSearchPaths, QObject *p)
 		pluginPaths.insert(pluginPaths.end(), additionalSearchPaths->begin(), additionalSearchPaths->end());
 	}
 
-#ifdef Q_OS_MAC
 	// Path to plugins inside AppBundle
 	pluginPaths.push_back(QString::fromLatin1("%1/../Plugins").arg(qApp->applicationDirPath()));
-#endif
 
 #ifdef MUMBLE_PLUGIN_PATH
 	// Path to where plugins are/will be installed on the system

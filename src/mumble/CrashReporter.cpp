@@ -118,7 +118,6 @@ void CrashReporter::run() {
 		return;
 	}
 
-#ifdef Q_OS_MAC
 	/*
 	 * On OSX, the .dmp file is simply a dummy file that we
 	 * use to find the *real* crash dump, made by the OSX
@@ -155,7 +154,6 @@ void CrashReporter::run() {
 			break;
 		}
 	}
-#endif
 
 	QString details;
 

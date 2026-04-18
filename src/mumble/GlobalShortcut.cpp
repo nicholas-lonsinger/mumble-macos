@@ -23,10 +23,8 @@
 #include <QtWidgets/QItemEditorFactory>
 #include <QtWidgets/QToolTip>
 
-#ifdef Q_OS_MAC
-#	include <ApplicationServices/ApplicationServices.h>
-#	include <QtCore/QOperatingSystemVersion>
-#endif
+#include <ApplicationServices/ApplicationServices.h>
+#include <QtCore/QOperatingSystemVersion>
 
 #include <cassert>
 #include <chrono>
@@ -623,7 +621,6 @@ GlobalShortcutConfig::GlobalShortcutConfig(Settings &st) : ConfigWidget(st) {
 
 	qcbEnableGlobalShortcuts->setVisible(canDisable);
 
-#ifdef Q_OS_MAC
 	// Help Mac users enable accessibility access for Mumble...
 	const QOperatingSystemVersion current = QOperatingSystemVersion::current();
 	if (current >= QOperatingSystemVersion::OSXMavericks) {
@@ -644,35 +641,27 @@ GlobalShortcutConfig::GlobalShortcutConfig(Settings &st) : ConfigWidget(st) {
 						  "the list to the left. Finally, add Mumble to the list of trusted accessibility programs."
 						  "</body></html>"));
 	}
-#endif
 }
 
 bool GlobalShortcutConfig::eventFilter(QObject * /*object*/, QEvent *e) {
-#ifdef Q_OS_MAC
 	if (e->type() == QEvent::WindowActivate) {
 		if (!Global::get().s.bSuppressMacEventTapWarning) {
 			qwWarningContainer->setVisible(showWarning());
 		}
 	}
-#else
-	Q_UNUSED(e)
-#endif
 	return false;
 }
 
 bool GlobalShortcutConfig::showWarning() const {
-#ifdef Q_OS_MAC
-#	if MAC_OS_X_VERSION_MAX_ALLOWED >= 1090
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1090
 	const QOperatingSystemVersion current = QOperatingSystemVersion::current();
 	if (current >= QOperatingSystemVersion::OSXMavericks) {
 		return !AXIsProcessTrustedWithOptions(nullptr);
 	} else
-#	endif
+#endif
 	{
 		return !QFile::exists(QLatin1String("/private/var/db/.AccessibilityAPIEnabled"));
 	}
-#endif
-	return false;
 }
 
 void GlobalShortcutConfig::on_qpbOpenAccessibilityPrefs_clicked() {
@@ -851,13 +840,11 @@ void GlobalShortcutConfig::reload() {
 		qtwShortcuts->addTopLevelItem(item);
 		on_qtwShortcuts_itemChanged(item, 0);
 	}
-#ifdef Q_OS_MAC
 	if (!Global::get().s.bSuppressMacEventTapWarning) {
 		qwWarningContainer->setVisible(showWarning());
 	} else {
 		qwWarningContainer->setVisible(false);
 	}
-#endif
 }
 
 void GlobalShortcutConfig::accept() const {

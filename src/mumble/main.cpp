@@ -548,7 +548,6 @@ int main(int argc, char **argv) {
 
 	QLocale systemLocale = QLocale::system();
 
-#ifdef Q_OS_MAC
 	if (os_lang) {
 		const QLocale macOSLocale = QLocale(QString::fromLatin1(os_lang));
 
@@ -557,7 +556,6 @@ int main(int argc, char **argv) {
 			systemLocale = macOSLocale;
 		}
 	}
-#endif
 
 	QLocale settingsLocale;
 
@@ -737,11 +735,9 @@ int main(int argc, char **argv) {
 	if (url.isValid()) {
 		OpenURLEvent *oue = new OpenURLEvent(url);
 		qApp->postEvent(Global::get().mw, oue);
-#ifdef Q_OS_MAC
 	} else if (!a.quLaunchURL.isEmpty()) {
 		OpenURLEvent *oue = new OpenURLEvent(a.quLaunchURL);
 		qApp->postEvent(Global::get().mw, oue);
-#endif
 	} else if (!options.startHiddenInTray || Global::get().s.bAutoConnect) {
 		Global::get().mw->on_qaServerConnect_triggered(true);
 	}

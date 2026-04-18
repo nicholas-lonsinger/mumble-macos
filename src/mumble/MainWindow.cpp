@@ -57,9 +57,7 @@
 #include "VoiceRecorderDialog.h"
 #include "Global.h"
 
-#ifdef Q_OS_MAC
-#	include "AppNap.h"
-#endif
+#include "AppNap.h"
 
 #include <QAccessible>
 #include <QtCore/QStandardPaths>
@@ -109,24 +107,10 @@ MainWindow::MainWindow(QWidget *p)
 	SvgIcon::addSvgPixmapsToIcon(qiTalkingWhisper, QLatin1String("skin:talking_whisper.svg"));
 	SvgIcon::addSvgPixmapsToIcon(m_iconInformation, QLatin1String("skin:Information_icon.svg"));
 
-#ifdef Q_OS_MAC
 	if (QFile::exists(QLatin1String("skin:mumble.icns")))
 		qiIcon.addFile(QLatin1String("skin:mumble.icns"));
 	else
 		SvgIcon::addSvgPixmapsToIcon(qiIcon, QLatin1String("skin:mumble.svg"));
-#else
-	{ SvgIcon::addSvgPixmapsToIcon(qiIcon, QLatin1String("skin:mumble.svg")); }
-
-	// Set application icon except on MacOSX, where the window-icon
-	// shown in the title-bar usually serves as a draggable version of the
-	// current open document (i.e. you can copy the open document anywhere
-	// simply by dragging this icon).
-	qApp->setWindowIcon(qiIcon);
-
-	// Set the icon on the MainWindow directly. This fixes the icon not
-	// being set on the MainWindow in certain environments (Ex: GTK+).
-	setWindowIcon(qiIcon);
-#endif
 
 	forceQuit     = false;
 	restartOnQuit = false;
@@ -165,10 +149,8 @@ MainWindow::MainWindow(QWidget *p)
 	connect(qteChat, SIGNAL(entered(QString)), this, SLOT(sendChatbarText(QString)));
 	connect(qteChat, &ChatbarTextEdit::ctrlEnterPressed, [this](const QString &msg) { sendChatbarText(msg, true); });
 	connect(qteChat, SIGNAL(pastedImage(QString)), this, SLOT(sendChatbarMessage(QString)));
-#ifdef Q_OS_MACOS
 	// Use default preferences icon in the macOS menu bar
 	qaConfigDialog->setIconVisibleInMenu(false);
-#endif
 
 	QObject::connect(qaServerAddToFavorites, &QAction::triggered, this, &MainWindow::addServerAsFavorite);
 
@@ -447,20 +429,18 @@ void MainWindow::setupGui() {
 	setCentralWidget(qtvUsers);
 	setAcceptDrops(true);
 
-#ifdef Q_OS_MAC
 	QMenu *qmWindow = new QMenu(tr("&Window"), this);
 	menubar->insertMenu(qmHelp->menuAction(), qmWindow);
-#	if QT_VERSION >= QT_VERSION_CHECK(6, 4, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 4, 0)
 	qmWindow->addAction(tr("Minimize"), QKeySequence(tr("Ctrl+M")), this, &MainWindow::showMinimized);
-#	else
+#else
 	qmWindow->addAction(tr("Minimize"), this, SLOT(showMinimized()), QKeySequence(tr("Ctrl+M")));
-#	endif
+#endif
 
 	qtvUsers->setAttribute(Qt::WA_MacShowFocusRect, false);
 	qteChat->setAttribute(Qt::WA_MacShowFocusRect, false);
 	qteChat->setFrameShape(QFrame::NoFrame);
 	qteLog->setFrameStyle(QFrame::NoFrame);
-#endif
 
 	LogDocument *ld = new LogDocument(qteLog);
 	qteLog->setDocument(ld);
@@ -532,7 +512,6 @@ void MainWindow::setupGui() {
 
 	setShowDockTitleBars((Global::get().s.wlWindowLayout == Settings::LayoutCustom) && !Global::get().s.bLockLayout);
 
-#ifdef Q_OS_MAC
 	// Workaround for QTBUG-3116 -- using a unified toolbar on Mac OS X
 	// and using restoreGeometry before the window has updated its frameStrut
 	// causes the MainWindow to jump around on screen on launch.  Workaround
@@ -541,7 +520,6 @@ void MainWindow::setupGui() {
 	// window.
 	setWindowOpacity(0.0f);
 	show();
-#endif
 
 	connect(qtvUsers->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex &)),
 			SLOT(qtvUserCurrentChanged(const QModelIndex &, const QModelIndex &)));
@@ -565,9 +543,7 @@ void MainWindow::setupGui() {
 
 	setupView(false);
 
-#ifdef Q_OS_MAC
 	setWindowOpacity(1.0f);
-#endif
 }
 
 void MainWindow::updateWindowTitle() {
@@ -3450,10 +3426,8 @@ void MainWindow::serverConnected() {
 	Global::get().uiSession    = 0;
 	Global::get().pPermissions = ChanACL::None;
 
-#ifdef Q_OS_MAC
 	// Suppress AppNap while we're connected to a server.
 	MUSuppressAppNap(true);
-#endif
 
 	Global::get().l->clearIgnore();
 	Global::get().l->setIgnore(Log::UserJoin);
@@ -3514,10 +3488,8 @@ void MainWindow::serverDisconnected(QAbstractSocket::SocketError err, QString re
 	qtvUsers->setCurrentIndex(QModelIndex());
 	qteChat->setEnabled(false);
 
-#ifdef Q_OS_MAC
 	// Remove App Nap suppression now that we're disconnected.
 	MUSuppressAppNap(false);
-#endif
 
 	QString uname, pw, host;
 	unsigned short port;
