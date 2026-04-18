@@ -19,56 +19,41 @@ def cmd(args):
 
 
 def main():
-    targetBranch = ""
-    if len(sys.argv) > 1:
-        targetBranch = sys.argv[1]
-    else:
-        raise RuntimeError("Target branch not specified!")
+    if len(sys.argv) < 2:
+        raise RuntimeError("Base revision not specified!")
+    baseRev = sys.argv[1]
 
-    print("Checking commit styles - target branch: \"{}\"".format(targetBranch))
+    print("Checking commit styles against base: \"{}\"".format(baseRev))
 
-    try:
-        # Set up remote 
-        remoteName = "mumble-upstream"
-        cmd(["git", "remote", "add", remoteName, "https://github.com/mumble-voip/mumble.git"])
+    commitHashes = [x for x in cmd(["git", "rev-list", "{}..HEAD".format(baseRev)]).split("\n") if x]
+    # Reverse the order of the commits so that oldest comes first
+    commitHashes.reverse()
 
-        # Fetch remote
-        cmd(["git", "fetch", "--no-recurse-submodules", remoteName])
+    encounteredErrors = False
 
-        # get new commits
-        commitHashes = [x for x in cmd(["git", "rev-list", "{}/{}..HEAD".format(remoteName, targetBranch)]).split("\n") if x]
-        # Reverse the order of the commits so that oldest comes first
-        commitHashes.reverse()
+    for currentHash in commitHashes:
+        description = cmd(["git", "show", "-s", "--format=%B", currentHash])
 
-        encounteredErrors = False
+        try:
+            # If we can create a commit message object, the commit message follows our requirements
+            CommitMessage(description)
 
-        for currentHash in commitHashes:
-            description = cmd(["git", "show", "-s", "--format=%B", currentHash])
-            
-            try:
-                # If we can create a commit message object, this means that the commit message does follow all our
-                # requirements
-                CommitMessage(description)
+            print("Commit {} passed all checks".format(currentHash))
+        except CommitFormatError as e:
+            encounteredErrors = True
 
-                print("Commit {} passed all checks".format(currentHash))
-            except CommitFormatError as e:
-                encounteredErrors = True
-                
-                print()
-                print("Commit {} does NOT follow the required commit style:".format(currentHash))
-                print("  " + str(e))
-                print("    The commit message was:")
-                print("    \"" + description.replace("\n", "\n    ").strip() + "\"")
-                print()
+            print()
+            print("Commit {} does NOT follow the required commit style:".format(currentHash))
+            print("  " + str(e))
+            print("    The commit message was:")
+            print("    \"" + description.replace("\n", "\n    ").strip() + "\"")
+            print()
 
 
-        if encounteredErrors:
-            print("[ERROR]: There were commits in invalid format!")
-            sys.exit(1)
+    if encounteredErrors:
+        print("[ERROR]: There were commits in invalid format!")
+        sys.exit(1)
 
-    finally:
-        # remove remote again
-        cmd(["git", "remote", "remove", remoteName])
 
 if __name__ == "__main__":
     main()
