@@ -783,6 +783,7 @@ OTHER_LDFLAGS = $(inherited) -framework QtCore
 	set_target_properties(mumble PROPERTIES
 		INSTALL_RPATH "@loader_path/../Frameworks"
 		BUILD_WITH_INSTALL_RPATH TRUE
+		LINK_DEPENDS "${_mumbleui_stamp}"
 	)
 
 	add_custom_command(TARGET mumble POST_BUILD

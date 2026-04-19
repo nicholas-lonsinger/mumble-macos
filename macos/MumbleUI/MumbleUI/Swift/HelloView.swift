@@ -13,9 +13,9 @@ public struct HelloView: View {
 			Text(bridge.greeting)
 				.font(.title2)
 				.multilineTextAlignment(.center)
-			Text("MumbleUI • Phase 0")
+			Text("hello.subtitle", bundle: Bundle(for: MUMBridgeHost.self))
 				.font(.footnote)
-				.foregroundStyle(.secondary)
+				.foregroundStyle(Color("BrandTint", bundle: Bundle(for: MUMBridgeHost.self)))
 			Button("Trigger bridge update") {
 				bridge.triggerChange()
 			}

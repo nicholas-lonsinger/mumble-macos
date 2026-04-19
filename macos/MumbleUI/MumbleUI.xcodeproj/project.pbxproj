@@ -14,6 +14,8 @@
 		0B0000000000000000000020 /* BridgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B000000000000000000001F /* BridgeModels.swift */; };
 		0B0000000000000000000023 /* MUMHelloApp.h in Headers */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000021 /* MUMHelloApp.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		0B0000000000000000000024 /* HelloApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000022 /* HelloApp.swift */; };
+		0B0000000000000000000028 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000026 /* Assets.xcassets */; };
+		0B0000000000000000000029 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000027 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +30,8 @@
 		0B000000000000000000001F /* BridgeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeModels.swift; sourceTree = "<group>"; };
 		0B0000000000000000000021 /* MUMHelloApp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MUMHelloApp.h; sourceTree = "<group>"; };
 		0B0000000000000000000022 /* HelloApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelloApp.swift; sourceTree = "<group>"; };
+		0B0000000000000000000026 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0B0000000000000000000027 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,12 +58,22 @@
 			children = (
 				0B0000000000000000000019 /* Bridge */,
 				0B0000000000000000000018 /* Public */,
+				0B0000000000000000000025 /* Resources */,
 				0B0000000000000000000014 /* Swift */,
 				0B000000000000000000000D /* Info.plist */,
 				0B000000000000000000001D /* Local.xcconfig */,
 				0B000000000000000000001E /* Local.xcconfig.example */,
 			);
 			path = MumbleUI;
+			sourceTree = "<group>";
+		};
+		0B0000000000000000000025 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				0B0000000000000000000026 /* Assets.xcassets */,
+				0B0000000000000000000027 /* Localizable.xcstrings */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		0B0000000000000000000014 /* Swift */ = {
@@ -169,6 +183,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B0000000000000000000028 /* Assets.xcassets in Resources */,
+				0B0000000000000000000029 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
