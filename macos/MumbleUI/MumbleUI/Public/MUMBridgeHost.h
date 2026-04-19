@@ -8,6 +8,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, copy, readonly) NSString *greeting;
 
+/// Invoked on the main queue after `greeting` changes. The bridge
+/// guarantees main-queue dispatch so Swift observers can safely
+/// write to `@MainActor`-isolated state.
+@property (nonatomic, copy, nullable) void (^onGreetingChanged)(void);
+
+/// Simulate a background-thread signal that mutates `greeting` and
+/// hops back to the main queue before firing `onGreetingChanged`.
+/// Proves the marshalling pattern in Phase 0 sub-task 5; later
+/// phases replace this with real `QObject::connect` hookups.
+- (void)simulateBackgroundGreetingUpdate;
+
 @end
 
 NS_ASSUME_NONNULL_END

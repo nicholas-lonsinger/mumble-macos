@@ -18,4 +18,17 @@
 	return self;
 }
 
+- (void)simulateBackgroundGreetingUpdate {
+	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+		NSString *next = @"Bridged through a background thread";
+
+		dispatch_async(dispatch_get_main_queue(), ^{
+			self->_greeting = [next copy];
+			if (self.onGreetingChanged) {
+				self.onGreetingChanged();
+			}
+		});
+	});
+}
+
 @end

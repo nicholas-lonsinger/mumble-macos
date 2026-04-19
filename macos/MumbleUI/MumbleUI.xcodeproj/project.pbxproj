@@ -11,6 +11,7 @@
 		0B000000000000000000001A /* MUMBridgeHost.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000017 /* MUMBridgeHost.mm */; };
 		0B000000000000000000001B /* MumbleUI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000015 /* MumbleUI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		0B000000000000000000001C /* MUMBridgeHost.h in Headers */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000016 /* MUMBridgeHost.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0B0000000000000000000020 /* BridgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B000000000000000000001F /* BridgeModels.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,6 +23,7 @@
 		0B0000000000000000000017 /* MUMBridgeHost.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MUMBridgeHost.mm; sourceTree = "<group>"; };
 		0B000000000000000000001D /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		0B000000000000000000001E /* Local.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig.example; sourceTree = "<group>"; };
+		0B000000000000000000001F /* BridgeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +61,7 @@
 		0B0000000000000000000014 /* Swift */ = {
 			isa = PBXGroup;
 			children = (
+				0B000000000000000000001F /* BridgeModels.swift */,
 				0B000000000000000000000C /* HelloView.swift */,
 			);
 			path = Swift;
@@ -171,6 +174,7 @@
 			files = (
 				0B000000000000000000000F /* HelloView.swift in Sources */,
 				0B000000000000000000001A /* MUMBridgeHost.mm in Sources */,
+				0B0000000000000000000020 /* BridgeModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
