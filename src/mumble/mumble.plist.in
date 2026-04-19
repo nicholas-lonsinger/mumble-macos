@@ -9,7 +9,7 @@
 	<key>CFBundleIconFile</key>
 	<string>mumble.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>mumble-client</string>
+	<string>com.nicholas-lonsinger.mumble-macos</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
