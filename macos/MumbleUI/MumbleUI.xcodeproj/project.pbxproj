@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0B000000000000000000000F /* MumbleUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B000000000000000000000C /* MumbleUI.swift */; };
+		0B000000000000000000000F /* HelloView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B000000000000000000000C /* HelloView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0B000000000000000000000C /* MumbleUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MumbleUI.swift; sourceTree = "<group>"; };
+		0B000000000000000000000C /* HelloView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelloView.swift; sourceTree = "<group>"; };
 		0B000000000000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0B000000000000000000000E /* MumbleUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MumbleUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -38,10 +38,18 @@
 		0B000000000000000000000A /* MumbleUI */ = {
 			isa = PBXGroup;
 			children = (
-				0B000000000000000000000C /* MumbleUI.swift */,
+				0B0000000000000000000014 /* Swift */,
 				0B000000000000000000000D /* Info.plist */,
 			);
 			path = MumbleUI;
+			sourceTree = "<group>";
+		};
+		0B0000000000000000000014 /* Swift */ = {
+			isa = PBXGroup;
+			children = (
+				0B000000000000000000000C /* HelloView.swift */,
+			);
+			path = Swift;
 			sourceTree = "<group>";
 		};
 		0B000000000000000000000B /* Products */ = {
@@ -130,7 +138,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0B000000000000000000000F /* MumbleUI.swift in Sources */,
+				0B000000000000000000000F /* HelloView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
