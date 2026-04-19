@@ -1,0 +1,13 @@
+// Local.xcconfig.example
+//
+// Copy this to Local.xcconfig (same directory) and adjust QT6_PREFIX
+// if your Qt install is not at the Homebrew default shown below.
+//
+// Phase 0 sub-task 6 will have CMake generate Local.xcconfig at
+// configure time; until then the copy happens by hand.
+
+QT6_PREFIX = /opt/homebrew/opt/qt
+
+CLANG_CXX_LANGUAGE_STANDARD = gnu++20
+FRAMEWORK_SEARCH_PATHS = $(inherited) $(QT6_PREFIX)/lib
+OTHER_LDFLAGS = $(inherited) -framework QtCore
