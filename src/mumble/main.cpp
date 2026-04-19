@@ -47,10 +47,15 @@
 #include <QtWidgets/QTextBrowser>
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
+
+#ifdef MUMBLE_NATIVE_HELLO
+#	include <MumbleUI/MUMHelloApp.h>
+#endif
 
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/sinks/qt_sinks.h>
@@ -332,6 +337,14 @@ CLIOptions parseCLI(int argc, char **argv) {
 
 int main(int argc, char **argv) {
 	int res = 0;
+
+#ifdef MUMBLE_NATIVE_HELLO
+	for (int i = 1; i < argc; ++i) {
+		if (std::strcmp(argv[i], "--native-hello") == 0) {
+			return MUMHelloAppRun();
+		}
+	}
+#endif
 
 	// Initialize application object.
 	MumbleApplication a(argc, argv);
