@@ -58,11 +58,14 @@ CMake writes `macos/MumbleUI/MumbleUI/Local.xcconfig` at configure time
 with the Qt prefix it discovered via `qmake -query QT_INSTALL_PREFIX`.
 The file is gitignored; regenerate it by re-running `cmake ..`.
 
-### `-DMUMBLE_NATIVE_HELLO=ON`
+### `-DMUMBLE_NATIVE_SHELL=ON`
 
-A Phase 0 diagnostic CMake option. When enabled, `Mumble --native-hello`
-skips `QApplication` entirely and opens a SwiftUI smoke-test window
-hosted by the framework's native AppKit entry point. Off by default.
+Enables the native AppKit shell. When ON, `Mumble --native` skips
+`QApplication` entirely and launches an `NSApplication`-backed shell
+(main menu, window controller, SwiftUI content via `NSHostingView`).
+Off by default; the Qt shell continues to ship without the flag. The
+two shells share one binary — the flag and CLI switch together route
+to the native entry point.
 
 ### SwiftUI Previews
 

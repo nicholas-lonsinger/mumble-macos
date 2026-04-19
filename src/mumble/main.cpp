@@ -53,8 +53,8 @@
 #include <memory>
 #include <optional>
 
-#ifdef MUMBLE_NATIVE_HELLO
-#	include <MumbleUI/MUMHelloApp.h>
+#ifdef MUMBLE_NATIVE_SHELL
+#	include <MumbleUI/MUMNativeShell.h>
 #endif
 
 #include <spdlog/sinks/dist_sink.h>
@@ -338,10 +338,10 @@ CLIOptions parseCLI(int argc, char **argv) {
 int main(int argc, char **argv) {
 	int res = 0;
 
-#ifdef MUMBLE_NATIVE_HELLO
+#ifdef MUMBLE_NATIVE_SHELL
 	for (int i = 1; i < argc; ++i) {
-		if (std::strcmp(argv[i], "--native-hello") == 0) {
-			return MUMHelloAppRun();
+		if (std::strcmp(argv[i], "--native") == 0) {
+			return MUMNativeShellRun();
 		}
 	}
 #endif

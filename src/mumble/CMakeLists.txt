@@ -711,12 +711,12 @@ target_include_directories(${TARGET_NAME} INTERFACE
 # See docs/dev/migration-qt-to-native.md.
 # ------------------------------------------------------------------
 if(APPLE)
-	option(MUMBLE_NATIVE_HELLO
-		"Enable the --native-hello CLI flag that bypasses Qt and runs a SwiftUI smoke-test window (Phase 0 sub-task 7)"
+	option(MUMBLE_NATIVE_SHELL
+		"Enable the --native CLI flag that bypasses Qt and launches the AppKit shell hosting SwiftUI content"
 		OFF
 	)
-	if(MUMBLE_NATIVE_HELLO)
-		target_compile_definitions(mumble PRIVATE MUMBLE_NATIVE_HELLO=1)
+	if(MUMBLE_NATIVE_SHELL)
+		target_compile_definitions(mumble PRIVATE MUMBLE_NATIVE_SHELL=1)
 	endif()
 
 	get_target_property(_mumbleui_qmake Qt6::qmake IMPORTED_LOCATION)

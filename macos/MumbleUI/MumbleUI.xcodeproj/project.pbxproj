@@ -12,10 +12,13 @@
 		0B000000000000000000001B /* MumbleUI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000015 /* MumbleUI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		0B000000000000000000001C /* MUMBridgeHost.h in Headers */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000016 /* MUMBridgeHost.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		0B0000000000000000000020 /* BridgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B000000000000000000001F /* BridgeModels.swift */; };
-		0B0000000000000000000023 /* MUMHelloApp.h in Headers */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000021 /* MUMHelloApp.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		0B0000000000000000000024 /* HelloApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000022 /* HelloApp.swift */; };
+		0B0000000000000000000023 /* MUMNativeShell.h in Headers */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000021 /* MUMNativeShell.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0B0000000000000000000024 /* ShellEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000022 /* ShellEntry.swift */; };
 		0B0000000000000000000028 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000026 /* Assets.xcassets */; };
 		0B0000000000000000000029 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000027 /* Localizable.xcstrings */; };
+		0B000000000000000000002B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B000000000000000000002A /* AppDelegate.swift */; };
+		0B000000000000000000002D /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B000000000000000000002C /* MainWindowController.swift */; };
+		0B000000000000000000002F /* MainMenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B000000000000000000002E /* MainMenuBuilder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,10 +31,13 @@
 		0B000000000000000000001D /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		0B000000000000000000001E /* Local.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig.example; sourceTree = "<group>"; };
 		0B000000000000000000001F /* BridgeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeModels.swift; sourceTree = "<group>"; };
-		0B0000000000000000000021 /* MUMHelloApp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MUMHelloApp.h; sourceTree = "<group>"; };
-		0B0000000000000000000022 /* HelloApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelloApp.swift; sourceTree = "<group>"; };
+		0B0000000000000000000021 /* MUMNativeShell.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MUMNativeShell.h; sourceTree = "<group>"; };
+		0B0000000000000000000022 /* ShellEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellEntry.swift; sourceTree = "<group>"; };
 		0B0000000000000000000026 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0B0000000000000000000027 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		0B000000000000000000002A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		0B000000000000000000002C /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
+		0B000000000000000000002E /* MainMenuBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuBuilder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,9 +85,12 @@
 		0B0000000000000000000014 /* Swift */ = {
 			isa = PBXGroup;
 			children = (
+				0B000000000000000000002A /* AppDelegate.swift */,
 				0B000000000000000000001F /* BridgeModels.swift */,
-				0B0000000000000000000022 /* HelloApp.swift */,
 				0B000000000000000000000C /* HelloView.swift */,
+				0B000000000000000000002E /* MainMenuBuilder.swift */,
+				0B000000000000000000002C /* MainWindowController.swift */,
+				0B0000000000000000000022 /* ShellEntry.swift */,
 			);
 			path = Swift;
 			sourceTree = "<group>";
@@ -91,7 +100,7 @@
 			children = (
 				0B0000000000000000000015 /* MumbleUI.h */,
 				0B0000000000000000000016 /* MUMBridgeHost.h */,
-				0B0000000000000000000021 /* MUMHelloApp.h */,
+				0B0000000000000000000021 /* MUMNativeShell.h */,
 			);
 			path = Public;
 			sourceTree = "<group>";
@@ -121,7 +130,7 @@
 			files = (
 				0B000000000000000000001B /* MumbleUI.h in Headers */,
 				0B000000000000000000001C /* MUMBridgeHost.h in Headers */,
-				0B0000000000000000000023 /* MUMHelloApp.h in Headers */,
+				0B0000000000000000000023 /* MUMNativeShell.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -195,10 +204,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0B000000000000000000000F /* HelloView.swift in Sources */,
-				0B000000000000000000001A /* MUMBridgeHost.mm in Sources */,
+				0B000000000000000000002B /* AppDelegate.swift in Sources */,
 				0B0000000000000000000020 /* BridgeModels.swift in Sources */,
-				0B0000000000000000000024 /* HelloApp.swift in Sources */,
+				0B000000000000000000000F /* HelloView.swift in Sources */,
+				0B000000000000000000002F /* MainMenuBuilder.swift in Sources */,
+				0B000000000000000000002D /* MainWindowController.swift in Sources */,
+				0B000000000000000000001A /* MUMBridgeHost.mm in Sources */,
+				0B0000000000000000000024 /* ShellEntry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
