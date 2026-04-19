@@ -11,7 +11,6 @@
 	self = [super init];
 	if (self) {
 		_qtObject = new QObject();
-		_qtObject->setObjectName(QStringLiteral("Hello from a Qt-backed objectName"));
 
 		__weak MUMBridgeHost *weakSelf = self;
 		QObject::connect(_qtObject, &QObject::objectNameChanged,
@@ -24,13 +23,15 @@
 				if (!strongSelf) {
 					return;
 				}
-				strongSelf->_greeting = [NSString stringWithUTF8String:name.toUtf8().constData()];
+				strongSelf->_greeting = name.toNSString();
 				if (strongSelf.onGreetingChanged) {
 					strongSelf.onGreetingChanged();
 				}
 			});
 
-		_greeting = [NSString stringWithUTF8String:_qtObject->objectName().toUtf8().constData()];
+		// Seeding the name fires objectNameChanged, which populates
+		// _greeting through the lambda above.
+		_qtObject->setObjectName(QStringLiteral("Hello from a Qt-backed objectName"));
 	}
 	return self;
 }
@@ -43,13 +44,13 @@
 	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
 		NSString *timestamp = [NSDate date].description;
 		NSString *next = [NSString stringWithFormat:@"Qt signal at %@", timestamp];
-		const char *nextUTF8 = [next UTF8String];
 
 		dispatch_async(dispatch_get_main_queue(), ^{
-			// Mutating the Qt object on main emits objectNameChanged
-			// synchronously; our lambda above updates _greeting and
-			// fires onGreetingChanged from inside the emission.
-			self->_qtObject->setObjectName(QString::fromUtf8(nextUTF8));
+			// The block retains `next`, so the NSString is still
+			// alive here. QString::fromNSString copies the contents,
+			// side-stepping the autorelease-pool lifetime trap that
+			// [NSString UTF8String] has across dispatch hops.
+			self->_qtObject->setObjectName(QString::fromNSString(next));
 		});
 	});
 }
