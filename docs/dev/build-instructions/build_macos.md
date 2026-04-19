@@ -22,6 +22,11 @@ brew update && brew install \
   poco
 ```
 
+You also need a current Xcode install (not just the command-line tools) so
+that `xcodebuild` can build `MumbleUI.framework`, the native UI framework
+that CMake embeds into `Mumble.app`. See [the migration
+doc](../migration-qt-to-native.md) for context.
+
 
 ## Running cmake
 
@@ -39,6 +44,31 @@ For all available build options, have a look [here](cmake_options.md).
 
 Once cmake has been run, you can issue `cmake --build .` from the build directory in order to actually start compiling the sources. If you want to
 parallelize the build, use `cmake --build . -j <jobs>` where `<jobs>` is the amount of parallel jobs to be run concurrently.
+
+
+## MumbleUI (native UI framework)
+
+On macOS, CMake drives a secondary `xcodebuild` invocation that produces
+`MumbleUI.framework` from the Xcode project at
+`macos/MumbleUI/MumbleUI.xcodeproj`. The framework is embedded into
+`Mumble.app/Contents/Frameworks/` and linked into the main `Mumble`
+binary. No extra step is required — it all happens inside `cmake --build .`.
+
+CMake writes `macos/MumbleUI/MumbleUI/Local.xcconfig` at configure time
+with the Qt prefix it discovered via `qmake -query QT_INSTALL_PREFIX`.
+The file is gitignored; regenerate it by re-running `cmake ..`.
+
+### `-DMUMBLE_NATIVE_HELLO=ON`
+
+A Phase 0 diagnostic CMake option. When enabled, `Mumble --native-hello`
+skips `QApplication` entirely and opens a SwiftUI smoke-test window
+hosted by the framework's native AppKit entry point. Off by default.
+
+### SwiftUI Previews
+
+Xcode Previews only work when you open `macos/MumbleUI/MumbleUI.xcodeproj`
+directly in Xcode. Building through CMake is the right path for the
+shipping app; Xcode is the right path for iterating on SwiftUI views.
 
 
 ## FAQ
