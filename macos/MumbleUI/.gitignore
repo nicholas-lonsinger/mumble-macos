@@ -1,0 +1,10 @@
+# Xcode user-specific state
+xcuserdata/
+*.xcuserstate
+
+# Local CMake-generated Qt configuration (Phase 0 sub-task 4+)
+Local.xcconfig
+
+# Xcode build artifacts
+build/
+DerivedData/
