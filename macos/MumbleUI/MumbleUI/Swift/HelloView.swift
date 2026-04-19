@@ -1,6 +1,8 @@
 import SwiftUI
 
 public struct HelloView: View {
+	private let bridge = MUMBridgeHost()
+
 	public init() {}
 
 	public var body: some View {
@@ -8,7 +10,7 @@ public struct HelloView: View {
 			Image(systemName: "mic.fill")
 				.font(.system(size: 48))
 				.foregroundStyle(.tint)
-			Text("Hello from SwiftUI")
+			Text(bridge.greeting)
 				.font(.title2)
 			Text("MumbleUI • Phase 0")
 				.font(.footnote)

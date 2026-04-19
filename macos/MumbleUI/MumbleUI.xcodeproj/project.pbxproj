@@ -8,12 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		0B000000000000000000000F /* HelloView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B000000000000000000000C /* HelloView.swift */; };
+		0B000000000000000000001A /* MUMBridgeHost.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000017 /* MUMBridgeHost.mm */; };
+		0B000000000000000000001B /* MumbleUI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000015 /* MumbleUI.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0B000000000000000000001C /* MUMBridgeHost.h in Headers */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000016 /* MUMBridgeHost.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0B000000000000000000000C /* HelloView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelloView.swift; sourceTree = "<group>"; };
 		0B000000000000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0B000000000000000000000E /* MumbleUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MumbleUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		0B0000000000000000000015 /* MumbleUI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MumbleUI.h; sourceTree = "<group>"; };
+		0B0000000000000000000016 /* MUMBridgeHost.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MUMBridgeHost.h; sourceTree = "<group>"; };
+		0B0000000000000000000017 /* MUMBridgeHost.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MUMBridgeHost.mm; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -38,6 +44,8 @@
 		0B000000000000000000000A /* MumbleUI */ = {
 			isa = PBXGroup;
 			children = (
+				0B0000000000000000000019 /* Bridge */,
+				0B0000000000000000000018 /* Public */,
 				0B0000000000000000000014 /* Swift */,
 				0B000000000000000000000D /* Info.plist */,
 			);
@@ -50,6 +58,23 @@
 				0B000000000000000000000C /* HelloView.swift */,
 			);
 			path = Swift;
+			sourceTree = "<group>";
+		};
+		0B0000000000000000000018 /* Public */ = {
+			isa = PBXGroup;
+			children = (
+				0B0000000000000000000015 /* MumbleUI.h */,
+				0B0000000000000000000016 /* MUMBridgeHost.h */,
+			);
+			path = Public;
+			sourceTree = "<group>";
+		};
+		0B0000000000000000000019 /* Bridge */ = {
+			isa = PBXGroup;
+			children = (
+				0B0000000000000000000017 /* MUMBridgeHost.mm */,
+			);
+			path = Bridge;
 			sourceTree = "<group>";
 		};
 		0B000000000000000000000B /* Products */ = {
@@ -67,6 +92,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B000000000000000000001B /* MumbleUI.h in Headers */,
+				0B000000000000000000001C /* MUMBridgeHost.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +166,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0B000000000000000000000F /* HelloView.swift in Sources */,
+				0B000000000000000000001A /* MUMBridgeHost.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
