@@ -42,6 +42,7 @@ final class MumbleClient {
         state = .connecting
         lastError = nil
         currentParameters = parameters
+        Self.log.info("Connecting to \(parameters.host, privacy: .public):\(parameters.port, privacy: .public) as \(parameters.username, privacy: .public)")
 
         let transport = MumbleTransport(host: parameters.host, port: parameters.port)
         self.transport = transport
@@ -52,6 +53,9 @@ final class MumbleClient {
                                        errorMessage: "Couldn't reach \(parameters.host):\(parameters.port) within \(Int(Self.connectTimeout.components.seconds)) seconds.")
             serverCertificateFingerprint = await transport.peerCertificateFingerprint
             state = .handshaking
+            if let fp = serverCertificateFingerprint {
+                Self.log.info("TLS established, peer cert SHA-256 \(fp, privacy: .public)")
+            }
 
             try await sendVersion(transport: transport)
             try await sendAuthenticate(transport: transport, parameters: parameters)
@@ -59,6 +63,7 @@ final class MumbleClient {
             startReceiveLoop(transport: transport)
             startPingLoop(transport: transport)
         } catch {
+            Self.log.error("Connect failed: \(error.localizedDescription, privacy: .public)")
             state = .failed(reason: error.localizedDescription)
             lastError = error.localizedDescription
             await teardown()
@@ -80,8 +85,10 @@ final class MumbleClient {
     }
 
     func disconnect() async {
-        if state != .disconnected {
+        let wasActive = state != .disconnected
+        if wasActive {
             state = .disconnected
+            Self.log.info("Disconnecting (user-initiated)")
         }
         await teardown()
         channels.removeAll()
@@ -158,6 +165,7 @@ final class MumbleClient {
     }
 
     private func handleReceiveFailure(_ error: Error) async {
+        Self.log.error("Receive loop failed: \(error.localizedDescription, privacy: .public)")
         if state != .disconnected {
             state = .failed(reason: error.localizedDescription)
             lastError = error.localizedDescription
@@ -192,6 +200,7 @@ final class MumbleClient {
                 sessionID = msg.session
                 if let welcome = msg.welcomeText { serverWelcomeText = welcome }
                 state = .connected
+                Self.log.info("ServerSync received — session=\(msg.session ?? 0, privacy: .public), channels=\(self.channels.count, privacy: .public), users=\(self.users.count, privacy: .public)")
             case .channelState:
                 let msg = try ChannelStateMessage(reader: &reader)
                 applyChannelState(msg)
@@ -384,12 +393,16 @@ final class MumbleClient {
 
     private func startPingLoop(transport: MumbleTransport) {
         pingTask = Task { [weak self] in
+            var sent: UInt64 = 0
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(for: Self.pingInterval)
                     if Task.isCancelled { return }
-                    let ping = PingMessage(timestamp: UInt64(Date().timeIntervalSince1970 * 1_000_000))
+                    let timestamp = UInt64(Date().timeIntervalSince1970 * 1_000_000)
+                    let ping = PingMessage(timestamp: timestamp)
                     try await transport.sendFrame(ping)
+                    sent &+= 1
+                    Self.log.debug("Sent ping #\(sent, privacy: .public) ts=\(timestamp, privacy: .public)")
                 } catch is CancellationError {
                     return
                 } catch {
