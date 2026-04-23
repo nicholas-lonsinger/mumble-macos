@@ -117,7 +117,7 @@ private struct ChannelRowView: View {
     let onSelectChannel: (UInt32) -> Void
 
     var body: some View {
-        DisclosureGroup(isExpanded: .constant(true)) {
+        DisclosureGroup(isExpanded: .constant(hasOccupantsInSubtree)) {
             ForEach(sortedUsers) { user in
                 UserRowView(
                     user: user,
@@ -160,6 +160,22 @@ private struct ChannelRowView: View {
     private func isUserSpeaking(_ user: UserNode) -> Bool {
         if user.id == ownSessionID { return isTransmitting }
         return speakingSessions.contains(user.id)
+    }
+
+    /// A channel is expanded iff it — or anything below it — has users.
+    /// Keeps the sidebar scannable on huge servers by folding empty branches.
+    private var hasOccupantsInSubtree: Bool {
+        subtreeHasOccupants(of: channel)
+    }
+
+    private func subtreeHasOccupants(of node: ChannelNode) -> Bool {
+        if !node.userSessionIDs.isEmpty { return true }
+        for childID in node.childChannelIDs {
+            if let child = allChannels[childID], subtreeHasOccupants(of: child) {
+                return true
+            }
+        }
+        return false
     }
 
     private var sortedChildren: [ChannelNode] {
