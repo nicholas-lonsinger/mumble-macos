@@ -116,29 +116,19 @@ private struct ChannelRowView: View {
     let isTransmitting: Bool
     let onSelectChannel: (UInt32) -> Void
 
-    @State private var isExpanded: Bool
+    /// Nil while the row follows live occupancy. A user toggle latches this
+    /// to true/false and from then on the row ignores occupancy changes.
+    @State private var userOverride: Bool?
 
-    init(channel: ChannelNode,
-         allChannels: [UInt32: ChannelNode],
-         usersByID: [UInt32: UserNode],
-         ownSessionID: UInt32?,
-         speakingSessions: Set<UInt32>,
-         isTransmitting: Bool,
-         onSelectChannel: @escaping (UInt32) -> Void) {
-        self.channel = channel
-        self.allChannels = allChannels
-        self.usersByID = usersByID
-        self.ownSessionID = ownSessionID
-        self.speakingSessions = speakingSessions
-        self.isTransmitting = isTransmitting
-        self.onSelectChannel = onSelectChannel
-        // Occupancy-based default on first appearance. User toggles persist
-        // afterwards because @State is keyed by SwiftUI view identity.
-        _isExpanded = State(initialValue: Self.subtreeHasOccupants(of: channel, in: allChannels))
+    private var effectiveIsExpanded: Bool {
+        userOverride ?? Self.subtreeHasOccupants(of: channel, in: allChannels)
     }
 
     var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
+        DisclosureGroup(isExpanded: Binding(
+            get: { effectiveIsExpanded },
+            set: { userOverride = $0 }
+        )) {
             ForEach(sortedUsers) { user in
                 UserRowView(
                     user: user,
