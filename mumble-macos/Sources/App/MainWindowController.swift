@@ -57,7 +57,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     @objc func showConnectSheet(_ sender: Any?) {
         guard let window else { return }
         let sheetWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 360),
             styleMask: [.titled],
             backing: .buffered,
             defer: false
