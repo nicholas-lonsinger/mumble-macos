@@ -42,6 +42,11 @@ enum MainMenu {
                      keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
 
+        menu.addItem(withTitle: "Certificate Manager…",
+                     action: #selector(AppDelegate.showCertificateManager(_:)),
+                     keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+
         let services = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         let servicesMenu = NSMenu()
         services.submenu = servicesMenu
