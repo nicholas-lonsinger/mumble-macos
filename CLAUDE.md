@@ -42,6 +42,14 @@ Rule: the tree in `MainView.swift` renders only when `client.state == .connected
 - PTT is Globe(Fn) + Control via `NSEvent.addLocalMonitorForEvents(.flagsChanged)`. Do **not** use ⌥Space or other key-based combos — macOS plays the system "funk" beep on keyup for unhandled key events, which bleeds into recordings.
 - Connect form persists host/port/username via `@AppStorage`. Password stays `@State` (intentionally not persisted).
 
+## Identity / keychain
+
+- **Only touch the data-protection keychain. Never the login keychain.** Every `SecItem*` call in `IdentityStore` passes `kSecUseDataProtectionKeychain: true`, and sweep queries are also scoped to it. Without that flag the call hits the default (login) keychain, which in a sandboxed app can still see and delete items the user's dev signing cert lives in. This has already cost one dev signing cert; don't bet on "the sandbox will sort it out."
+- The entitlement `keychain-access-groups = $(AppIdentifierPrefix)com.nicholas-lonsinger.mumble-macos` is required for the data-protection keychain on macOS. First build after touching entitlements or signing: `xcodebuild … -allowProvisioningUpdates -allowProvisioningDeviceRegistration build` so Xcode can re-issue the profile.
+- `SecItemCopyMatching(kSecClassIdentity, kSecUseDataProtectionKeychain: true)` reliably returns `errSecItemNotFound` on macOS even when a matching cert + key are in the keychain. `currentIdentity()` works around this by fetching the cert by label and pairing it with `SecIdentityCreateWithCertificate`.
+- Adding a whole `SecIdentity` via `SecItemAdd(kSecValueRef: identity, …)` doesn't reliably land both halves on macOS. Import adds the cert and the private key as two separate `SecItemAdd` calls, each labelled/tagged so we can find them again.
+- `kSecAttrKeyType` comes back as `NSNumber` on macOS (and `CFString` on iOS). Accept both.
+
 ## Concurrency
 
 - `MumbleClient` is `@MainActor` + `@Observable`. All mutations of its state go through main. Network reads hop to main before touching the model.
