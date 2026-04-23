@@ -287,7 +287,9 @@ struct ChannelRemoveMessage: MumbleIncomingMessage {
 
 // MARK: - UserState
 
-struct UserStateMessage: MumbleIncomingMessage {
+struct UserStateMessage: MumbleIncomingMessage, MumbleOutgoingMessage {
+    static let messageType: MumbleMessageType = .userState
+
     var session: UInt32?
     var actor: UInt32?
     var name: String?
@@ -302,6 +304,16 @@ struct UserStateMessage: MumbleIncomingMessage {
     var hash: String?
     var prioritySpeaker: Bool?
     var recording: Bool?
+
+    init(session: UInt32? = nil,
+         channelID: UInt32? = nil,
+         selfMute: Bool? = nil,
+         selfDeaf: Bool? = nil) {
+        self.session = session
+        self.channelID = channelID
+        self.selfMute = selfMute
+        self.selfDeaf = selfDeaf
+    }
 
     init(reader: inout ProtobufReader) throws {
         while let (field, wire) = try reader.readTag() {
@@ -323,6 +335,25 @@ struct UserStateMessage: MumbleIncomingMessage {
             default: try reader.skipField(wire)
             }
         }
+    }
+
+    func encodePayload() -> Data {
+        var writer = ProtobufWriter()
+        if let session { writer.writeField(1, uint32: session) }
+        if let actor { writer.writeField(2, uint32: actor) }
+        if let name { writer.writeField(3, string: name) }
+        if let userID { writer.writeField(4, uint32: userID) }
+        if let channelID { writer.writeField(5, uint32: channelID) }
+        if let mute { writer.writeField(6, bool: mute) }
+        if let deaf { writer.writeField(7, bool: deaf) }
+        if let suppress { writer.writeField(8, bool: suppress) }
+        if let selfMute { writer.writeField(9, bool: selfMute) }
+        if let selfDeaf { writer.writeField(10, bool: selfDeaf) }
+        if let comment { writer.writeField(14, string: comment) }
+        if let hash { writer.writeField(15, string: hash) }
+        if let prioritySpeaker { writer.writeField(18, bool: prioritySpeaker) }
+        if let recording { writer.writeField(19, bool: recording) }
+        return writer.data
     }
 }
 

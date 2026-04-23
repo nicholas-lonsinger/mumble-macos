@@ -389,6 +389,39 @@ final class MumbleClient {
         detachUser(session: session, from: user.channelID)
     }
 
+    // MARK: - Outgoing user actions
+
+    func moveToChannel(_ channelID: UInt32) async {
+        guard case .connected = state, let session = sessionID, let transport else { return }
+        if users[session]?.channelID == channelID { return }
+        let msg = UserStateMessage(session: session, channelID: channelID)
+        do {
+            try await transport.sendFrame(msg)
+            Self.log.info("Requested move to channel \(channelID, privacy: .public)")
+        } catch {
+            Self.log.error("Failed to send channel move: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func setSelfMute(_ muted: Bool) async {
+        await sendSelfState(selfMute: muted)
+    }
+
+    func setSelfDeaf(_ deafened: Bool) async {
+        // Deaf implies mute in Mumble.
+        await sendSelfState(selfMute: deafened ? true : nil, selfDeaf: deafened)
+    }
+
+    private func sendSelfState(selfMute: Bool? = nil, selfDeaf: Bool? = nil) async {
+        guard case .connected = state, let session = sessionID, let transport else { return }
+        let msg = UserStateMessage(session: session, selfMute: selfMute, selfDeaf: selfDeaf)
+        do {
+            try await transport.sendFrame(msg)
+        } catch {
+            Self.log.error("Failed to send self-state: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     // MARK: - Keepalive ping
 
     private func startPingLoop(transport: MumbleTransport) {
