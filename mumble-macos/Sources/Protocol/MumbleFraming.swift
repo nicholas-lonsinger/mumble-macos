@@ -33,9 +33,20 @@ enum MumbleMessageType: UInt16, CaseIterable, Sendable {
 enum MumbleFraming {
     static let headerSize = 6
 
-    struct Header: Sendable, Equatable {
-        let type: MumbleMessageType
+    /// Raw, untyped view of a Mumble TCP frame header. The raw message type
+    /// number is always preserved so callers can report the exact id when it
+    /// doesn't correspond to a known `MumbleMessageType`.
+    struct RawHeader: Sendable, Equatable {
+        let rawType: UInt16
         let payloadLength: UInt32
+
+        var type: MumbleMessageType? {
+            MumbleMessageType(rawValue: rawType)
+        }
+    }
+
+    enum FramingError: Error, Sendable {
+        case truncatedHeader(got: Int)
     }
 
     static func encode(type: MumbleMessageType, payload: Data) -> Data {
@@ -52,16 +63,17 @@ enum MumbleFraming {
         return out
     }
 
-    static func parseHeader(_ data: Data) -> Header? {
-        guard data.count >= headerSize else { return nil }
+    static func parseHeader(_ data: Data) throws -> RawHeader {
+        guard data.count >= headerSize else {
+            throw FramingError.truncatedHeader(got: data.count)
+        }
         let start = data.startIndex
         let rawType = (UInt16(data[start]) << 8) | UInt16(data[start + 1])
-        guard let type = MumbleMessageType(rawValue: rawType) else { return nil }
         let length = (UInt32(data[start + 2]) << 24)
             | (UInt32(data[start + 3]) << 16)
             | (UInt32(data[start + 4]) << 8)
             | UInt32(data[start + 5])
-        return Header(type: type, payloadLength: length)
+        return RawHeader(rawType: rawType, payloadLength: length)
     }
 }
 

@@ -3,12 +3,30 @@ import Foundation
 import Network
 import Security
 
-enum MumbleTransportError: Error, Sendable {
+enum MumbleTransportError: Error, Sendable, LocalizedError {
     case notConnected
     case remoteClosed
-    case invalidFrame
+    case truncatedHeader(got: Int)
+    case unexpectedShortRead(expected: Int, got: Int)
     case cancelled
     case underlying(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .notConnected:
+            return "Not connected to a Mumble server."
+        case .remoteClosed:
+            return "The server closed the connection."
+        case let .truncatedHeader(got):
+            return "Truncated frame header: got \(got) bytes, expected \(MumbleFraming.headerSize)."
+        case let .unexpectedShortRead(expected, got):
+            return "Short read: expected \(expected) bytes, got \(got)."
+        case .cancelled:
+            return "The connection was cancelled."
+        case let .underlying(message):
+            return message
+        }
+    }
 }
 
 /// Async wrapper around NWConnection that speaks Mumble's framed TCP protocol over TLS.
@@ -110,10 +128,13 @@ actor MumbleTransport {
         try await send(MumbleFraming.encode(type: type, payload: payload))
     }
 
-    func receiveFrame() async throws -> (header: MumbleFraming.Header, payload: Data) {
+    func receiveFrame() async throws -> (header: MumbleFraming.RawHeader, payload: Data) {
         let headerData = try await receiveExact(MumbleFraming.headerSize)
-        guard let header = MumbleFraming.parseHeader(headerData) else {
-            throw MumbleTransportError.invalidFrame
+        let header: MumbleFraming.RawHeader
+        do {
+            header = try MumbleFraming.parseHeader(headerData)
+        } catch MumbleFraming.FramingError.truncatedHeader(let got) {
+            throw MumbleTransportError.truncatedHeader(got: got)
         }
         let payload: Data
         if header.payloadLength > 0 {
@@ -140,7 +161,7 @@ actor MumbleTransport {
                     continuation.resume(throwing: MumbleTransportError.remoteClosed)
                     return
                 }
-                continuation.resume(throwing: MumbleTransportError.invalidFrame)
+                continuation.resume(throwing: MumbleTransportError.unexpectedShortRead(expected: count, got: data?.count ?? 0))
             }
         }
     }

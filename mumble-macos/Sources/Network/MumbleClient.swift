@@ -147,7 +147,7 @@ final class MumbleClient {
             while !Task.isCancelled {
                 do {
                     let (header, payload) = try await transport.receiveFrame()
-                    await self?.handleFrame(header: header, payload: payload)
+                    try await self?.handleFrame(header: header, payload: payload)
                 } catch {
                     if Task.isCancelled { return }
                     await self?.handleReceiveFailure(error)
@@ -165,10 +165,17 @@ final class MumbleClient {
         await teardown()
     }
 
-    private func handleFrame(header: MumbleFraming.Header, payload: Data) async {
+    private func handleFrame(header: MumbleFraming.RawHeader, payload: Data) async throws {
+        guard let type = header.type else {
+            throw MumbleProtocolError.unknownMessageType(
+                rawType: header.rawType,
+                payloadLength: header.payloadLength,
+                payloadPreview: Self.hexPreview(payload, max: 32)
+            )
+        }
         var reader = ProtobufReader(payload)
         do {
-            switch header.type {
+            switch type {
             case .version:
                 let msg = try VersionMessage(reader: &reader)
                 if let v2 = msg.versionV2 {
@@ -215,12 +222,39 @@ final class MumbleClient {
             case .permissionDenied:
                 let msg = try PermissionDeniedMessage(reader: &reader)
                 Self.log.warning("Permission denied: \(msg.reason ?? "(no reason)")")
-            default:
-                Self.log.debug("Ignoring message type \(header.type.rawValue, privacy: .public)")
+            case .udpTunnel,
+                 .authenticate,
+                 .banList,
+                 .acl,
+                 .queryUsers,
+                 .contextActionModify,
+                 .contextAction,
+                 .userList,
+                 .voiceTarget,
+                 .permissionQuery,
+                 .userStats,
+                 .requestBlob,
+                 .suggestConfig,
+                 .pluginDataTransmission:
+                // Known message type that we don't consume yet. Logged explicitly so it's
+                // obvious when something we've ignored actually shows up on the wire.
+                Self.log.info("Received \(String(describing: type), privacy: .public) (\(payload.count) bytes), not yet handled")
             }
-        } catch {
-            Self.log.error("Failed to decode \(String(describing: header.type), privacy: .public): \(error.localizedDescription, privacy: .public)")
+        } catch let error as ProtobufError {
+            throw MumbleProtocolError.messageDecodeFailed(
+                type: type,
+                payloadLength: header.payloadLength,
+                payloadPreview: Self.hexPreview(payload, max: 32),
+                underlying: error
+            )
         }
+    }
+
+    private static func hexPreview(_ data: Data, max: Int) -> String {
+        let limit = Swift.min(data.count, max)
+        let prefix = data.prefix(limit)
+        let hex = prefix.map { String(format: "%02x", $0) }.joined(separator: " ")
+        return data.count > limit ? "\(hex) …" : hex
     }
 
     // MARK: - Channel and user model mutations

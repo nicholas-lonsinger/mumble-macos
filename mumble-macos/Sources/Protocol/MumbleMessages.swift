@@ -4,6 +4,20 @@ import Foundation
 // Field numbers match Mumble.proto; only fields the MVP uses are modelled —
 // additional fields can be added here as features expand.
 
+enum MumbleProtocolError: Error, Sendable, LocalizedError {
+    case unknownMessageType(rawType: UInt16, payloadLength: UInt32, payloadPreview: String)
+    case messageDecodeFailed(type: MumbleMessageType, payloadLength: UInt32, payloadPreview: String, underlying: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case let .unknownMessageType(rawType, payloadLength, payloadPreview):
+            return "Unknown Mumble TCP message type \(rawType) (payload \(payloadLength) bytes; first bytes: \(payloadPreview))."
+        case let .messageDecodeFailed(type, payloadLength, payloadPreview, underlying):
+            return "Failed to decode \(type) (\(payloadLength) bytes; first bytes: \(payloadPreview)): \(underlying)."
+        }
+    }
+}
+
 protocol MumbleOutgoingMessage: Sendable {
     static var messageType: MumbleMessageType { get }
     func encodePayload() -> Data
