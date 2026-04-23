@@ -4,9 +4,11 @@ struct ConnectView: View {
     let onConnect: (ServerConnectionParameters) -> Void
     let onCancel: () -> Void
 
-    @State private var host = ServerConnectionParameters.defaultPublicTestServer.host
-    @State private var port = String(ServerConnectionParameters.defaultPublicTestServer.port)
-    @State private var username = ServerConnectionParameters.defaultPublicTestServer.username
+    // Host/port/username persist across launches. Password stays session-scoped
+    // until we add Keychain-backed storage (or client certs, which make it moot).
+    @AppStorage("lastServerHost") private var host = ServerConnectionParameters.defaultPublicTestServer.host
+    @AppStorage("lastServerPort") private var port = String(ServerConnectionParameters.defaultPublicTestServer.port)
+    @AppStorage("lastServerUsername") private var username = ServerConnectionParameters.defaultPublicTestServer.username
     @State private var password = ""
 
     var body: some View {
