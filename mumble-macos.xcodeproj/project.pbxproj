@@ -125,6 +125,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -166,7 +167,18 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
+					"HAVE_CONFIG_H=1",
+					"OPUS_BUILD=1",
 					"$(inherited)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/include",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/src",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/celt",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/silk",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/silk/float",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus-bridge",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -191,6 +203,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -228,6 +241,20 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"HAVE_CONFIG_H=1",
+					"OPUS_BUILD=1",
+					"$(inherited)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/include",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/src",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/celt",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/silk",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus/silk/float",
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus-bridge",
+				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -273,6 +300,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "mumble-macos/mumble-macos-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
@@ -305,6 +333,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "mumble-macos/mumble-macos-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Release;

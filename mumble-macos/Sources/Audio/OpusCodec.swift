@@ -3,25 +3,29 @@ import AudioToolbox
 import Foundation
 
 enum OpusCodecError: Error, Sendable, LocalizedError {
-    case formatUnavailable
-    case converterCreationFailed(OSStatus)
-    case encodeFailed(OSStatus)
-    case decodeFailed(OSStatus)
+    case initializationFailed(Int32)
+    case encodeFailed(Int32)
+    case decodeFailed(Int32)
     case unsupportedInput
 
     var errorDescription: String? {
         switch self {
-        case .formatUnavailable:
-            return "Couldn't construct an AVAudioFormat for Opus — macOS may not expose the encoder on this system."
-        case .converterCreationFailed(let status):
-            return "AVAudioConverter initialization failed (OSStatus \(status))."
-        case .encodeFailed(let status):
-            return "Opus encode failed (OSStatus \(status))."
-        case .decodeFailed(let status):
-            return "Opus decode failed (OSStatus \(status))."
+        case .initializationFailed(let code):
+            return "libopus failed to initialize (error \(code): \(Self.describe(code)))."
+        case .encodeFailed(let code):
+            return "libopus encode failed (error \(code): \(Self.describe(code)))."
+        case .decodeFailed(let code):
+            return "libopus decode failed (error \(code): \(Self.describe(code)))."
         case .unsupportedInput:
             return "Received audio in an unexpected format."
         }
+    }
+
+    private static func describe(_ code: Int32) -> String {
+        if let cstr = opus_strerror(code) {
+            return String(cString: cstr)
+        }
+        return "unknown"
     }
 }
 
@@ -41,152 +45,120 @@ enum MumbleAudioParameters {
                       channels: channelCount,
                       interleaved: false)!
     }
-
-    static func opusFormat() -> AVAudioFormat? {
-        var asbd = AudioStreamBasicDescription(
-            mSampleRate: sampleRate,
-            mFormatID: kAudioFormatOpus,
-            mFormatFlags: 0,
-            mBytesPerPacket: 0,
-            mFramesPerPacket: framesPerPacket,
-            mBytesPerFrame: 0,
-            mChannelsPerFrame: channelCount,
-            mBitsPerChannel: 0,
-            mReserved: 0
-        )
-        return AVAudioFormat(streamDescription: &asbd)
-    }
 }
 
-/// Encodes 48 kHz mono Float32 PCM into Opus frames. One instance is bound to
-/// one outgoing voice stream; keep it around for the lifetime of a PTT burst
-/// so the encoder stays stateful.
+/// Encodes 48 kHz mono Float32 PCM into raw Opus packets. One instance is
+/// bound to one outgoing voice stream; keep it across a PTT burst so the
+/// encoder's internal state stays coherent.
 final class OpusEncoder {
-    private let converter: AVAudioConverter
-    private let pcmFormat: AVAudioFormat
-    private let opusFormat: AVAudioFormat
-    /// Worst-case compressed packet bound — 4000 bytes is the Opus spec ceiling
-    /// and what the reference implementation reserves.
-    private static let maxPacketSize: UInt32 = 4_000
+    private let encoder: OpaquePointer
+    /// Worst-case compressed packet bound that Mumble + Opus both agree on.
+    private static let maxPacketSize: Int = 4_000
 
-    init(bitrate: Int32 = 32_000) throws {
-        guard let opusFormat = MumbleAudioParameters.opusFormat() else {
-            throw OpusCodecError.formatUnavailable
+    init(bitrate: Int32 = 32_000, application: Int32 = OPUS_APPLICATION_VOIP) throws {
+        var error: Int32 = OPUS_OK
+        guard let enc = opus_encoder_create(
+            Int32(MumbleAudioParameters.sampleRate),
+            Int32(MumbleAudioParameters.channelCount),
+            application,
+            &error
+        ), error == OPUS_OK else {
+            throw OpusCodecError.initializationFailed(error)
         }
-        let pcmFormat = MumbleAudioParameters.pcmFormat
-
-        guard let converter = AVAudioConverter(from: pcmFormat, to: opusFormat) else {
-            throw OpusCodecError.converterCreationFailed(0)
-        }
-        converter.bitRate = Int(bitrate)
-        self.converter = converter
-        self.pcmFormat = pcmFormat
-        self.opusFormat = opusFormat
+        self.encoder = enc
+        _ = mumble_opus_encoder_set_int(enc, Int32(OPUS_SET_BITRATE_REQUEST), bitrate)
+        _ = mumble_opus_encoder_set_int(enc, Int32(OPUS_SET_SIGNAL_REQUEST), Int32(OPUS_SIGNAL_VOICE))
+        _ = mumble_opus_encoder_set_int(enc, Int32(OPUS_SET_VBR_REQUEST), 1)
+        // Inband FEC lets a receiver reconstruct one lost packet using
+        // redundancy in the next — worth it for VoIP at the cost of slightly
+        // higher bitrate.
+        _ = mumble_opus_encoder_set_int(enc, Int32(OPUS_SET_INBAND_FEC_REQUEST), 1)
+        _ = mumble_opus_encoder_set_int(enc, Int32(OPUS_SET_PACKET_LOSS_PERC_REQUEST), 5)
     }
 
-    /// Consumes exactly one Opus packet worth of PCM (960 samples @ 48 kHz) and
-    /// returns the compressed Opus bytes.
+    deinit {
+        opus_encoder_destroy(encoder)
+    }
+
+    /// Consumes exactly one Opus packet worth of PCM (960 samples @ 48 kHz)
+    /// and returns the raw Opus bytes.
     func encode(_ pcmBuffer: AVAudioPCMBuffer) throws -> Data {
-        let output = AVAudioCompressedBuffer(
-            format: opusFormat,
-            packetCapacity: 1,
-            maximumPacketSize: Int(Self.maxPacketSize)
-        )
-        var inputConsumed = false
-        var error: NSError?
-        let status = converter.convert(to: output, error: &error) { _, outStatus in
-            if inputConsumed {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            inputConsumed = true
-            outStatus.pointee = .haveData
-            return pcmBuffer
+        guard let channel = pcmBuffer.floatChannelData?[0] else {
+            throw OpusCodecError.unsupportedInput
         }
-        switch status {
-        case .haveData, .inputRanDry:
-            break
-        case .error, .endOfStream:
-            throw OpusCodecError.encodeFailed(OSStatus(error?.code ?? -1))
-        @unknown default:
-            throw OpusCodecError.encodeFailed(-1)
+        let frameCount = Int32(MumbleAudioParameters.framesPerPacket)
+        guard Int(pcmBuffer.frameLength) >= Int(frameCount) else {
+            throw OpusCodecError.unsupportedInput
         }
-        guard output.packetCount > 0,
-              let packetDesc = output.packetDescriptions else {
-            return Data()
+        var output = [UInt8](repeating: 0, count: Self.maxPacketSize)
+        let written = output.withUnsafeMutableBufferPointer { out in
+            opus_encode_float(encoder,
+                              channel,
+                              frameCount,
+                              out.baseAddress,
+                              Int32(out.count))
         }
-        let size = Int(packetDesc.pointee.mDataByteSize)
-        let bytes = UnsafeRawBufferPointer(start: output.data, count: size)
-        return Data(bytes)
+        if written < 0 {
+            throw OpusCodecError.encodeFailed(written)
+        }
+        return Data(output.prefix(Int(written)))
     }
 }
 
-/// Decodes a single Opus frame back to 48 kHz mono Float32 PCM. Each remote
+/// Decodes a single Opus packet back to 48 kHz mono Float32 PCM. Each remote
 /// speaker gets their own decoder so PLC state stays per-stream.
 final class OpusDecoder {
-    private let converter: AVAudioConverter
-    private let pcmFormat: AVAudioFormat
-    private let opusFormat: AVAudioFormat
+    private let decoder: OpaquePointer
 
     init() throws {
-        guard let opusFormat = MumbleAudioParameters.opusFormat() else {
-            throw OpusCodecError.formatUnavailable
+        var error: Int32 = OPUS_OK
+        guard let dec = opus_decoder_create(
+            Int32(MumbleAudioParameters.sampleRate),
+            Int32(MumbleAudioParameters.channelCount),
+            &error
+        ), error == OPUS_OK else {
+            throw OpusCodecError.initializationFailed(error)
         }
-        let pcmFormat = MumbleAudioParameters.pcmFormat
-        guard let converter = AVAudioConverter(from: opusFormat, to: pcmFormat) else {
-            throw OpusCodecError.converterCreationFailed(0)
-        }
-        self.converter = converter
-        self.pcmFormat = pcmFormat
-        self.opusFormat = opusFormat
+        self.decoder = dec
     }
 
-    func decode(_ opusData: Data) throws -> AVAudioPCMBuffer {
-        let input = AVAudioCompressedBuffer(
-            format: opusFormat,
-            packetCapacity: 1,
-            maximumPacketSize: opusData.count > 0 ? opusData.count : 1
-        )
-        input.byteLength = UInt32(opusData.count)
-        input.packetCount = 1
-        opusData.withUnsafeBytes { raw in
-            if let base = raw.baseAddress {
-                memcpy(input.data, base, opusData.count)
-            }
-        }
-        if let desc = input.packetDescriptions {
-            desc.pointee = AudioStreamPacketDescription(
-                mStartOffset: 0,
-                mVariableFramesInPacket: 0,
-                mDataByteSize: UInt32(opusData.count)
-            )
-        }
+    deinit {
+        opus_decoder_destroy(decoder)
+    }
 
+    /// Pass an empty `opusData` to request packet loss concealment for one
+    /// missing frame.
+    func decode(_ opusData: Data, fec: Bool = false) throws -> AVAudioPCMBuffer {
         guard let output = AVAudioPCMBuffer(
-            pcmFormat: pcmFormat,
+            pcmFormat: MumbleAudioParameters.pcmFormat,
             frameCapacity: MumbleAudioParameters.framesPerPacket
-        ) else {
+        ), let dst = output.floatChannelData?[0] else {
             throw OpusCodecError.decodeFailed(-1)
         }
-        var inputConsumed = false
-        var error: NSError?
-        let status = converter.convert(to: output, error: &error) { _, outStatus in
-            if inputConsumed {
-                outStatus.pointee = .noDataNow
-                return nil
+        let frameCount = Int32(MumbleAudioParameters.framesPerPacket)
+        let produced: Int32
+        if opusData.isEmpty {
+            produced = opus_decode_float(decoder,
+                                         nil,
+                                         0,
+                                         dst,
+                                         frameCount,
+                                         fec ? 1 : 0)
+        } else {
+            produced = opusData.withUnsafeBytes { raw -> Int32 in
+                let base = raw.bindMemory(to: UInt8.self).baseAddress
+                return opus_decode_float(decoder,
+                                         base,
+                                         Int32(raw.count),
+                                         dst,
+                                         frameCount,
+                                         fec ? 1 : 0)
             }
-            inputConsumed = true
-            outStatus.pointee = .haveData
-            return input
         }
-        switch status {
-        case .haveData, .inputRanDry, .endOfStream:
-            break
-        case .error:
-            throw OpusCodecError.decodeFailed(OSStatus(error?.code ?? -1))
-        @unknown default:
-            throw OpusCodecError.decodeFailed(-1)
+        if produced < 0 {
+            throw OpusCodecError.decodeFailed(produced)
         }
+        output.frameLength = AVAudioFrameCount(produced)
         return output
     }
 }
