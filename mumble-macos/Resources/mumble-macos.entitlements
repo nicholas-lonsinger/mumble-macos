@@ -14,5 +14,9 @@
 	<array>
 		<string>com.apple.audioanalyticsd</string>
 	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.nicholas-lonsinger.mumble-macos</string>
+	</array>
 </dict>
 </plist>

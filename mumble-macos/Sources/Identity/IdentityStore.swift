@@ -90,22 +90,36 @@ final class IdentityStore {
     // MARK: - Read
 
     func currentIdentity() throws -> ClientIdentity? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassIdentity,
+        // SecItemCopyMatching(kSecClassIdentity, kSecUseDataProtectionKeychain:
+        // true) reliably returns errSecItemNotFound on macOS even when a
+        // matching cert + private key are both present. So we fetch the cert
+        // by label and ask SecIdentityCreateWithCertificate to locate the
+        // matching private key by public-key hash.
+        let certQuery: [String: Any] = [
+            kSecClass as String: kSecClassCertificate,
             kSecUseDataProtectionKeychain as String: true,
             kSecAttrLabel as String: certLabel,
             kSecReturnRef as String: true
         ]
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        switch status {
-        case errSecSuccess:
-            return ClientIdentity(secIdentity: result as! SecIdentity)
+        var certResult: CFTypeRef?
+        let certStatus = SecItemCopyMatching(certQuery as CFDictionary, &certResult)
+        switch certStatus {
         case errSecItemNotFound:
             return nil
+        case errSecSuccess:
+            break
         default:
-            throw IdentityStoreError.keychain(status, "identity lookup")
+            throw IdentityStoreError.keychain(certStatus, "identity lookup (cert)")
         }
+        let cert = certResult as! SecCertificate
+        var identity: SecIdentity?
+        let idStatus = SecIdentityCreateWithCertificate(nil, cert, &identity)
+        guard idStatus == errSecSuccess, let identity else {
+            // Cert is here but the key's missing — treat as no identity.
+            if idStatus == errSecItemNotFound { return nil }
+            throw IdentityStoreError.keychain(idStatus, "pair cert with private key")
+        }
+        return ClientIdentity(secIdentity: identity)
     }
 
     func currentSummary() throws -> StoredIdentitySummary? {
@@ -131,42 +145,72 @@ final class IdentityStore {
             throw IdentityStoreError.pkcs12EmptyResult
         }
         guard let first = items.first,
-              let identity = first[kSecImportItemIdentity as String]
+              let identityAny = first[kSecImportItemIdentity as String]
         else {
             throw IdentityStoreError.pkcs12MissingIdentity
         }
-        let secIdentity = identity as! SecIdentity
+        let secIdentity = identityAny as! SecIdentity
+
+        // Verify the key is RSA — Mumble only supports RSA identities.
+        // kSecAttrKeyType comes back as NSNumber on macOS but CFString on iOS;
+        // accept both.
+        var keyRef: SecKey?
+        let keyStatus = SecIdentityCopyPrivateKey(secIdentity, &keyRef)
+        guard keyStatus == errSecSuccess, let key = keyRef else {
+            throw IdentityStoreError.pkcs12MissingPrivateKey
+        }
+        let keyAttrs = SecKeyCopyAttributes(key) as? [String: Any] ?? [:]
+        let isRSA: Bool = {
+            let rsaCFString = kSecAttrKeyTypeRSA as String // "42"
+            if let s = keyAttrs[kSecAttrKeyType as String] as? String { return s == rsaCFString }
+            if let n = keyAttrs[kSecAttrKeyType as String] as? NSNumber,
+               let expected = Int(rsaCFString) {
+                return n.intValue == expected
+            }
+            return false
+        }()
+        guard isRSA else {
+            throw IdentityStoreError.pkcs12UnsupportedKeyType
+        }
 
         var certRef: SecCertificate?
         let certStatus = SecIdentityCopyCertificate(secIdentity, &certRef)
         guard certStatus == errSecSuccess, let cert = certRef else {
             throw IdentityStoreError.keychain(certStatus, "copy certificate from P12 identity")
         }
-        var keyRef: SecKey?
-        let keyStatus = SecIdentityCopyPrivateKey(secIdentity, &keyRef)
-        guard keyStatus == errSecSuccess, let key = keyRef else {
-            throw IdentityStoreError.pkcs12MissingPrivateKey
-        }
-
-        // Fail early if the key isn't something we can store as RSA.
-        var cfError: Unmanaged<CFError>?
-        guard let keyData = SecKeyCopyExternalRepresentation(key, &cfError) as Data? else {
-            if let cfError { cfError.release() }
-            throw IdentityStoreError.pkcs12UnsupportedKeyType
-        }
-        let keyAttrs = SecKeyCopyAttributes(key) as? [String: Any] ?? [:]
-        let keyType = keyAttrs[kSecAttrKeyType as String] as? String
-        guard keyType == (kSecAttrKeyTypeRSA as String) else {
-            throw IdentityStoreError.pkcs12UnsupportedKeyType
-        }
-        let keyBits = (keyAttrs[kSecAttrKeySizeInBits as String] as? NSNumber)?.intValue ?? 2048
 
         // Wipe anything we have first so the call is idempotent. Matches the
         // "single identity" v1 invariant.
         try deleteIfPresent()
 
-        try addCertificate(cert)
-        try addPrivateKey(keyData, sizeInBits: keyBits)
+        // Add cert and key as separate items in the data-protection keychain.
+        // Adding via the full SecIdentity ref doesn't consistently register
+        // both halves on macOS; splitting the call makes each side explicit
+        // and lets us tag the key with our own kSecAttrApplicationTag for
+        // reliable deletion.
+        let addCert: [String: Any] = [
+            kSecClass as String: kSecClassCertificate,
+            kSecValueRef as String: cert,
+            kSecUseDataProtectionKeychain as String: true,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrLabel as String: certLabel
+        ]
+        let certAdd = SecItemAdd(addCert as CFDictionary, nil)
+        guard certAdd == errSecSuccess else {
+            throw IdentityStoreError.keychain(certAdd, "add certificate")
+        }
+        let addKey: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecValueRef as String: key,
+            kSecUseDataProtectionKeychain as String: true,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrApplicationTag as String: keyTag,
+            kSecAttrLabel as String: certLabel
+        ]
+        let keyAdd = SecItemAdd(addKey as CFDictionary, nil)
+        guard keyAdd == errSecSuccess else {
+            throw IdentityStoreError.keychain(keyAdd, "add private key")
+        }
 
         Self.log.info("Imported Mumble identity into data-protection keychain.")
     }
@@ -179,61 +223,54 @@ final class IdentityStore {
     }
 
     private func deleteIfPresent(ignoreMissing: Bool = true) throws {
-        let certQuery: [String: Any] = [
-            kSecClass as String: kSecClassCertificate,
-            kSecUseDataProtectionKeychain as String: true,
-            kSecAttrLabel as String: certLabel
-        ]
-        let keyQuery: [String: Any] = [
-            kSecClass as String: kSecClassKey,
-            kSecUseDataProtectionKeychain as String: true,
-            kSecAttrApplicationTag as String: keyTag
-        ]
-        for (query, op) in [(certQuery, "delete certificate"), (keyQuery, "delete private key")] {
-            let status = SecItemDelete(query as CFDictionary)
-            if status == errSecItemNotFound {
-                if !ignoreMissing {
-                    // Only the explicit delete() cares — importPKCS12 treats the
-                    // wipe as best-effort.
-                    continue
+        // Look up the identity first. SecItemDelete with kSecValueRef is the
+        // reliable way to remove the private key: when SecItemAdd inserts a
+        // key via a SecIdentity ref, label/tag attributes don't propagate to
+        // the underlying key item, so label-/tag-based queries can miss it.
+        if let client = try? currentIdentity() {
+            var key: SecKey?
+            SecIdentityCopyPrivateKey(client.secIdentity, &key)
+            var cert: SecCertificate?
+            SecIdentityCopyCertificate(client.secIdentity, &cert)
+            if let key {
+                let status = SecItemDelete([
+                    kSecValueRef as String: key,
+                    kSecUseDataProtectionKeychain as String: true
+                ] as CFDictionary)
+                if status != errSecSuccess, status != errSecItemNotFound, !ignoreMissing {
+                    throw IdentityStoreError.keychain(status, "delete private key")
                 }
-            } else if status != errSecSuccess {
-                throw IdentityStoreError.keychain(status, op)
+            }
+            if let cert {
+                let status = SecItemDelete([
+                    kSecValueRef as String: cert,
+                    kSecUseDataProtectionKeychain as String: true
+                ] as CFDictionary)
+                if status != errSecSuccess, status != errSecItemNotFound, !ignoreMissing {
+                    throw IdentityStoreError.keychain(status, "delete certificate")
+                }
             }
         }
-    }
-
-    // MARK: - Low-level keychain writes
-
-    private func addCertificate(_ cert: SecCertificate) throws {
-        let attrs: [String: Any] = [
-            kSecClass as String: kSecClassCertificate,
-            kSecUseDataProtectionKeychain as String: true,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-            kSecAttrLabel as String: certLabel,
-            kSecValueRef as String: cert
+        // Sweep any leftover item with our label/tag — covers orphans from a
+        // partial add. Scoped to the data-protection keychain so we can't
+        // reach into the login keychain even by accident.
+        let sweeps: [[String: Any]] = [
+            [
+                kSecClass as String: kSecClassCertificate,
+                kSecUseDataProtectionKeychain as String: true,
+                kSecAttrLabel as String: certLabel
+            ],
+            [
+                kSecClass as String: kSecClassKey,
+                kSecUseDataProtectionKeychain as String: true,
+                kSecAttrApplicationTag as String: keyTag
+            ]
         ]
-        let status = SecItemAdd(attrs as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw IdentityStoreError.keychain(status, "add certificate")
-        }
-    }
-
-    private func addPrivateKey(_ pkcs1Data: Data, sizeInBits: Int) throws {
-        let attrs: [String: Any] = [
-            kSecClass as String: kSecClassKey,
-            kSecAttrKeyClass as String: kSecAttrKeyClassPrivate,
-            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
-            kSecAttrKeySizeInBits as String: sizeInBits,
-            kSecAttrApplicationTag as String: keyTag,
-            kSecAttrIsPermanent as String: true,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-            kSecUseDataProtectionKeychain as String: true,
-            kSecValueData as String: pkcs1Data
-        ]
-        let status = SecItemAdd(attrs as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw IdentityStoreError.keychain(status, "add private key")
+        for q in sweeps {
+            let status = SecItemDelete(q as CFDictionary)
+            if status != errSecSuccess, status != errSecItemNotFound, !ignoreMissing {
+                throw IdentityStoreError.keychain(status, "sweep delete")
+            }
         }
     }
 
