@@ -10,6 +10,7 @@ struct ConnectView: View {
     @AppStorage("lastServerPort") private var port = String(ServerConnectionParameters.defaultPublicTestServer.port)
     @AppStorage("lastServerUsername") private var username = ServerConnectionParameters.defaultPublicTestServer.username
     @State private var password = ""
+    @State private var identitySummary: StoredIdentitySummary?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -24,6 +25,9 @@ struct ConnectView: View {
             }
             .formStyle(.grouped)
 
+            identityIndicator
+                .padding(.top, 4)
+
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel, action: onCancel)
@@ -36,7 +40,41 @@ struct ConnectView: View {
             }
         }
         .padding(20)
-        .frame(width: 420)
+        .frame(width: 440)
+        .task {
+            reloadIdentity()
+        }
+    }
+
+    @ViewBuilder
+    private var identityIndicator: some View {
+        HStack(spacing: 6) {
+            if let summary = identitySummary {
+                Image(systemName: "person.badge.key.fill")
+                    .foregroundStyle(.green)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Presenting identity: \(summary.commonName)")
+                        .font(.caption)
+                    Text(summary.sha1Fingerprint)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            } else {
+                Image(systemName: "person.badge.key")
+                    .foregroundStyle(.secondary)
+                Text("No client certificate — connecting as guest. Import one in ⌘Mumble ▸ Certificate Manager….")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func reloadIdentity() {
+        identitySummary = try? IdentityStore.shared.currentSummary()
     }
 
     private var canConnect: Bool {
