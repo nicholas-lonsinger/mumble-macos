@@ -194,7 +194,14 @@ final class IdentityStore {
 
     private func importToIdentity(_ p12: Data, password: String) throws -> ClientIdentity {
         var itemsRef: CFArray?
-        let options: [String: Any] = [kSecImportExportPassphrase as String: password]
+        // kSecUseDataProtectionKeychain: true makes SecPKCS12Import behave like
+        // iOS — parse in memory and return the items, no side-effect into the
+        // user's login keychain. Without this flag macOS silently drops cert
+        // and key items into login.keychain-db every time we connect.
+        let options: [String: Any] = [
+            kSecImportExportPassphrase as String: password,
+            kSecUseDataProtectionKeychain as String: true
+        ]
         let status = SecPKCS12Import(p12 as CFData, options as CFDictionary, &itemsRef)
         guard status == errSecSuccess else {
             throw IdentityStoreError.pkcs12(status)
