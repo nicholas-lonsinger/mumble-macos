@@ -241,7 +241,7 @@ private struct StatusBannerView: View {
                     HStack(spacing: 4) {
                         Image(systemName: isTransmitting ? "mic.fill" : "mic")
                             .foregroundStyle(isTransmitting ? .green : .secondary)
-                        Text(isTransmitting ? "Transmitting" : "Hold ⌥Space to talk")
+                        Text(isTransmitting ? "Transmitting" : "Hold 🌐+⌃ to talk")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

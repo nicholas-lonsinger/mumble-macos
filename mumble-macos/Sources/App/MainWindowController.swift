@@ -29,25 +29,21 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         installPTTMonitor()
     }
 
-    /// Local monitor for PTT: hold ⌥Space while the window is focused.
-    /// Global hotkeys require Input Monitoring permission; we'll add that
-    /// later, in-app is enough for now.
+    /// Local monitor for PTT: hold Globe(Fn) + Control while the window is
+    /// focused. Using modifier-only means we don't intercept a character key,
+    /// so no system beep on release. Global hotkeys would require Input
+    /// Monitoring permission — in-app is enough for now.
     private func installPTTMonitor() {
-        pttMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+        pttMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged]) { [weak self] event in
             guard let self else { return event }
-            // space = 49, with option modifier
-            guard event.keyCode == 49, event.modifierFlags.contains(.option) else {
-                return event
-            }
-            if event.type == .keyDown, !event.isARepeat, !self.pttDown {
+            let both = event.modifierFlags.contains(.function)
+                && event.modifierFlags.contains(.control)
+            if both, !self.pttDown {
                 self.pttDown = true
                 self.client.startTalking()
-                return nil
-            }
-            if event.type == .keyUp, self.pttDown {
+            } else if !both, self.pttDown {
                 self.pttDown = false
                 self.client.stopTalking()
-                return nil
             }
             return event
         }
