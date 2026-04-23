@@ -41,6 +41,7 @@ final class MumbleClient {
     private(set) var isTransmitting = false
     private(set) var speakingSessions: Set<UInt32> = []
     private var speakingClearTasks: [UInt32: Task<Void, Never>] = [:]
+    private var connectStartedAt: ContinuousClock.Instant?
 
     func connect(to parameters: ServerConnectionParameters) async {
         await disconnect()
@@ -48,6 +49,7 @@ final class MumbleClient {
         lastError = nil
         currentParameters = parameters
         Self.log.info("Connecting to \(parameters.host, privacy: .public):\(parameters.port, privacy: .public) as \(parameters.username, privacy: .public)")
+        connectStartedAt = .now
 
         let transport = MumbleTransport(host: parameters.host, port: parameters.port)
         self.transport = transport
@@ -213,7 +215,10 @@ final class MumbleClient {
                 sessionID = msg.session
                 if let welcome = msg.welcomeText { serverWelcomeText = welcome }
                 state = .connected
-                Self.log.info("ServerSync received — session=\(msg.session ?? 0, privacy: .public), channels=\(self.channels.count, privacy: .public), users=\(self.users.count, privacy: .public)")
+                let elapsed = connectStartedAt.map { ContinuousClock.now - $0 } ?? .zero
+                let ms = Int(elapsed.components.seconds) * 1_000
+                    + Int(elapsed.components.attoseconds / 1_000_000_000_000_000)
+                Self.log.info("ServerSync received — session=\(msg.session ?? 0, privacy: .public), channels=\(self.channels.count, privacy: .public), users=\(self.users.count, privacy: .public), handshake=\(ms, privacy: .public)ms")
             case .channelState:
                 let msg = try ChannelStateMessage(reader: &reader)
                 applyChannelState(msg)

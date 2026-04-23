@@ -20,7 +20,13 @@ struct MainView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
             List {
-                if let rootID = client.rootChannelID, let root = client.channels[rootID] {
+                if case .connected = client.state,
+                   let rootID = client.rootChannelID,
+                   let root = client.channels[rootID] {
+                    // Only build the tree once the initial sync is done. The
+                    // server streams 700+ ChannelState/UserState messages
+                    // between TLS and ServerSync; rendering during that burst
+                    // would diff the whole tree on every message.
                     ChannelRowView(
                         channel: root,
                         allChannels: client.channels,
