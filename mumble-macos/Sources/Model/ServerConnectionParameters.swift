@@ -7,9 +7,9 @@ struct ServerConnectionParameters: Sendable, Equatable {
     var password: String
 
     static let defaultPublicTestServer = ServerConnectionParameters(
-        host: "mumble.info",
+        host: "mumble.sh1t.space",
         port: 64738,
-        username: "MumbleMacOSTester",
+        username: "[TRYHD] Fenix878",
         password: ""
     )
 }
