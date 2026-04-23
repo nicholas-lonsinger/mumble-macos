@@ -116,8 +116,29 @@ private struct ChannelRowView: View {
     let isTransmitting: Bool
     let onSelectChannel: (UInt32) -> Void
 
+    @State private var isExpanded: Bool
+
+    init(channel: ChannelNode,
+         allChannels: [UInt32: ChannelNode],
+         usersByID: [UInt32: UserNode],
+         ownSessionID: UInt32?,
+         speakingSessions: Set<UInt32>,
+         isTransmitting: Bool,
+         onSelectChannel: @escaping (UInt32) -> Void) {
+        self.channel = channel
+        self.allChannels = allChannels
+        self.usersByID = usersByID
+        self.ownSessionID = ownSessionID
+        self.speakingSessions = speakingSessions
+        self.isTransmitting = isTransmitting
+        self.onSelectChannel = onSelectChannel
+        // Occupancy-based default on first appearance. User toggles persist
+        // afterwards because @State is keyed by SwiftUI view identity.
+        _isExpanded = State(initialValue: Self.subtreeHasOccupants(of: channel, in: allChannels))
+    }
+
     var body: some View {
-        DisclosureGroup(isExpanded: .constant(hasOccupantsInSubtree)) {
+        DisclosureGroup(isExpanded: $isExpanded) {
             ForEach(sortedUsers) { user in
                 UserRowView(
                     user: user,
@@ -162,16 +183,15 @@ private struct ChannelRowView: View {
         return speakingSessions.contains(user.id)
     }
 
-    /// A channel is expanded iff it — or anything below it — has users.
-    /// Keeps the sidebar scannable on huge servers by folding empty branches.
-    private var hasOccupantsInSubtree: Bool {
-        subtreeHasOccupants(of: channel)
-    }
-
-    private func subtreeHasOccupants(of node: ChannelNode) -> Bool {
+    /// A channel is expanded by default iff it — or anything below it — has
+    /// users. Keeps the sidebar scannable on huge servers by folding empty
+    /// branches. Only consulted at first appearance; @State persists after.
+    private static func subtreeHasOccupants(of node: ChannelNode,
+                                            in allChannels: [UInt32: ChannelNode]) -> Bool {
         if !node.userSessionIDs.isEmpty { return true }
         for childID in node.childChannelIDs {
-            if let child = allChannels[childID], subtreeHasOccupants(of: child) {
+            if let child = allChannels[childID],
+               subtreeHasOccupants(of: child, in: allChannels) {
                 return true
             }
         }
