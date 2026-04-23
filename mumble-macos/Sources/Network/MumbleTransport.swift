@@ -34,6 +34,9 @@ enum MumbleTransportError: Error, Sendable, LocalizedError {
 /// Mumble servers commonly use self-signed certificates, so TLS verification is TOFU —
 /// every presented certificate is accepted and its SHA-256 fingerprint is recorded so
 /// higher layers can implement pinning later.
+///
+/// If a `clientIdentity` is provided, it's presented when the server requests a
+/// client certificate. Mumble servers use this to identify returning users.
 actor MumbleTransport {
     private let host: String
     private let port: UInt16
@@ -44,10 +47,12 @@ actor MumbleTransport {
     private var pendingStart: CheckedContinuation<Void, Error>?
     private(set) var peerCertificateFingerprint: String?
 
-    init(host: String, port: UInt16) {
+    init(host: String, port: UInt16, clientIdentity: ClientIdentity? = nil) {
         let queue = DispatchQueue(label: "mumble.transport.\(host):\(port)")
         let fingerprintBox = FingerprintBox()
-        let tlsOptions = Self.makeTLSOptions(fingerprintBox: fingerprintBox, queue: queue)
+        let tlsOptions = Self.makeTLSOptions(clientIdentity: clientIdentity,
+                                             fingerprintBox: fingerprintBox,
+                                             queue: queue)
         let params = NWParameters(tls: tlsOptions, tcp: .init())
 
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
@@ -168,7 +173,9 @@ actor MumbleTransport {
 
     // MARK: - TLS configuration
 
-    private static func makeTLSOptions(fingerprintBox: FingerprintBox, queue: DispatchQueue) -> NWProtocolTLS.Options {
+    private static func makeTLSOptions(clientIdentity: ClientIdentity?,
+                                       fingerprintBox: FingerprintBox,
+                                       queue: DispatchQueue) -> NWProtocolTLS.Options {
         let options = NWProtocolTLS.Options()
         let sec = options.securityProtocolOptions
 
@@ -179,6 +186,12 @@ actor MumbleTransport {
             fingerprintBox.recordFingerprint(from: secTrust)
             completionHandler(true)
         }, queue)
+
+        if let clientIdentity {
+            sec_protocol_options_set_challenge_block(sec, { _, complete in
+                complete(sec_identity_create(clientIdentity.secIdentity))
+            }, queue)
+        }
 
         return options
     }

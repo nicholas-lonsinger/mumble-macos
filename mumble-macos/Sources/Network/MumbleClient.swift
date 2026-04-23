@@ -51,7 +51,21 @@ final class MumbleClient {
         Self.log.info("Connecting to \(parameters.host, privacy: .public):\(parameters.port, privacy: .public) as \(parameters.username, privacy: .public)")
         connectStartedAt = .now
 
-        let transport = MumbleTransport(host: parameters.host, port: parameters.port)
+        // If the user has configured a client identity, present it during the
+        // TLS handshake. A keychain read failure is logged and downgraded to
+        // "connect unauthenticated" — we'd rather fall back to guest than
+        // refuse to connect.
+        var identity: ClientIdentity?
+        do {
+            identity = try IdentityStore.shared.currentIdentity()
+            if identity != nil {
+                Self.log.info("Presenting stored client identity during TLS handshake.")
+            }
+        } catch {
+            Self.log.error("Identity lookup failed, continuing without client cert: \(error.localizedDescription, privacy: .public)")
+        }
+
+        let transport = MumbleTransport(host: parameters.host, port: parameters.port, clientIdentity: identity)
         self.transport = transport
 
         do {

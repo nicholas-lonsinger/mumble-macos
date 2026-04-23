@@ -43,6 +43,13 @@ enum IdentityStoreError: Error, LocalizedError {
     }
 }
 
+/// Sendable wrapper around a `SecIdentity`. Swift 6 strict concurrency won't
+/// let a bare `SecIdentity` cross an isolation boundary; `SecIdentity` values
+/// are immutable CF types so marking the holder `@unchecked Sendable` is safe.
+struct ClientIdentity: @unchecked Sendable {
+    let secIdentity: SecIdentity
+}
+
 /// A small view of the current identity for display in the UI.
 struct StoredIdentitySummary: Sendable, Equatable {
     /// CN from the cert's subject. "(no common name)" if absent.
@@ -82,7 +89,7 @@ final class IdentityStore {
 
     // MARK: - Read
 
-    func currentIdentity() throws -> SecIdentity? {
+    func currentIdentity() throws -> ClientIdentity? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassIdentity,
             kSecUseDataProtectionKeychain as String: true,
@@ -93,7 +100,7 @@ final class IdentityStore {
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         switch status {
         case errSecSuccess:
-            return (result as! SecIdentity)
+            return ClientIdentity(secIdentity: result as! SecIdentity)
         case errSecItemNotFound:
             return nil
         default:
@@ -102,9 +109,9 @@ final class IdentityStore {
     }
 
     func currentSummary() throws -> StoredIdentitySummary? {
-        guard let identity = try currentIdentity() else { return nil }
+        guard let client = try currentIdentity() else { return nil }
         var certRef: SecCertificate?
-        let status = SecIdentityCopyCertificate(identity, &certRef)
+        let status = SecIdentityCopyCertificate(client.secIdentity, &certRef)
         guard status == errSecSuccess, let cert = certRef else {
             throw IdentityStoreError.keychain(status, "copy identity certificate")
         }
