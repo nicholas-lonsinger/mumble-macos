@@ -4,6 +4,8 @@ import SwiftUI
 @MainActor
 final class MainWindowController: NSWindowController, NSWindowDelegate {
     let client: MumbleClient
+    private var pttMonitor: Any?
+    private var pttDown = false
 
     init(client: MumbleClient = MumbleClient()) {
         self.client = client
@@ -24,6 +26,31 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         let rootView = MainView().environment(client)
         window.contentView = NSHostingView(rootView: rootView)
+        installPTTMonitor()
+    }
+
+    /// Local monitor for PTT: hold ⌥Space while the window is focused.
+    /// Global hotkeys require Input Monitoring permission; we'll add that
+    /// later, in-app is enough for now.
+    private func installPTTMonitor() {
+        pttMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+            guard let self else { return event }
+            // space = 49, with option modifier
+            guard event.keyCode == 49, event.modifierFlags.contains(.option) else {
+                return event
+            }
+            if event.type == .keyDown, !event.isARepeat, !self.pttDown {
+                self.pttDown = true
+                self.client.startTalking()
+                return nil
+            }
+            if event.type == .keyUp, self.pttDown {
+                self.pttDown = false
+                self.client.stopTalking()
+                return nil
+            }
+            return event
+        }
     }
 
     @available(*, unavailable)

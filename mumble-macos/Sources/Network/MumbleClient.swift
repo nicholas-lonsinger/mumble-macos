@@ -36,6 +36,11 @@ final class MumbleClient {
     private var receiveTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var currentParameters: ServerConnectionParameters?
+    private let voice = VoiceController()
+    private(set) var voiceAvailable = false
+    private(set) var isTransmitting = false
+    private(set) var speakingSessions: Set<UInt32> = []
+    private var speakingClearTasks: [UInt32: Task<Void, Never>] = [:]
 
     func connect(to parameters: ServerConnectionParameters) async {
         await disconnect()
@@ -62,6 +67,7 @@ final class MumbleClient {
 
             startReceiveLoop(transport: transport)
             startPingLoop(transport: transport)
+            startVoice(transport: transport)
         } catch {
             Self.log.error("Connect failed: \(error.localizedDescription, privacy: .public)")
             state = .failed(reason: error.localizedDescription)
@@ -104,6 +110,13 @@ final class MumbleClient {
         pingTask?.cancel()
         receiveTask = nil
         pingTask = nil
+        voice.onOpusFrame = nil
+        voice.stop()
+        voiceAvailable = false
+        isTransmitting = false
+        for (_, task) in speakingClearTasks { task.cancel() }
+        speakingClearTasks.removeAll()
+        speakingSessions.removeAll()
         if let transport {
             await transport.cancel()
         }
@@ -231,8 +244,9 @@ final class MumbleClient {
             case .permissionDenied:
                 let msg = try PermissionDeniedMessage(reader: &reader)
                 Self.log.warning("Permission denied: \(msg.reason ?? "(no reason)")")
-            case .udpTunnel,
-                 .authenticate,
+            case .udpTunnel:
+                handleTunneledAudio(payload: payload)
+            case .authenticate,
                  .banList,
                  .acl,
                  .queryUsers,
@@ -387,6 +401,95 @@ final class MumbleClient {
     private func removeUser(session: UInt32) {
         guard let user = users.removeValue(forKey: session) else { return }
         detachUser(session: session, from: user.channelID)
+        speakingClearTasks[session]?.cancel()
+        speakingClearTasks[session] = nil
+        speakingSessions.remove(session)
+        voice.removeSpeaker(session: session)
+    }
+
+    // MARK: - Voice
+
+    private func startVoice(transport: MumbleTransport) {
+        voice.onOpusFrame = { [weak self] opus, frameNumber, isTerminator in
+            guard let self else { return }
+            Task { [weak self] in
+                await self?.sendVoiceFrame(transport: transport,
+                                           opus: opus,
+                                           frameNumber: frameNumber,
+                                           isTerminator: isTerminator)
+            }
+        }
+        do {
+            try voice.start()
+            voiceAvailable = true
+        } catch {
+            Self.log.error("Voice engine failed to start: \(error.localizedDescription, privacy: .public)")
+            voiceAvailable = false
+        }
+    }
+
+    private func sendVoiceFrame(transport: MumbleTransport,
+                                opus: Data,
+                                frameNumber: UInt64,
+                                isTerminator: Bool) async {
+        let audio = UDPAudioMessage(target: 0,
+                                    frameNumber: frameNumber,
+                                    opusData: opus,
+                                    isTerminator: isTerminator)
+        do {
+            try await transport.sendFrame(type: .udpTunnel,
+                                          payload: audio.tunneledPacket())
+        } catch {
+            Self.log.error("Voice send failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func startTalking() {
+        guard voiceAvailable, case .connected = state else { return }
+        voice.startTransmit()
+        isTransmitting = true
+    }
+
+    func stopTalking() {
+        voice.stopTransmit()
+        isTransmitting = false
+    }
+
+    private func handleTunneledAudio(payload: Data) {
+        do {
+            guard let audio = try UDPAudioMessage.decode(tunneled: payload) else {
+                Self.log.debug("UDPTunnel carried non-audio payload of \(payload.count, privacy: .public) bytes")
+                return
+            }
+            guard let session = audio.senderSession else { return }
+            voice.ingestRemoteAudio(session: session,
+                                    opus: audio.opusData,
+                                    frameNumber: audio.frameNumber ?? 0,
+                                    isTerminator: audio.isTerminator)
+            markSpeaking(session: session, ended: audio.isTerminator)
+        } catch {
+            Self.log.error("Audio decode failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func markSpeaking(session: UInt32, ended: Bool) {
+        speakingClearTasks[session]?.cancel()
+        if ended {
+            speakingSessions.remove(session)
+            speakingClearTasks[session] = nil
+            return
+        }
+        speakingSessions.insert(session)
+        let task = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            if Task.isCancelled { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.speakingSessions.remove(session)
+                self.speakingClearTasks[session] = nil
+            }
+        }
+        speakingClearTasks[session] = task
     }
 
     // MARK: - Outgoing user actions

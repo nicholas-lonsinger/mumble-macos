@@ -26,6 +26,8 @@ struct MainView: View {
                         allChannels: client.channels,
                         usersByID: client.users,
                         ownSessionID: client.sessionID,
+                        speakingSessions: client.speakingSessions,
+                        isTransmitting: client.isTransmitting,
                         onSelectChannel: { id in
                             Task { await client.moveToChannel(id) }
                         }
@@ -51,7 +53,12 @@ struct MainView: View {
 
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
-            StatusBannerView(state: client.state, serverVersion: client.serverVersion)
+            StatusBannerView(
+                state: client.state,
+                serverVersion: client.serverVersion,
+                isTransmitting: client.isTransmitting,
+                voiceAvailable: client.voiceAvailable
+            )
             if !client.serverWelcomeText.isEmpty {
                 ScrollView {
                     Text(client.serverWelcomeText)
@@ -105,12 +112,18 @@ private struct ChannelRowView: View {
     let allChannels: [UInt32: ChannelNode]
     let usersByID: [UInt32: UserNode]
     let ownSessionID: UInt32?
+    let speakingSessions: Set<UInt32>
+    let isTransmitting: Bool
     let onSelectChannel: (UInt32) -> Void
 
     var body: some View {
         DisclosureGroup(isExpanded: .constant(true)) {
             ForEach(sortedUsers) { user in
-                UserRowView(user: user, isOwn: user.id == ownSessionID)
+                UserRowView(
+                    user: user,
+                    isOwn: user.id == ownSessionID,
+                    isSpeaking: isUserSpeaking(user)
+                )
             }
             ForEach(sortedChildren) { child in
                 ChannelRowView(
@@ -118,6 +131,8 @@ private struct ChannelRowView: View {
                     allChannels: allChannels,
                     usersByID: usersByID,
                     ownSessionID: ownSessionID,
+                    speakingSessions: speakingSessions,
+                    isTransmitting: isTransmitting,
                     onSelectChannel: onSelectChannel
                 )
             }
@@ -142,6 +157,11 @@ private struct ChannelRowView: View {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    private func isUserSpeaking(_ user: UserNode) -> Bool {
+        if user.id == ownSessionID { return isTransmitting }
+        return speakingSessions.contains(user.id)
+    }
+
     private var sortedChildren: [ChannelNode] {
         channel.childChannelIDs
             .compactMap { allChannels[$0] }
@@ -157,11 +177,12 @@ private struct ChannelRowView: View {
 private struct UserRowView: View {
     let user: UserNode
     let isOwn: Bool
+    let isSpeaking: Bool
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: primaryIcon)
-                .foregroundStyle(isOwn ? Color.accentColor : .primary)
+                .foregroundStyle(iconColor)
             Text(user.name)
                 .fontWeight(isOwn ? .semibold : .regular)
             Spacer(minLength: 0)
@@ -186,13 +207,21 @@ private struct UserRowView: View {
     }
 
     private var primaryIcon: String {
-        isOwn ? "person.crop.circle.badge.checkmark" : "person.crop.circle"
+        if isSpeaking { return "waveform" }
+        return isOwn ? "person.crop.circle.badge.checkmark" : "person.crop.circle"
+    }
+
+    private var iconColor: Color {
+        if isSpeaking { return .green }
+        return isOwn ? .accentColor : .primary
     }
 }
 
 private struct StatusBannerView: View {
     let state: MumbleClient.ConnectionState
     let serverVersion: String?
+    let isTransmitting: Bool
+    let voiceAvailable: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -205,6 +234,22 @@ private struct StatusBannerView: View {
                 Text("· server \(serverVersion)")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            if case .connected = state {
+                if voiceAvailable {
+                    HStack(spacing: 4) {
+                        Image(systemName: isTransmitting ? "mic.fill" : "mic")
+                            .foregroundStyle(isTransmitting ? .green : .secondary)
+                        Text(isTransmitting ? "Transmitting" : "Hold ⌥Space to talk")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Label("Voice unavailable", systemImage: "mic.slash")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
         }
     }
