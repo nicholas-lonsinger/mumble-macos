@@ -27,6 +27,11 @@ final class CertificateManagerModel {
         refresh()
     }
 
+    func createNew() throws {
+        try IdentityStore.shared.createNewIdentity()
+        refresh()
+    }
+
     func delete() throws {
         try IdentityStore.shared.delete()
         refresh()
@@ -39,6 +44,8 @@ struct CertificateManagerView: View {
     @State private var pendingImportData: Data?
     @State private var importPassword = ""
     @State private var errorMessage: String?
+    @State private var showingCreateConfirmation = false
+    @State private var isCreating = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -72,17 +79,17 @@ struct CertificateManagerView: View {
 
             HStack {
                 Button("Import…") { pickAndImport() }
+                    .disabled(isCreating)
                 Button("Export…") { }
                     .disabled(true)
                     .help("Coming in a later commit.")
-                Button("Create New…") { }
-                    .disabled(true)
-                    .help("Coming in a later commit.")
+                Button("Create New…") { showingCreateConfirmation = true }
+                    .disabled(isCreating)
                 Spacer()
                 Button(role: .destructive) { deleteIdentity() } label: {
                     Text("Delete")
                 }
-                .disabled(model.summary == nil)
+                .disabled(model.summary == nil || isCreating)
             }
         }
         .padding(24)
@@ -100,6 +107,29 @@ struct CertificateManagerView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+        .confirmationDialog(createConfirmationTitle,
+                            isPresented: $showingCreateConfirmation,
+                            titleVisibility: .visible) {
+            Button(model.summary == nil ? "Create" : "Replace", role: model.summary == nil ? nil : .destructive) {
+                performCreate()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text(createConfirmationMessage)
+        }
+    }
+
+    private var createConfirmationTitle: String {
+        model.summary == nil
+            ? "Create a new Mumble identity?"
+            : "Replace your current Mumble identity?"
+    }
+
+    private var createConfirmationMessage: String {
+        if let summary = model.summary {
+            return "This will replace “\(summary.commonName)” (fingerprint \(summary.sha1Fingerprint.prefix(16))…). The existing identity is not backed up — export it first if you want to keep it."
+        }
+        return "A fresh self-signed certificate will be generated (CN “Mumble User”, RSA 2048, 20-year validity) and stored in this Mac’s data-protection keychain."
     }
 
     private func summaryView(_ summary: StoredIdentitySummary) -> some View {
@@ -184,6 +214,18 @@ struct CertificateManagerView: View {
         } catch {
             errorMessage = error.localizedDescription
             showingPasswordSheet = false
+        }
+    }
+
+    private func performCreate() {
+        isCreating = true
+        Task { @MainActor in
+            defer { isCreating = false }
+            do {
+                try model.createNew()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 

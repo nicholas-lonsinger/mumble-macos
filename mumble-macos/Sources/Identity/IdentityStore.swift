@@ -138,6 +138,38 @@ final class IdentityStore {
         Self.log.info("Stored Mumble identity envelope in data-protection keychain.")
     }
 
+    // MARK: - Create
+
+    /// Generates a self-signed RSA identity and persists it. The PKCS#12
+    /// envelope's internal password is random — the user never sees it
+    /// because they never need to. If/when they export, they'll pick
+    /// their own password and we'll re-wrap at that point.
+    func createNewIdentity(commonName: String = "Mumble User",
+                           validityYears: Int = 20) throws {
+        let generated = try X509Builder.createSelfSigned(
+            commonName: commonName,
+            validityYears: validityYears
+        )
+        let internalPassword = Self.randomInternalPassword()
+        let p12 = try PKCS12Encoder.encode(
+            certificateDER: generated.certificateDER,
+            privateKey: generated.privateKey,
+            password: internalPassword,
+            friendlyName: commonName
+        )
+        try importPKCS12(p12, password: internalPassword)
+        Self.log.info("Created fresh self-signed Mumble identity (CN=\(commonName, privacy: .public)).")
+    }
+
+    /// 32-byte random, hex-encoded. Stored alongside the P12 in the
+    /// envelope — its only job is to be unguessable; it never leaves
+    /// the data-protection keychain.
+    private static func randomInternalPassword() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        return bytes.map { String(format: "%02x", $0) }.joined()
+    }
+
     // MARK: - Delete
 
     func delete() throws {
