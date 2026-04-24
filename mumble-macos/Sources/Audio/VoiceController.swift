@@ -173,7 +173,6 @@ final class VoiceController: @unchecked Sendable {
         }
         do {
             let pcm = try speaker.decoder.decode(opus)
-            pcm.frameLength = MumbleAudioParameters.framesPerPacket
             speaker.player.scheduleBuffer(pcm, completionHandler: nil)
         } catch {
             Self.log.error("Opus decode failed for session \(session, privacy: .public): \(error.localizedDescription, privacy: .public)")

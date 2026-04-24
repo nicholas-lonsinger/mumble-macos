@@ -38,6 +38,13 @@ enum MumbleAudioParameters {
     static var framesPerPacket: AVAudioFrameCount {
         AVAudioFrameCount(sampleRate * frameDurationSeconds)
     }
+    /// Largest Opus packet duration (120 ms @ 48 kHz = 5760 samples). Remote
+    /// peers may ship frames longer than our 20 ms encode size, so decoder
+    /// output buffers must be sized for the worst case or libopus returns
+    /// OPUS_BUFFER_TOO_SMALL.
+    static var maxDecodedFramesPerPacket: AVAudioFrameCount {
+        AVAudioFrameCount(sampleRate * 0.120)
+    }
 
     static var pcmFormat: AVAudioFormat {
         AVAudioFormat(commonFormat: .pcmFormatFloat32,
@@ -131,18 +138,20 @@ final class OpusDecoder {
     func decode(_ opusData: Data, fec: Bool = false) throws -> AVAudioPCMBuffer {
         guard let output = AVAudioPCMBuffer(
             pcmFormat: MumbleAudioParameters.pcmFormat,
-            frameCapacity: MumbleAudioParameters.framesPerPacket
+            frameCapacity: MumbleAudioParameters.maxDecodedFramesPerPacket
         ), let dst = output.floatChannelData?[0] else {
             throw OpusCodecError.decodeFailed(-1)
         }
-        let frameCount = Int32(MumbleAudioParameters.framesPerPacket)
         let produced: Int32
         if opusData.isEmpty {
+            // PLC / FEC path: frame_size must equal the duration of the
+            // missing audio. We assume our own 20 ms packet cadence for the
+            // gap.
             produced = opus_decode_float(decoder,
                                          nil,
                                          0,
                                          dst,
-                                         frameCount,
+                                         Int32(MumbleAudioParameters.framesPerPacket),
                                          fec ? 1 : 0)
         } else {
             produced = opusData.withUnsafeBytes { raw -> Int32 in
@@ -151,7 +160,7 @@ final class OpusDecoder {
                                          base,
                                          Int32(raw.count),
                                          dst,
-                                         frameCount,
+                                         Int32(MumbleAudioParameters.maxDecodedFramesPerPacket),
                                          fec ? 1 : 0)
             }
         }
