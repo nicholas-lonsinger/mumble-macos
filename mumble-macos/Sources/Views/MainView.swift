@@ -95,7 +95,7 @@ struct MainView: View {
 
     private var placeholderSidebarText: String {
         switch client.state {
-        case .disconnected: "Use ⌘N to connect."
+        case .disconnected: "Use ⌘K to connect."
         case .connecting, .handshaking: "Loading channels…"
         case .connected: "No channels yet."
         case .failed: "Connection failed."
@@ -104,7 +104,7 @@ struct MainView: View {
 
     private var detailPlaceholderText: String {
         switch client.state {
-        case .disconnected: "Not connected. File ▸ Connect to Server… (⌘N)"
+        case .disconnected: "Not connected. File ▸ Connect to Server… (⌘K)"
         case .connecting: "Opening TLS connection…"
         case .handshaking: "Negotiating Mumble protocol…"
         case .connected: "Connected."

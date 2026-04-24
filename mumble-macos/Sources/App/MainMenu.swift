@@ -78,7 +78,7 @@ enum MainMenu {
         let menu = NSMenu(title: "File")
         menu.addItem(withTitle: "Connect to Server…",
                      action: #selector(MainWindowController.showConnectSheet(_:)),
-                     keyEquivalent: "n")
+                     keyEquivalent: "k")
         menu.addItem(withTitle: "Disconnect",
                      action: #selector(MainWindowController.disconnect(_:)),
                      keyEquivalent: "d")
