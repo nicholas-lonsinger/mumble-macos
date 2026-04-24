@@ -19,6 +19,7 @@ enum DER {
     private static let tagPrintableString: UInt8 = 0x13
     private static let tagUTCTime: UInt8 = 0x17
     private static let tagGeneralizedTime: UInt8 = 0x18
+    private static let tagBMPString: UInt8 = 0x1E
     private static let tagSequence: UInt8 = 0x30
     private static let tagSet: UInt8 = 0x31
 
@@ -91,6 +92,30 @@ enum DER {
 
     static func printableString(_ s: String) -> Data {
         tlv(tag: tagPrintableString, content: Data(s.utf8))
+    }
+
+    /// BMPString (UTF-16 big-endian). PKCS#12 friendlyName attributes
+    /// specifically call for BMPString. Handles surrogate pairs for
+    /// non-BMP characters, though almost every realistic friendlyName
+    /// fits in the BMP.
+    static func bmpString(_ s: String) -> Data {
+        var data = Data()
+        for scalar in s.unicodeScalars {
+            let v = scalar.value
+            if v <= 0xFFFF {
+                data.append(UInt8(v >> 8))
+                data.append(UInt8(v & 0xFF))
+            } else {
+                let adjusted = v - 0x10000
+                let high = UInt32(0xD800) | (adjusted >> 10)
+                let low = UInt32(0xDC00) | (adjusted & 0x3FF)
+                data.append(UInt8((high >> 8) & 0xFF))
+                data.append(UInt8(high & 0xFF))
+                data.append(UInt8((low >> 8) & 0xFF))
+                data.append(UInt8(low & 0xFF))
+            }
+        }
+        return tlv(tag: tagBMPString, content: data)
     }
 
     /// RFC 5280 §4.1.2.5: UTCTime for years 1950–2049 inclusive,
