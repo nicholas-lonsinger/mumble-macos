@@ -45,6 +45,13 @@ enum MumbleAudioParameters {
     static var maxDecodedFramesPerPacket: AVAudioFrameCount {
         AVAudioFrameCount(sampleRate * 0.120)
     }
+    /// How much `MumbleUDP.Audio.frame_number` advances per outgoing packet.
+    /// Mumble's frame_number counts 10 ms sub-frames, so a 20 ms Opus packet
+    /// advances by 2. Observed on the wire from reference clients: consecutive
+    /// 20 ms packets arrive with frame_number = 2, 4, 6, …
+    static var frameNumberStep: UInt64 {
+        UInt64((frameDurationSeconds * 100.0).rounded())
+    }
 
     static var pcmFormat: AVAudioFormat {
         AVAudioFormat(commonFormat: .pcmFormatFloat32,

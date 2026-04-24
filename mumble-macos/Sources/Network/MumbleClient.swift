@@ -35,6 +35,8 @@ final class MumbleClient {
     private var transport: MumbleTransport?
     private var receiveTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
+    private var voiceSendTask: Task<Void, Never>?
+    private var voiceSendContinuation: AsyncStream<VoiceSendItem>.Continuation?
     private var currentParameters: ServerConnectionParameters?
     private let voice = VoiceController()
     private(set) var voiceAvailable = false
@@ -42,6 +44,12 @@ final class MumbleClient {
     private(set) var speakingSessions: Set<UInt32> = []
     private var speakingClearTasks: [UInt32: Task<Void, Never>] = [:]
     private var connectStartedAt: ContinuousClock.Instant?
+
+    private struct VoiceSendItem: Sendable {
+        let opus: Data
+        let frameNumber: UInt64
+        let isTerminator: Bool
+    }
 
     func connect(to parameters: ServerConnectionParameters) async {
         await disconnect()
@@ -128,6 +136,10 @@ final class MumbleClient {
         pingTask = nil
         voice.onOpusFrame = nil
         voice.stop()
+        voiceSendContinuation?.finish()
+        voiceSendContinuation = nil
+        voiceSendTask?.cancel()
+        voiceSendTask = nil
         voiceAvailable = false
         isTransmitting = false
         for (_, task) in speakingClearTasks { task.cancel() }
@@ -429,14 +441,45 @@ final class MumbleClient {
     // MARK: - Voice
 
     private func startVoice(transport: MumbleTransport) {
-        voice.onOpusFrame = { [weak self] opus, frameNumber, isTerminator in
-            guard let self else { return }
-            Task { [weak self] in
+        // Serialize outgoing voice frames through a single consumer task so
+        // they hit the TLS socket in encoder order. Spawning one Task per
+        // frame doesn't guarantee FIFO start order (Swift concurrency is
+        // cooperative, not insertion-ordered), which can reorder audio on the
+        // wire and garble remote playback.
+        //
+        // Also pace sends at the frame cadence (20 ms). The AVAudioEngine
+        // input tap inside a VM / over Bluetooth delivers ~100 ms buffers at
+        // a time, which produces 5 encoded packets in a ~1 ms burst. Sent
+        // as a burst, the receiver's jitter buffer sees long arrival gaps,
+        // runs dry, and fills with PLC/silence — which sounds exactly like
+        // "broken and muffled." Pacing smooths arrivals to the expected rate.
+        let (stream, continuation) = AsyncStream.makeStream(of: VoiceSendItem.self,
+                                                            bufferingPolicy: .unbounded)
+        voiceSendContinuation = continuation
+        voiceSendTask = Task { [weak self, transport] in
+            let clock = ContinuousClock()
+            let frameSpacing: Duration = .milliseconds(20)
+            var nextSendAt: ContinuousClock.Instant?
+            for await item in stream {
+                let now = clock.now
+                let scheduledAt: ContinuousClock.Instant
+                if let target = nextSendAt, target > now {
+                    try? await clock.sleep(until: target)
+                    scheduledAt = target
+                } else {
+                    scheduledAt = now
+                }
                 await self?.sendVoiceFrame(transport: transport,
-                                           opus: opus,
-                                           frameNumber: frameNumber,
-                                           isTerminator: isTerminator)
+                                           opus: item.opus,
+                                           frameNumber: item.frameNumber,
+                                           isTerminator: item.isTerminator)
+                nextSendAt = scheduledAt + frameSpacing
             }
+        }
+        voice.onOpusFrame = { opus, frameNumber, isTerminator in
+            continuation.yield(VoiceSendItem(opus: opus,
+                                             frameNumber: frameNumber,
+                                             isTerminator: isTerminator))
         }
         do {
             try voice.start()

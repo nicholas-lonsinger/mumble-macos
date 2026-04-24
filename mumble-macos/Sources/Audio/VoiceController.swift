@@ -132,7 +132,7 @@ final class VoiceController: @unchecked Sendable {
         pendingSamples.removeAll()
         lock.unlock()
 
-        Self.log.info("PTT transmit stop (frames=\(terminatorSeq ?? 0, privacy: .public))")
+        Self.log.info("PTT transmit stop (frameNumber=\(terminatorSeq ?? 0, privacy: .public))")
         // Send an empty-payload terminator so the server knows the burst ended.
         if let handler, let terminatorSeq {
             handler(Data(), terminatorSeq, true)
@@ -191,9 +191,15 @@ final class VoiceController: @unchecked Sendable {
 
     private func handleCaptureBuffer(_ buffer: AVAudioPCMBuffer) {
         let converted: AVAudioPCMBuffer
-        if let inputConverter {
+        if let inputConverter, let inputFormat {
+            // Scale output capacity by the sample-rate ratio — otherwise
+            // upsampling (e.g. 16 kHz Bluetooth mic → 48 kHz) truncates each
+            // tap callback and audio comes out broken/muffled on the wire.
+            let ratio = MumbleAudioParameters.sampleRate / inputFormat.sampleRate
+            let inFrames = max(Int(buffer.frameLength), 1)
+            let outCapacity = AVAudioFrameCount(Int((Double(inFrames) * ratio).rounded(.up)) + 32)
             guard let out = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
-                                             frameCapacity: AVAudioFrameCount(buffer.frameCapacity)) else { return }
+                                             frameCapacity: outCapacity) else { return }
             var consumed = false
             var err: NSError?
             let status = inputConverter.convert(to: out, error: &err) { _, outStatus in
@@ -240,7 +246,7 @@ final class VoiceController: @unchecked Sendable {
             do {
                 let opus = try encoder.encode(pcm)
                 let seq = sendSequence
-                sendSequence += 1
+                sendSequence += MumbleAudioParameters.frameNumberStep
                 if !opus.isEmpty {
                     framesToSend.append((opus, seq))
                 }

@@ -26,6 +26,8 @@ Apple's `kAudioFormatOpus` expects Ogg-framed Opus. Mumble sends raw Opus frames
 - TCP control channel carries typed protobuf messages (`Mumble.proto`, types 0–26).
 - Audio is tunneled over TCP as message type 1 (`UDPTunnel`). The payload is `[0x00 UDP-msg-type byte] + [serialized MumbleUDP.Audio]`. The leading 0x00 is the UDP-side message-type byte (audio); the rest is the protobuf.
 - Key `MumbleUDP.Audio` fields used: `sender_session(3)`, `frame_number(4)`, `opus_data(5)`, `is_terminator(16)`. Outgoing frames set `target=0` (normal talking), no context.
+- **`frame_number` counts 10 ms sub-frames, not Opus packets.** A 20 ms Opus packet advances `frame_number` by 2. Don't use a per-packet counter (0, 1, 2, …) — receivers place the packet in the playout timeline at `frame_number × 10 ms`, so per-packet numbering makes every packet overlap the previous one by 10 ms → broken/muffled audio on the remote. See `MumbleAudioParameters.frameNumberStep`. Reference: `mumble/src/mumble/AudioOutputSpeech.cpp:216` multiplies `frame_number` by `iFrameSize` (samples per 10 ms) for the jitter-buffer timestamp.
+- **Pace outgoing voice frames at the frame cadence (20 ms).** The `AVAudioEngine` input tap inside a VM / over Bluetooth delivers ~100 ms buffers per callback, which produces 5 encoded packets in ~1 ms. Blasting those to the socket as a burst makes the receiver's jitter buffer run dry between bursts → PLC/silence artifacts. `MumbleClient.startVoice` serializes outgoing frames through a single consumer Task that sleeps between sends.
 - Self-mute / self-deaf is sent as an outgoing `UserState` with those fields set; do not mutate the local user model and wait for a round-trip.
 
 ## Performance invariant: gate sidebar on ServerSync
