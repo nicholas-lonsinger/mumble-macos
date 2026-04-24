@@ -32,6 +32,10 @@ final class CertificateManagerModel {
         refresh()
     }
 
+    func exportPKCS12(password: String) throws -> Data {
+        try IdentityStore.shared.exportPKCS12(password: password)
+    }
+
     func delete() throws {
         try IdentityStore.shared.delete()
         refresh()
@@ -46,6 +50,9 @@ struct CertificateManagerView: View {
     @State private var errorMessage: String?
     @State private var showingCreateConfirmation = false
     @State private var isCreating = false
+    @State private var showingExportPasswordSheet = false
+    @State private var exportPassword = ""
+    @State private var exportPasswordConfirm = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -80,9 +87,8 @@ struct CertificateManagerView: View {
             HStack {
                 Button("Import…") { pickAndImport() }
                     .disabled(isCreating)
-                Button("Export…") { }
-                    .disabled(true)
-                    .help("Coming in a later commit.")
+                Button("Export…") { beginExport() }
+                    .disabled(model.summary == nil || isCreating)
                 Button("Create New…") { showingCreateConfirmation = true }
                     .disabled(isCreating)
                 Spacer()
@@ -99,6 +105,12 @@ struct CertificateManagerView: View {
             importPassword = ""
         }) {
             importPasswordSheet
+        }
+        .sheet(isPresented: $showingExportPasswordSheet, onDismiss: {
+            exportPassword = ""
+            exportPasswordConfirm = ""
+        }) {
+            exportPasswordSheet
         }
         .alert("Certificate error",
                isPresented: Binding(get: { errorMessage != nil },
@@ -153,6 +165,40 @@ struct CertificateManagerView: View {
             }
             .padding(6)
         }
+    }
+
+    private var exportPasswordSheet: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Export Password")
+                .font(.headline)
+            Text("The exported PKCS#12 file will be encrypted with this password. Remember it — you’ll need it to import the file on another machine.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            SecureField("Password", text: $exportPassword)
+                .textFieldStyle(.roundedBorder)
+            SecureField("Confirm password", text: $exportPasswordConfirm)
+                .textFieldStyle(.roundedBorder)
+            if !exportPasswordConfirm.isEmpty, exportPassword != exportPasswordConfirm {
+                Text("Passwords don’t match.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) {
+                    showingExportPasswordSheet = false
+                }
+                .keyboardShortcut(.cancelAction)
+                Button("Save…") {
+                    performExport()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(exportPassword != exportPasswordConfirm)
+            }
+        }
+        .padding(20)
+        .frame(width: 400)
     }
 
     private var importPasswordSheet: some View {
@@ -215,6 +261,46 @@ struct CertificateManagerView: View {
             errorMessage = error.localizedDescription
             showingPasswordSheet = false
         }
+    }
+
+    private func beginExport() {
+        exportPassword = ""
+        exportPasswordConfirm = ""
+        showingExportPasswordSheet = true
+    }
+
+    private func performExport() {
+        let password = exportPassword
+        showingExportPasswordSheet = false
+
+        let p12: Data
+        do {
+            p12 = try model.exportPKCS12(password: password)
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "p12") ?? .data]
+        panel.nameFieldStringValue = defaultExportFileName()
+        panel.message = "Save the exported Mumble identity."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try p12.write(to: url)
+        } catch {
+            errorMessage = "Couldn’t write the file: \(error.localizedDescription)"
+        }
+    }
+
+    private func defaultExportFileName() -> String {
+        let base: String
+        if let cn = model.summary?.commonName, !cn.isEmpty, cn != "(no common name)" {
+            base = cn.replacingOccurrences(of: "/", with: "-")
+        } else {
+            base = "Mumble Identity"
+        }
+        return "\(base).p12"
     }
 
     private func performCreate() {

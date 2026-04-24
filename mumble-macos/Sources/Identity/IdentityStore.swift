@@ -170,6 +170,37 @@ final class IdentityStore {
         return bytes.map { String(format: "%02x", $0) }.joined()
     }
 
+    // MARK: - Export
+
+    /// Re-wraps the stored identity as a PKCS#12 under a caller-chosen
+    /// password. We always re-encode (rather than dump the envelope's
+    /// raw bytes) so the user's exported password is exactly what they
+    /// typed — the envelope's internal password is a random we generated
+    /// and never intend to expose.
+    func exportPKCS12(password: String,
+                      friendlyName: String = "Mumble User") throws -> Data {
+        guard let client = try currentIdentity() else {
+            throw IdentityStoreError.noIdentity
+        }
+        var certRef: SecCertificate?
+        let certStatus = SecIdentityCopyCertificate(client.secIdentity, &certRef)
+        guard certStatus == errSecSuccess, let cert = certRef else {
+            throw IdentityStoreError.keychain(certStatus, "copy identity certificate")
+        }
+        var keyRef: SecKey?
+        let keyStatus = SecIdentityCopyPrivateKey(client.secIdentity, &keyRef)
+        guard keyStatus == errSecSuccess, let privateKey = keyRef else {
+            throw IdentityStoreError.pkcs12MissingPrivateKey
+        }
+        let certDER = SecCertificateCopyData(cert) as Data
+        return try PKCS12Encoder.encode(
+            certificateDER: certDER,
+            privateKey: privateKey,
+            password: password,
+            friendlyName: friendlyName
+        )
+    }
+
     // MARK: - Delete
 
     func delete() throws {
