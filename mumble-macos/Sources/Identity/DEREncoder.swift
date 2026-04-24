@@ -69,9 +69,14 @@ enum DER {
         return tlv(tag: tagOID, content: body)
     }
 
-    /// BIT STRING whose payload is a whole number of bytes.
-    static func bitString(_ bytes: Data) -> Data {
-        var content = Data([0x00]) // zero unused trailing bits
+    /// BIT STRING. `unusedBits` is the number of low-order bits in the
+    /// final byte that aren't part of the value (0–7). Default 0 is right
+    /// for BIT STRINGs that wrap a whole DER-encoded value (like the
+    /// signature or the SubjectPublicKey); non-zero is needed for named-bit
+    /// strings like KeyUsage.
+    static func bitString(_ bytes: Data, unusedBits: Int = 0) -> Data {
+        precondition((0...7).contains(unusedBits), "unusedBits must be 0-7")
+        var content = Data([UInt8(unusedBits)])
         content.append(bytes)
         return tlv(tag: tagBitString, content: content)
     }
