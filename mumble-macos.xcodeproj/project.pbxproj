@@ -356,6 +356,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "mumble-macos/Resources/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Mumble;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -389,6 +390,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "mumble-macos/Resources/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Mumble;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";

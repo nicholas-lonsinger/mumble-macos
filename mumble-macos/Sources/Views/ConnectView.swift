@@ -3,6 +3,9 @@ import SwiftUI
 struct ConnectView: View {
     let onConnect: (ServerConnectionParameters) -> Void
     let onCancel: () -> Void
+    /// When the window is opened via a `mumble://` URL, the parsed URL lands
+    /// here and overwrites the persisted form values on first appear.
+    var prefill: MumbleURL? = nil
 
     // Host/port/username persist across launches. Password stays session-scoped
     // until we add Keychain-backed storage (or client certs, which make it moot).
@@ -42,8 +45,19 @@ struct ConnectView: View {
         .padding(20)
         .frame(width: 440)
         .task {
+            applyPrefillIfNeeded()
             reloadIdentity()
         }
+    }
+
+    private func applyPrefillIfNeeded() {
+        guard let prefill else { return }
+        host = prefill.host
+        port = String(prefill.port)
+        if let u = prefill.username { username = u }
+        // Explicit password in the URL wins; otherwise leave the session-scoped
+        // field empty so the user can type it (or rely on a client cert).
+        password = prefill.password ?? ""
     }
 
     @ViewBuilder
