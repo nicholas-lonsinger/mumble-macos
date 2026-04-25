@@ -64,7 +64,7 @@ enum WelcomeHTML {
         }
     }
 
-    private static func sanitize(_ raw: String) -> String {
+    static func sanitize(_ raw: String) -> String {
         guard let body = raw.data(using: .utf8) else {
             return "<pre>\(escapeHTML(raw))</pre>"
         }

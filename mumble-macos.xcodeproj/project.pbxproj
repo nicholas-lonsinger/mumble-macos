@@ -6,16 +6,35 @@
 	objectVersion = 71;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		1A100000000000000000001A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A1000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A1000000000000000000005;
+			remoteInfo = "mumble-macos";
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		1A1000000000000000000004 /* mumble-macos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "mumble-macos.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A1000000000000000000018 /* mumble-macosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mumble-macosTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1A100000000000000000000F /* mumble-macos */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "mumble-macos"; sourceTree = "<group>"; };
+		1A1000000000000000000010 /* mumble-macosTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "mumble-macosTests"; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		1A1000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A1000000000000000000013 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -29,6 +48,7 @@
 			isa = PBXGroup;
 			children = (
 				1A100000000000000000000F /* mumble-macos */,
+				1A1000000000000000000010 /* mumble-macosTests */,
 				1A1000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -37,6 +57,7 @@
 			isa = PBXGroup;
 			children = (
 				1A1000000000000000000004 /* mumble-macos.app */,
+				1A1000000000000000000018 /* mumble-macosTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -66,6 +87,29 @@
 			productReference = 1A1000000000000000000004 /* mumble-macos.app */;
 			productType = "com.apple.product-type.application";
 		};
+		1A1000000000000000000011 /* mumble-macosTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A1000000000000000000015 /* Build configuration list for PBXNativeTarget "mumble-macosTests" */;
+			buildPhases = (
+				1A1000000000000000000012 /* Sources */,
+				1A1000000000000000000013 /* Frameworks */,
+				1A1000000000000000000014 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1A1000000000000000000019 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1A1000000000000000000010 /* mumble-macosTests */,
+			);
+			name = "mumble-macosTests";
+			packageProductDependencies = (
+			);
+			productName = "mumble-macosTests";
+			productReference = 1A1000000000000000000018 /* mumble-macosTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -78,6 +122,10 @@
 				TargetAttributes = {
 					1A1000000000000000000005 = {
 						CreatedOnToolsVersion = 26.4;
+					};
+					1A1000000000000000000011 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = 1A1000000000000000000005;
 					};
 				};
 			};
@@ -96,12 +144,20 @@
 			projectRoot = "";
 			targets = (
 				1A1000000000000000000005 /* mumble-macos */,
+				1A1000000000000000000011 /* mumble-macosTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		1A1000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A1000000000000000000014 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -118,7 +174,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1A1000000000000000000012 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1A1000000000000000000019 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A1000000000000000000005 /* mumble-macos */;
+			targetProxy = 1A100000000000000000001A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1A100000000000000000000B /* Debug */ = {
@@ -338,6 +409,70 @@
 			};
 			name = Release;
 		};
+		1A1000000000000000000016 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 8MT4P4GZL2;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.nicholas-lonsinger.mumble-macosTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/mumble-macos.app/Contents/MacOS/mumble-macos";
+			};
+			name = Debug;
+		};
+		1A1000000000000000000017 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 8MT4P4GZL2;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.nicholas-lonsinger.mumble-macosTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/mumble-macos.app/Contents/MacOS/mumble-macos";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -355,6 +490,15 @@
 			buildConfigurations = (
 				1A100000000000000000000D /* Debug */,
 				1A100000000000000000000E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A1000000000000000000015 /* Build configuration list for PBXNativeTarget "mumble-macosTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A1000000000000000000016 /* Debug */,
+				1A1000000000000000000017 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
