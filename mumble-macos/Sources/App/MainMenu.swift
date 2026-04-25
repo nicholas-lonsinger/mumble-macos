@@ -93,6 +93,9 @@ enum MainMenu {
         menu.addItem(withTitle: "Refresh Public Servers",
                      action: #selector(AppDelegate.refreshPublicServers(_:)),
                      keyEquivalent: "")
+        menu.addItem(withTitle: "Import from Mumble.app…",
+                     action: #selector(AppDelegate.importFromMumbleApp(_:)),
+                     keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Close",
                      action: #selector(NSWindow.performClose(_:)),
