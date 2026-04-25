@@ -202,15 +202,14 @@ final class PKCS12EncoderTests: XCTestCase {
 
     /// friendlyName attribute is BMPString-encoded. The name we passed
     /// must show up in the encoded P12 so SecPKCS12Import can return it
-    /// to consumers.
+    /// to consumers. `.utf16BigEndian` matches the BMPString byte form
+    /// for BMP codepoints and correctly emits surrogate pairs for non-BMP
+    /// — the manual `c.value >> 8` form we had earlier would trap on
+    /// emoji.
     func test_friendlyNameLandsInOutput() throws {
         let name = "Mumble Test User"
         let p12 = try encode(friendlyName: name)
-        var bmp = Data()
-        for c in name.unicodeScalars {
-            bmp.append(UInt8(c.value >> 8))
-            bmp.append(UInt8(c.value & 0xFF))
-        }
+        let bmp = try XCTUnwrap(name.data(using: .utf16BigEndian))
         XCTAssertNotNil(p12.range(of: bmp))
     }
 
