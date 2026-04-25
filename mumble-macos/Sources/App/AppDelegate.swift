@@ -81,4 +81,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
+
+    /// Triggers a refresh of the seeded public-servers group. Pulls the
+    /// preferred username from the same `@AppStorage` key the Connect form
+    /// uses; the user can override it per-server later.
+    @objc func refreshPublicServers(_ sender: Any?) {
+        let username = UserDefaults.standard.string(forKey: "lastServerUsername") ?? ""
+        PublicServerRefresh.shared.start(defaultUsername: username)
+    }
 }

@@ -90,6 +90,10 @@ enum MainMenu {
                      action: #selector(MainWindowController.disconnect(_:)),
                      keyEquivalent: "d")
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(withTitle: "Refresh Public Servers",
+                     action: #selector(AppDelegate.refreshPublicServers(_:)),
+                     keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Close",
                      action: #selector(NSWindow.performClose(_:)),
                      keyEquivalent: "w")
