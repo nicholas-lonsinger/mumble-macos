@@ -26,6 +26,10 @@ final class PKCS12EncoderTests: XCTestCase {
         }
     }()
 
+    /// `iterations: 1024` is half production's 2048 for test speed —
+    /// exercises the same KDF path with a smaller iteration count, and
+    /// the round-trip test confirms structural correctness regardless
+    /// of count.
     private func encode(password: String = "test-pw",
                         friendlyName: String = "Mumble Test User",
                         iterations: Int = 1024) throws -> Data {
@@ -39,7 +43,12 @@ final class PKCS12EncoderTests: XCTestCase {
         )
     }
 
-    private func importP12(_ p12: Data, password: String) -> SecIdentity? {
+    private struct ImportResult {
+        let identity: SecIdentity?
+        let status: OSStatus
+    }
+
+    private func importP12(_ p12: Data, password: String) -> ImportResult {
         var items: CFArray?
         let options: [String: Any] = [
             kSecImportExportPassphrase as String: password,
@@ -49,23 +58,25 @@ final class PKCS12EncoderTests: XCTestCase {
         guard status == errSecSuccess,
               let arr = items as? [[String: Any]],
               let first = arr.first,
-              let identity = first[kSecImportItemIdentity as String]
+              let identityAny = first[kSecImportItemIdentity as String]
         else {
-            return nil
+            return ImportResult(identity: nil, status: status)
         }
-        return (identity as! SecIdentity)
+        // Apple documents `kSecImportItemIdentity` always being a SecIdentity
+        // when present — same `as!` pattern as IdentityStore.importToIdentity.
+        return ImportResult(identity: (identityAny as! SecIdentity), status: status)
     }
 
     // MARK: - Round-trip
 
     func test_encodeProducesImportableP12() throws {
         let p12 = try encode()
-        XCTAssertNotNil(importP12(p12, password: "test-pw"))
+        XCTAssertNotNil(importP12(p12, password: "test-pw").identity)
     }
 
     func test_importedCertificateMatchesInput() throws {
         let p12 = try encode()
-        let identity = try XCTUnwrap(importP12(p12, password: "test-pw"))
+        let identity = try XCTUnwrap(importP12(p12, password: "test-pw").identity)
         var certRef: SecCertificate?
         XCTAssertEqual(SecIdentityCopyCertificate(identity, &certRef), errSecSuccess)
         let imported = SecCertificateCopyData(try XCTUnwrap(certRef)) as Data
@@ -74,7 +85,7 @@ final class PKCS12EncoderTests: XCTestCase {
 
     func test_importedPrivateKeyIsRetrievable() throws {
         let p12 = try encode()
-        let identity = try XCTUnwrap(importP12(p12, password: "test-pw"))
+        let identity = try XCTUnwrap(importP12(p12, password: "test-pw").identity)
         var keyRef: SecKey?
         XCTAssertEqual(SecIdentityCopyPrivateKey(identity, &keyRef), errSecSuccess)
         XCTAssertNotNil(keyRef)
@@ -87,7 +98,7 @@ final class PKCS12EncoderTests: XCTestCase {
     /// `IdentityStore`.
     func test_importedKeyTypeIsRSA() throws {
         let p12 = try encode()
-        let identity = try XCTUnwrap(importP12(p12, password: "test-pw"))
+        let identity = try XCTUnwrap(importP12(p12, password: "test-pw").identity)
         var keyRef: SecKey?
         SecIdentityCopyPrivateKey(identity, &keyRef)
         let key = try XCTUnwrap(keyRef)
@@ -111,7 +122,7 @@ final class PKCS12EncoderTests: XCTestCase {
     /// challenge.
     func test_importedKeyCanSign() throws {
         let p12 = try encode()
-        let identity = try XCTUnwrap(importP12(p12, password: "test-pw"))
+        let identity = try XCTUnwrap(importP12(p12, password: "test-pw").identity)
         var keyRef: SecKey?
         SecIdentityCopyPrivateKey(identity, &keyRef)
         let key = try XCTUnwrap(keyRef)
@@ -126,14 +137,20 @@ final class PKCS12EncoderTests: XCTestCase {
 
     // MARK: - Password handling
 
+    /// Asserting both that no identity comes back AND that the failure
+    /// mode is specifically `errSecAuthFailed` — distinguishes "wrong
+    /// password" from "structural parse failure", which would also
+    /// produce nil identity but for a different reason.
     func test_wrongPasswordRejected() throws {
         let p12 = try encode(password: "right")
-        XCTAssertNil(importP12(p12, password: "wrong"))
+        let result = importP12(p12, password: "wrong")
+        XCTAssertNil(result.identity)
+        XCTAssertEqual(result.status, errSecAuthFailed)
     }
 
     func test_emptyPasswordWorks() throws {
         let p12 = try encode(password: "")
-        XCTAssertNotNil(importP12(p12, password: ""))
+        XCTAssertNotNil(importP12(p12, password: "").identity)
     }
 
     /// PKCS#12 passwords are encoded as BMPString (UTF-16 BE). Non-ASCII
@@ -143,7 +160,7 @@ final class PKCS12EncoderTests: XCTestCase {
     func test_unicodePasswordWorks() throws {
         let unicodePass = "пароль🔐"
         let p12 = try encode(password: unicodePass)
-        XCTAssertNotNil(importP12(p12, password: unicodePass))
+        XCTAssertNotNil(importP12(p12, password: unicodePass).identity)
     }
 
     // MARK: - ASN.1 / OID landing slots
