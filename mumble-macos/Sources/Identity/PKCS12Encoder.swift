@@ -314,9 +314,15 @@ enum PKCS12KDF {
         return Data(output.prefix(length))
     }
 
-    /// PKCS#12 password = BMPString (UTF-16BE) + two null bytes. Empty
-    /// password degenerates to just the terminator.
+    /// PKCS#12 password = BMPString (UTF-16BE) + two null bytes terminator,
+    /// per RFC 7292 Appendix B. The empty-password case is *not* `0x00 0x00`
+    /// — RFC 7292 explicitly says "if the password is the empty string,
+    /// then P, as well, is the empty string", and SecPKCS12Import enforces
+    /// this. Producing a `0x00 0x00` empty password derives a different
+    /// KDF key than the verifier expects, and the round-trip self-check
+    /// fails with errSecAuthFailed.
     private static func bmpPassword(_ s: String) -> Data {
+        if s.isEmpty { return Data() }
         var data = Data()
         for scalar in s.unicodeScalars {
             let v = scalar.value
