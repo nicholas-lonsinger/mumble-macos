@@ -176,6 +176,106 @@ final class ServerBookStoreTests: XCTestCase {
         XCTAssertNotNil(store.server(id: replacement.id))
     }
 
+    // MARK: - Move / reorder
+
+    func test_moveServerToTopOfDestinationGroup() throws {
+        let store = ServerBookStore(storageURL: tempURL)
+        let g1 = ServerGroup(name: "G1")
+        let g2 = ServerGroup(name: "G2")
+        store.addGroup(g1)
+        store.addGroup(g2)
+
+        let s1 = SavedServer(label: "Alpha", host: "a", port: 1, username: "u", groupID: g1.id, sortIndex: 1)
+        let s2 = SavedServer(label: "Beta", host: "b", port: 1, username: "u", groupID: g1.id, sortIndex: 2)
+        let s3 = SavedServer(label: "Gamma", host: "c", port: 1, username: "u", groupID: g2.id, sortIndex: 1)
+        store.addServer(s1)
+        store.addServer(s2)
+        store.addServer(s3)
+
+        // Move s2 to start of g2.
+        try store.moveServer(s2.id, toGroup: g2.id, afterServerID: nil)
+
+        let g2Sorted = store.servers(in: g2.id)
+        XCTAssertEqual(g2Sorted.map(\.label), ["Beta", "Gamma"])
+        // Source group should still contain s1 only.
+        XCTAssertEqual(store.servers(in: g1.id).map(\.label), ["Alpha"])
+        // Renumbered contiguously starting at 1.
+        XCTAssertEqual(g2Sorted.map(\.sortIndex), [1, 2])
+    }
+
+    func test_moveServerAfterAnchorWithinSameGroup() throws {
+        let store = ServerBookStore(storageURL: tempURL)
+        let g = try XCTUnwrap(store.group(of: .favorites)).id
+
+        let a = SavedServer(label: "A", host: "a", port: 1, username: "u", groupID: g, sortIndex: 1)
+        let b = SavedServer(label: "B", host: "b", port: 1, username: "u", groupID: g, sortIndex: 2)
+        let c = SavedServer(label: "C", host: "c", port: 1, username: "u", groupID: g, sortIndex: 3)
+        store.addServer(a)
+        store.addServer(b)
+        store.addServer(c)
+
+        // Move A to land right after C → expected order B, C, A.
+        try store.moveServer(a.id, toGroup: g, afterServerID: c.id)
+
+        XCTAssertEqual(store.servers(in: g).map(\.label), ["B", "C", "A"])
+    }
+
+    func test_moveServerToTopLevel() throws {
+        let store = ServerBookStore(storageURL: tempURL)
+        let g = try XCTUnwrap(store.group(of: .favorites)).id
+
+        let s = SavedServer(label: "S", host: "s", port: 1, username: "u", groupID: g, sortIndex: 1)
+        store.addServer(s)
+
+        try store.moveServer(s.id, toGroup: nil, afterServerID: nil)
+
+        XCTAssertTrue(store.servers(in: g).isEmpty)
+        XCTAssertEqual(store.servers(in: nil).map(\.label), ["S"])
+    }
+
+    func test_moveServerWithMissingAnchorFallsBackToStart() throws {
+        // Anchor that isn't in the destination → drops at the front. Mirrors
+        // what we want for cross-group drags where the source server's
+        // sibling list is irrelevant in the destination.
+        let store = ServerBookStore(storageURL: tempURL)
+        let g1 = ServerGroup(name: "G1")
+        let g2 = ServerGroup(name: "G2")
+        store.addGroup(g1)
+        store.addGroup(g2)
+
+        let inG1 = SavedServer(label: "In G1", host: "a", port: 1, username: "u", groupID: g1.id, sortIndex: 1)
+        let firstInG2 = SavedServer(label: "First", host: "b", port: 1, username: "u", groupID: g2.id, sortIndex: 1)
+        store.addServer(inG1)
+        store.addServer(firstInG2)
+
+        // The anchor `firstInG2.id` lives in g2. We're moving inG1 to g1
+        // (its current group) using firstInG2 as anchor — invalid for g1.
+        try store.moveServer(inG1.id, toGroup: g1.id, afterServerID: firstInG2.id)
+
+        XCTAssertEqual(store.servers(in: g1.id).map(\.label), ["In G1"])
+    }
+
+    func test_moveGroupReorders() throws {
+        let store = ServerBookStore(storageURL: tempURL)
+        // Wipe seed so we have a known starting set.
+        let favorites = try XCTUnwrap(store.group(of: .favorites))
+        let work = ServerGroup(name: "Work", sortIndex: 0, kind: .user)
+        let friends = ServerGroup(name: "Friends", sortIndex: 0, kind: .user)
+        store.addGroup(work)
+        store.addGroup(friends)
+
+        // Initial order: Favorites, Work, Friends (by sortIndex auto-bump).
+        XCTAssertEqual(store.topLevelGroupsSorted.map(\.name), ["Favorites", "Work", "Friends"])
+
+        // Move Friends to first position (after nil = at start).
+        try store.moveGroup(friends.id, afterGroupID: nil)
+        XCTAssertEqual(store.topLevelGroupsSorted.map(\.name), ["Friends", "Favorites", "Work"])
+
+        // Move Favorites after Work.
+        try store.moveGroup(favorites.id, afterGroupID: work.id)
+        XCTAssertEqual(store.topLevelGroupsSorted.map(\.name), ["Friends", "Work", "Favorites"])
+    }
+
     // MARK: - Recovery
 
     func test_corruptFileIsQuarantinedAndStoreReseeds() throws {

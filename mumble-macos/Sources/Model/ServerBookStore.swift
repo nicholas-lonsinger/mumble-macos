@@ -131,6 +131,84 @@ final class ServerBookStore {
         save()
     }
 
+    // MARK: - Reorder / move
+
+    /// Moves `serverID` into `groupID` (pass `nil` for top level), placing it
+    /// immediately after `afterServerID`. Pass `afterServerID == nil` to put
+    /// it at the start. The destination group is renumbered contiguously
+    /// after the move so sortIndex stays gap-free.
+    ///
+    /// Anchor lookup is destination-restricted: if `afterServerID` exists
+    /// but isn't actually in `groupID`, we treat it as "no anchor" and
+    /// place at the start. That's the right behavior for cross-group
+    /// drags where the source row's position has no meaning in the
+    /// destination.
+    func moveServer(_ serverID: UUID, toGroup groupID: UUID?, afterServerID: UUID?) throws {
+        guard servers.contains(where: { $0.id == serverID }) else {
+            throw ServerBookStoreError.unknownServer(serverID)
+        }
+        // Re-resolve the moving server each access — the rest of `servers`
+        // gets renumbered below and we want the latest copy.
+        guard let moving = servers.first(where: { $0.id == serverID }) else {
+            throw ServerBookStoreError.unknownServer(serverID)
+        }
+
+        var ordered = servers
+            .filter { $0.groupID == groupID && $0.id != serverID }
+            .sorted { $0.sortIndex < $1.sortIndex }
+
+        let insertIndex: Int = {
+            guard let anchor = afterServerID,
+                  let anchorIdx = ordered.firstIndex(where: { $0.id == anchor })
+            else { return 0 }
+            return anchorIdx + 1
+        }()
+
+        var movedCopy = moving
+        movedCopy.groupID = groupID
+        ordered.insert(movedCopy, at: insertIndex)
+
+        // Renumber sortIndex contiguously starting at 1 so dragging tens
+        // of times doesn't grow the indexes unboundedly.
+        for (i, item) in ordered.enumerated() {
+            if let idx = servers.firstIndex(where: { $0.id == item.id }) {
+                servers[idx].sortIndex = i + 1
+                servers[idx].groupID = groupID
+            }
+        }
+        save()
+    }
+
+    /// Reorders top-level groups. Places `groupID` immediately after
+    /// `afterGroupID` (`nil` = at the start). Renumbers sortIndex.
+    func moveGroup(_ groupID: UUID, afterGroupID: UUID?) throws {
+        guard groups.contains(where: { $0.id == groupID }) else {
+            throw ServerBookStoreError.unknownGroup(groupID)
+        }
+        guard let moving = groups.first(where: { $0.id == groupID }) else {
+            throw ServerBookStoreError.unknownGroup(groupID)
+        }
+
+        var ordered = groups
+            .filter { $0.id != groupID }
+            .sorted { $0.sortIndex < $1.sortIndex }
+
+        let insertIndex: Int = {
+            guard let anchor = afterGroupID,
+                  let anchorIdx = ordered.firstIndex(where: { $0.id == anchor })
+            else { return 0 }
+            return anchorIdx + 1
+        }()
+        ordered.insert(moving, at: insertIndex)
+
+        for (i, g) in ordered.enumerated() {
+            if let idx = groups.firstIndex(where: { $0.id == g.id }) {
+                groups[idx].sortIndex = i + 1
+            }
+        }
+        save()
+    }
+
     // MARK: - Group CRUD
 
     func addGroup(_ group: ServerGroup) {

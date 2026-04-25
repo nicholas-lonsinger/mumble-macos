@@ -123,14 +123,16 @@ struct ServersView: View {
     private var sourceList: some View {
         List(selection: $selection) {
             // Ungrouped (top-level) servers appear first, in their own
-            // implicit "On My Mac"-style section. We only render the
-            // section when there are entries to keep the list tidy.
-            let topLevel = bookStore.servers(in: nil)
-            if !topLevel.isEmpty {
-                Section("On This Mac") {
-                    ForEach(topLevel) { server in
-                        serverRow(server)
-                    }
+            // implicit "On My Mac"-style section. When the section is
+            // empty we render a hint row that doubles as a drop target
+            // — that's the only way to ungroup a server when there are
+            // no other top-level servers to drop onto.
+            Section("On This Mac") {
+                ForEach(bookStore.servers(in: nil)) { server in
+                    serverRow(server)
+                }
+                if bookStore.servers(in: nil).isEmpty {
+                    ungroupDropHint
                 }
             }
 
@@ -139,6 +141,21 @@ struct ServersView: View {
             }
         }
         .listStyle(.sidebar)
+    }
+
+    @ViewBuilder
+    private var ungroupDropHint: some View {
+        Text("Drop a server here to ungroup it.")
+            .font(.caption)
+            .foregroundStyle(.tertiary)
+            .padding(.vertical, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .dropDestination(for: SavedServerPayload.self) { items, _ in
+                guard let payload = items.first else { return false }
+                try? bookStore.moveServer(payload.id, toGroup: nil, afterServerID: nil)
+                return true
+            }
     }
 
     @ViewBuilder
@@ -157,29 +174,48 @@ struct ServersView: View {
                 serverRow(server)
             }
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: groupIcon(group))
-                    .foregroundStyle(.secondary)
-                Text(group.name)
-                Spacer()
-                Text("\(bookStore.servers(in: group.id).count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .contentShape(Rectangle())
-            .contextMenu {
-                Button("Rename…") { startRenaming(group) }
-                    .disabled(group.kind == .favorites)
-                if group.kind == .favorites {
-                    Text("The Favorites group can't be removed.")
-                } else {
-                    Button("Remove", role: .destructive) {
-                        try? bookStore.removeGroup(id: group.id)
-                    }
+            groupRowLabel(group)
+        }
+        .tag(ServersSelection.group(group.id))
+    }
+
+    @ViewBuilder
+    private func groupRowLabel(_ group: ServerGroup) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: groupIcon(group))
+                .foregroundStyle(.secondary)
+            Text(group.name)
+            Spacer()
+            Text("\(bookStore.servers(in: group.id).count)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .contentShape(Rectangle())
+        .draggable(ServerGroupPayload(id: group.id))
+        // Server payload → moves the server into this group at the end.
+        // Group payload → reorders this group after the dragged group.
+        .dropDestination(for: SavedServerPayload.self) { items, _ in
+            guard let payload = items.first else { return false }
+            let last = bookStore.servers(in: group.id).last?.id
+            try? bookStore.moveServer(payload.id, toGroup: group.id, afterServerID: last)
+            return true
+        }
+        .dropDestination(for: ServerGroupPayload.self) { items, _ in
+            guard let payload = items.first, payload.id != group.id else { return false }
+            try? bookStore.moveGroup(payload.id, afterGroupID: group.id)
+            return true
+        }
+        .contextMenu {
+            Button("Rename…") { startRenaming(group) }
+                .disabled(group.kind == .favorites)
+            if group.kind == .favorites {
+                Text("The Favorites group can't be removed.")
+            } else {
+                Button("Remove", role: .destructive) {
+                    try? bookStore.removeGroup(id: group.id)
                 }
             }
         }
-        .tag(ServersSelection.group(group.id))
     }
 
     private func groupIcon(_ group: ServerGroup) -> String {
@@ -210,6 +246,14 @@ struct ServersView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
             requestConnect(server)
+        }
+        .draggable(SavedServerPayload(id: server.id))
+        // Drop a server onto this row → place dropped server immediately
+        // after this one, in this row's group.
+        .dropDestination(for: SavedServerPayload.self) { items, _ in
+            guard let payload = items.first, payload.id != server.id else { return false }
+            try? bookStore.moveServer(payload.id, toGroup: server.groupID, afterServerID: server.id)
+            return true
         }
         .contextMenu {
             Button("Connect") { requestConnect(server) }
