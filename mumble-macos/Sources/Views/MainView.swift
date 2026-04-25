@@ -66,13 +66,8 @@ struct MainView: View {
                 voiceAvailable: client.voiceAvailable
             )
             if !client.serverWelcomeText.isEmpty {
-                ScrollView {
-                    Text(client.serverWelcomeText)
-                        .textSelection(.enabled)
-                        .font(.callout)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                }
+                WelcomeTextView(html: client.serverWelcomeText)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Spacer()
                 Text(detailPlaceholderText)

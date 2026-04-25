@@ -1,0 +1,235 @@
+import AppKit
+import Foundation
+import SwiftUI
+
+/// Renders a Mumble server welcome message (HTML) as an attributed string.
+///
+/// Mirrors the reference client's resource-loading policy (see
+/// `mumble/src/mumble/Log.cpp` `LogDocument::loadResource`): only `data:`
+/// URLs are honored; every other scheme is blanked. We do this at parse
+/// time because `NSAttributedString`'s HTML loader has no public hook to
+/// intercept resource loads — by the time it returns, any surviving
+/// `http(s):` URL has already been fetched on the main thread (info leak
+/// + UI-hang DoS vector).
+///
+/// Pipeline: bytes → `XMLDocument(.documentTidyHTML)` (libtidy normalizes
+/// loose HTML and decodes entities) → DOM walk that strips dangerous
+/// elements and rewrites URL-bearing attributes → re-serialize → hand to
+/// `NSAttributedString(data:.html)`.
+enum WelcomeHTML {
+    /// Element names whose entire subtree we drop. `base` is here
+    /// because a hostile base href could change how the HTML loader
+    /// resolves any URL we missed scrubbing. `<meta>` is *not* here —
+    /// tidy auto-injects `<meta http-equiv="Content-Type" charset=utf-8>`
+    /// and `NSAttributedString`'s HTML loader honors that over the
+    /// `.characterEncoding` option; stripping it produced mojibake on
+    /// non-ASCII content (box-drawing chars, emoji). Dangerous meta
+    /// variants (`http-equiv="refresh"`) are stripped per-element below.
+    private static let blockedElements: Set<String> = [
+        "script", "style", "link", "iframe", "frame", "frameset",
+        "object", "embed", "base", "form", "input", "button",
+        "noscript", "applet", "textarea", "select", "option",
+    ]
+
+    /// Attributes that resolve a URL the HTML loader will fetch. We
+    /// blank the value unless the scheme is `data:`. `<a href>` is
+    /// handled separately because user-clicked links are fine for
+    /// `http(s):`/`mailto:`.
+    private static let urlAttributes: Set<String> = [
+        "src", "xlink:href", "data", "poster", "background",
+        "cite", "formaction", "action", "srcset", "longdesc",
+        "usemap", "ping", "manifest",
+    ]
+
+    static func attributedString(from raw: String) -> NSAttributedString {
+        guard !raw.isEmpty else { return NSAttributedString() }
+        let sanitized = sanitize(raw)
+        guard let body = sanitized.data(using: .utf8) else {
+            return NSAttributedString(string: raw)
+        }
+        // Prepend UTF-8 BOM. `NSAttributedString`'s HTML loader checks the
+        // BOM before any `<meta>` charset declaration and before the
+        // `.characterEncoding` option — and on macOS we observed it
+        // ignoring both, decoding as Windows-1252 and producing mojibake
+        // on multibyte chars like box-drawing glyphs and emoji.
+        let data = Data([0xEF, 0xBB, 0xBF]) + body
+        let opts: [NSAttributedString.DocumentReadingOptionKey: Any] = [
+            .documentType: NSAttributedString.DocumentType.html,
+            .characterEncoding: String.Encoding.utf8.rawValue,
+        ]
+        do {
+            return try NSAttributedString(data: data, options: opts, documentAttributes: nil)
+        } catch {
+            return NSAttributedString(string: raw)
+        }
+    }
+
+    private static func sanitize(_ raw: String) -> String {
+        guard let body = raw.data(using: .utf8) else {
+            return "<pre>\(escapeHTML(raw))</pre>"
+        }
+        // libtidy (driving `.documentTidyHTML`) defaults to Latin-1 for
+        // input with no encoding declared, which mangles multi-byte UTF-8
+        // sequences (box-drawing chars, emoji) into per-byte codepoints
+        // *before* the DOM is built — corruption that no downstream
+        // charset hint can undo. Prepending a UTF-8 BOM tells tidy the
+        // input is UTF-8.
+        let data = Data([0xEF, 0xBB, 0xBF]) + body
+        guard let doc = try? XMLDocument(data: data, options: [.documentTidyHTML]) else {
+            return "<pre>\(escapeHTML(raw))</pre>"
+        }
+        if let root = doc.rootElement() {
+            sanitize(element: root)
+            ensureCharsetMeta(in: root)
+        }
+        return doc.xmlString
+    }
+
+    /// Inject `<meta http-equiv="Content-Type" content="text/html; charset=utf-8">`
+    /// as the first child of `<head>`. `NSAttributedString`'s HTML loader
+    /// reads charset from `<meta>`, not from the XML declaration tidy emits;
+    /// without this, non-ASCII bytes (box-drawing chars, emoji) get decoded
+    /// as Windows-1252 even though we pass `.characterEncoding: utf8`.
+    private static func ensureCharsetMeta(in root: XMLElement) {
+        let head: XMLElement
+        if let existing = root.elements(forName: "head").first {
+            head = existing
+        } else {
+            head = XMLElement(name: "head")
+            root.insertChild(head, at: 0)
+        }
+        for meta in head.elements(forName: "meta") {
+            let httpEquiv = meta.attribute(forName: "http-equiv")?.stringValue?.lowercased()
+            let hasCharset = meta.attribute(forName: "charset") != nil
+            if httpEquiv == "content-type" || hasCharset {
+                head.removeChild(at: meta.index)
+            }
+        }
+        let charsetMeta = XMLElement(name: "meta")
+        charsetMeta.setAttributesWith([
+            "http-equiv": "Content-Type",
+            "content": "text/html; charset=utf-8",
+        ])
+        head.insertChild(charsetMeta, at: 0)
+    }
+
+    private static func sanitize(element: XMLElement) {
+        var i = 0
+        while i < element.childCount {
+            guard let child = element.child(at: i) else { break }
+            if let childEl = child as? XMLElement {
+                let tag = (childEl.name ?? "").lowercased()
+                if blockedElements.contains(tag) {
+                    element.removeChild(at: i)
+                    continue
+                }
+                if tag == "meta" && isRefreshMeta(childEl) {
+                    element.removeChild(at: i)
+                    continue
+                }
+                sanitizeAttributes(of: childEl, tag: tag)
+                sanitize(element: childEl)
+            }
+            i += 1
+        }
+    }
+
+    private static func sanitizeAttributes(of element: XMLElement, tag: String) {
+        let names = (element.attributes ?? []).compactMap { $0.name }
+        for originalName in names {
+            let lower = originalName.lowercased()
+
+            // Event handlers: `onclick`, `onerror`, etc.
+            if lower.hasPrefix("on") {
+                element.removeAttribute(forName: originalName)
+                continue
+            }
+
+            // Inline CSS: any `url(…)` could fetch. Killing the whole
+            // attribute is safer than parsing CSS strings here.
+            if lower == "style" {
+                let value = element.attribute(forName: originalName)?.stringValue ?? ""
+                if value.range(of: "url(", options: .caseInsensitive) != nil {
+                    element.removeAttribute(forName: originalName)
+                }
+                continue
+            }
+
+            if tag == "a" && lower == "href" {
+                let value = element.attribute(forName: originalName)?.stringValue ?? ""
+                if !isAllowedAnchorURL(value) {
+                    element.attribute(forName: originalName)?.stringValue = ""
+                }
+                continue
+            }
+
+            if urlAttributes.contains(lower) {
+                let value = element.attribute(forName: originalName)?.stringValue ?? ""
+                if !isDataURL(value) {
+                    element.attribute(forName: originalName)?.stringValue = ""
+                }
+                continue
+            }
+        }
+    }
+
+    private static func isRefreshMeta(_ element: XMLElement) -> Bool {
+        guard let attrs = element.attributes else { return false }
+        for attr in attrs where (attr.name ?? "").lowercased() == "http-equiv" {
+            return (attr.stringValue ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased() == "refresh"
+        }
+        return false
+    }
+
+    private static func isDataURL(_ raw: String) -> Bool {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .hasPrefix("data:")
+    }
+
+    private static func isAllowedAnchorURL(_ raw: String) -> Bool {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return trimmed.hasPrefix("http://")
+            || trimmed.hasPrefix("https://")
+            || trimmed.hasPrefix("mailto:")
+            || trimmed.hasPrefix("data:")
+    }
+
+    private static func escapeHTML(_ s: String) -> String {
+        s.replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+    }
+}
+
+struct WelcomeTextView: NSViewRepresentable {
+    let html: String
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSTextView.scrollableTextView()
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        if let textView = scrollView.documentView as? NSTextView {
+            textView.isEditable = false
+            textView.isSelectable = true
+            textView.drawsBackground = false
+            textView.allowsUndo = false
+            textView.textContainerInset = NSSize(width: 4, height: 4)
+            textView.linkTextAttributes = [
+                .foregroundColor: NSColor.linkColor,
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+                .cursor: NSCursor.pointingHand,
+            ]
+        }
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        let attributed = WelcomeHTML.attributedString(from: html)
+        textView.textStorage?.setAttributedString(attributed)
+    }
+}
