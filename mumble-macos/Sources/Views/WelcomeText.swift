@@ -32,14 +32,29 @@ enum WelcomeHTML {
     ]
 
     /// Attributes that resolve a URL the HTML loader will fetch. We
-    /// blank the value unless the scheme is `data:`. `<a href>` is
-    /// handled separately because user-clicked links are fine for
-    /// `http(s):`/`mailto:`.
+    /// blank the value unless the scheme is `data:`. Anchor-style `href`
+    /// is handled separately (`anchorTags` below) because user-clicked
+    /// links are fine for `http(s):`/`mailto:`.
     private static let urlAttributes: Set<String> = [
         "src", "xlink:href", "data", "poster", "background",
-        "cite", "formaction", "action", "srcset", "longdesc",
+        "cite", "formaction", "action", "longdesc",
         "usemap", "ping", "manifest",
     ]
+
+    /// Attributes whose value can encode multiple URLs in one string
+    /// (`srcset` is comma-separated `url descriptor` pairs, and a `data:`
+    /// URL itself contains commas, so we can't reliably split-and-scrub
+    /// per candidate). Always blanked. Mumble welcome text doesn't need
+    /// responsive image sets, and the reference Qt client (HTML4-era)
+    /// doesn't honor srcset anyway.
+    private static let unconditionalBlankAttributes: Set<String> = [
+        "srcset",
+    ]
+
+    /// Tags whose `href` attribute is a user-clicked navigation target
+    /// rather than an auto-loaded resource. Allowed schemes:
+    /// `http(s):`/`mailto:`/`data:`.
+    private static let anchorTags: Set<String> = ["a", "area"]
 
     static func attributedString(from raw: String) -> NSAttributedString {
         guard !raw.isEmpty else { return NSAttributedString() }
@@ -113,24 +128,34 @@ enum WelcomeHTML {
         head.insertChild(charsetMeta, at: 0)
     }
 
-    private static func sanitize(element: XMLElement) {
-        var i = 0
-        while i < element.childCount {
-            guard let child = element.child(at: i) else { break }
-            if let childEl = child as? XMLElement {
-                let tag = (childEl.name ?? "").lowercased()
-                if blockedElements.contains(tag) {
-                    element.removeChild(at: i)
-                    continue
+    /// Iterative DFS — recursion bound by libtidy-normalized DOM depth,
+    /// which can in principle be hundreds of thousands deep on hostile
+    /// input. The default 8 MB macOS stack would overflow well before
+    /// that, so we walk explicitly.
+    ///
+    /// Tag names below are compared lowercased; tidy normalizes element
+    /// names during parse, but we lowercase again here for defense.
+    private static func sanitize(element root: XMLElement) {
+        var stack: [XMLElement] = [root]
+        while let current = stack.popLast() {
+            var i = 0
+            while i < current.childCount {
+                guard let child = current.child(at: i) else { break }
+                if let childEl = child as? XMLElement {
+                    let tag = (childEl.name ?? "").lowercased()
+                    if blockedElements.contains(tag) {
+                        current.removeChild(at: i)
+                        continue
+                    }
+                    if tag == "meta" && isRefreshMeta(childEl) {
+                        current.removeChild(at: i)
+                        continue
+                    }
+                    sanitizeAttributes(of: childEl, tag: tag)
+                    stack.append(childEl)
                 }
-                if tag == "meta" && isRefreshMeta(childEl) {
-                    element.removeChild(at: i)
-                    continue
-                }
-                sanitizeAttributes(of: childEl, tag: tag)
-                sanitize(element: childEl)
+                i += 1
             }
-            i += 1
         }
     }
 
@@ -155,7 +180,12 @@ enum WelcomeHTML {
                 continue
             }
 
-            if tag == "a" && lower == "href" {
+            if unconditionalBlankAttributes.contains(lower) {
+                element.attribute(forName: originalName)?.stringValue = ""
+                continue
+            }
+
+            if anchorTags.contains(tag) && lower == "href" {
                 let value = element.attribute(forName: originalName)?.stringValue ?? ""
                 if !isAllowedAnchorURL(value) {
                     element.attribute(forName: originalName)?.stringValue = ""
@@ -175,12 +205,12 @@ enum WelcomeHTML {
 
     private static func isRefreshMeta(_ element: XMLElement) -> Bool {
         guard let attrs = element.attributes else { return false }
-        for attr in attrs where (attr.name ?? "").lowercased() == "http-equiv" {
+        return attrs.contains { attr in
+            guard (attr.name ?? "").lowercased() == "http-equiv" else { return false }
             return (attr.stringValue ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .lowercased() == "refresh"
         }
-        return false
     }
 
     private static func isDataURL(_ raw: String) -> Bool {

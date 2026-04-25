@@ -72,6 +72,35 @@ final class WelcomeHTMLTests: XCTestCase {
         XCTAssertFalse(out.localizedCaseInsensitiveContains("vbscript"))
     }
 
+    /// `<area href>` shares anchor semantics — clickable navigation. Its
+    /// scheme allowlist must match `<a href>`'s, otherwise an image map
+    /// becomes a way to smuggle `javascript:`/`file:` URLs through.
+    func test_stripJavascriptAreaHref() {
+        let out = WelcomeHTML.sanitize(#"<map><area href="javascript:alert(1)"></map>"#)
+        XCTAssertFalse(out.localizedCaseInsensitiveContains("javascript"))
+        XCTAssertFalse(out.contains("alert(1)"))
+    }
+
+    func test_preserveHttpAreaHref() {
+        let out = WelcomeHTML.sanitize(#"<map><area href="http://example.com"></map>"#)
+        XCTAssertTrue(out.contains("example.com"))
+    }
+
+    // MARK: - srcset (always blanked — value can encode multiple URLs)
+
+    /// `srcset` is a comma-separated list. A naive "leading scheme is
+    /// data:" check would miss subsequent `http://` candidates riding
+    /// behind a `data:` URL. We blank `srcset` unconditionally.
+    func test_stripSrcsetWithMixedSchemes() {
+        let out = WelcomeHTML.sanitize(#"<img srcset="data:image/gif;base64,AAAA 1x, http://evil.example/x.png 2x">"#)
+        XCTAssertFalse(out.localizedCaseInsensitiveContains("evil.example"))
+    }
+
+    func test_stripSrcsetAllHttp() {
+        let out = WelcomeHTML.sanitize(#"<img srcset="http://evil.example/x.png 1x, http://evil.example/y.png 2x">"#)
+        XCTAssertFalse(out.localizedCaseInsensitiveContains("evil.example"))
+    }
+
     // MARK: - Whole-element drops
 
     func test_dropScript() {
@@ -138,5 +167,30 @@ final class WelcomeHTMLTests: XCTestCase {
         XCTAssertTrue(out.contains("═"))
         XCTAssertTrue(out.contains("╗"))
         XCTAssertTrue(out.contains("╝"))
+    }
+
+    // MARK: - Input edge cases
+
+    func test_emptyInput() {
+        // Don't crash; output shape isn't load-bearing for callers since
+        // `attributedString(from:)` short-circuits on empty raw input.
+        _ = WelcomeHTML.sanitize("")
+    }
+
+    func test_plainTextNoTags() {
+        let out = WelcomeHTML.sanitize("Hello, world!")
+        XCTAssertTrue(out.contains("Hello, world!"))
+    }
+
+    /// Tidy normalizes loose attribute syntax. Both single-quoted and
+    /// unquoted forms must round-trip through the scheme check.
+    func test_singleQuotedAttribute() {
+        let out = WelcomeHTML.sanitize("<img src='http://evil.example/x.png'>")
+        XCTAssertFalse(out.localizedCaseInsensitiveContains("evil.example"))
+    }
+
+    func test_unquotedAttribute() {
+        let out = WelcomeHTML.sanitize("<img src=http://evil.example/x.png>")
+        XCTAssertFalse(out.localizedCaseInsensitiveContains("evil.example"))
     }
 }
