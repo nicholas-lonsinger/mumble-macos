@@ -55,7 +55,17 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc func showConnectSheet(_ sender: Any?) {
+        presentConnectSheet(prefill: nil)
+    }
+
+    /// Open the Connect sheet with form values pre-populated from a parsed
+    /// `mumble://` URL. If a sheet is already attached it is replaced — the
+    /// newest link wins, matching how the reference client treats URL opens.
+    func presentConnectSheet(prefill: MumbleURL?) {
         guard let window else { return }
+        if let existing = window.attachedSheet {
+            window.endSheet(existing)
+        }
         let sheetWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 440, height: 360),
             styleMask: [.titled],
@@ -63,16 +73,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             defer: false
         )
         sheetWindow.title = "Connect to Server"
-        let sheetView = ConnectView { [weak self] params in
+        let sheetView = ConnectView(onConnect: { [weak self] params in
             guard let self, let window = self.window else { return }
             if let sheet = window.attachedSheet {
                 window.endSheet(sheet)
             }
             Task { await self.client.connect(to: params) }
-        } onCancel: { [weak window] in
+        }, onCancel: { [weak window] in
             guard let window, let sheet = window.attachedSheet else { return }
             window.endSheet(sheet)
-        }
+        }, prefill: prefill)
         sheetWindow.contentView = NSHostingView(rootView: sheetView)
         window.beginSheet(sheetWindow)
     }

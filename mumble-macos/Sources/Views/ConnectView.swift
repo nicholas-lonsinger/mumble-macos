@@ -3,6 +3,9 @@ import SwiftUI
 struct ConnectView: View {
     let onConnect: (ServerConnectionParameters) -> Void
     let onCancel: () -> Void
+    /// When the window is opened via a `mumble://` URL, the parsed URL lands
+    /// here and overwrites the persisted form values on first appear.
+    var prefill: MumbleURL? = nil
 
     // Host/port/username persist across launches. Password stays session-scoped
     // until we add Keychain-backed storage (or client certs, which make it moot).
@@ -11,6 +14,10 @@ struct ConnectView: View {
     @AppStorage("lastServerUsername") private var username = ServerConnectionParameters.defaultPublicTestServer.username
     @State private var password = ""
     @State private var identitySummary: StoredIdentitySummary?
+    /// The URL's channel path travels with the form silently — there's no
+    /// field for it in the UI but it has to survive into `currentParameters`
+    /// so the post-`ServerSync` join code in `MumbleClient` can use it.
+    @State private var desiredChannelPath: [String] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -42,8 +49,20 @@ struct ConnectView: View {
         .padding(20)
         .frame(width: 440)
         .task {
+            applyPrefillIfNeeded()
             reloadIdentity()
         }
+    }
+
+    private func applyPrefillIfNeeded() {
+        guard let prefill else { return }
+        host = prefill.host
+        port = String(prefill.port)
+        if let u = prefill.username { username = u }
+        // Explicit password in the URL wins; otherwise leave the session-scoped
+        // field empty so the user can type it (or rely on a client cert).
+        password = prefill.password ?? ""
+        desiredChannelPath = prefill.channelPath
     }
 
     @ViewBuilder
@@ -88,7 +107,8 @@ struct ConnectView: View {
             host: host.trimmingCharacters(in: .whitespaces),
             port: UInt16(port) ?? 64738,
             username: username.trimmingCharacters(in: .whitespaces),
-            password: password
+            password: password,
+            desiredChannelPath: desiredChannelPath
         )
     }
 }

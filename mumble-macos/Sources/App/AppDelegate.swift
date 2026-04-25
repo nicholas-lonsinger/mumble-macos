@@ -1,9 +1,15 @@
 import AppKit
+import OSLog
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: MainWindowController?
     private var certificateManagerController: CertificateManagerWindowController?
+    /// A URL that arrived before `applicationDidFinishLaunching(_:)` created
+    /// the main window. Replayed once the window exists.
+    private var pendingLaunchURL: MumbleURL?
+
+    private static let log = Logger(subsystem: "com.nicholas-lonsinger.mumble-macos", category: "app")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.build()
@@ -13,10 +19,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController = controller
 
         NSApp.activate()
+
+        if let url = pendingLaunchURL {
+            pendingLaunchURL = nil
+            controller.presentConnectSheet(prefill: url)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    /// macOS routes `mumble://…` URLs here both at launch (after
+    /// `applicationDidFinishLaunching(_:)` under normal ordering) and while
+    /// the app is already running. We pre-populate the Connect sheet rather
+    /// than auto-connecting so the user can confirm identity + password
+    /// before hitting an unfamiliar server.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            do {
+                let mumbleURL = try MumbleURL.parse(url)
+                // The channel path travels via `ServerConnectionParameters.desiredChannelPath`
+                // → `MumbleClient.tryJoinDesiredChannelAfterSync()`.
+                Self.log.info("Received mumble:// URL host=\(mumbleURL.host, privacy: .public):\(mumbleURL.port, privacy: .public) channel=\(mumbleURL.channelPath.joined(separator: "/"), privacy: .public)")
+                if let controller = mainWindowController {
+                    // Activate first so the sheet animates onto a frontmost
+                    // window — otherwise the sheet briefly attaches behind
+                    // whatever app the user clicked the link from.
+                    NSApp.activate()
+                    controller.presentConnectSheet(prefill: mumbleURL)
+                } else {
+                    // Launch path: remember the URL and replay after
+                    // `applicationDidFinishLaunching(_:)` spins up the window.
+                    pendingLaunchURL = mumbleURL
+                }
+            } catch {
+                // Redact the password — the URL is logged at `:public` so it
+                // would otherwise persist in Console.app / Unified Logging.
+                let safe = MumbleURL.redactingPassword(url)
+                Self.log.warning("Ignoring malformed mumble:// URL \(safe, privacy: .public): \(String(describing: error), privacy: .public)")
+            }
+        }
     }
 
     @objc func showCertificateManager(_ sender: Any?) {
