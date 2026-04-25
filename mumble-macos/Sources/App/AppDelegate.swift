@@ -3,7 +3,12 @@ import OSLog
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Single shared `MumbleClient` lives at app scope so both the main
+    /// window and the Servers window dispatch into the same client.
+    let client = MumbleClient()
+
     private var mainWindowController: MainWindowController?
+    private var serversWindowController: ServersWindowController?
     private var certificateManagerController: CertificateManagerWindowController?
     /// A URL that arrived before `applicationDidFinishLaunching(_:)` created
     /// the main window. Replayed once the window exists.
@@ -14,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.build()
 
-        let controller = MainWindowController()
+        let controller = MainWindowController(client: client)
         controller.showWindow(nil)
         mainWindowController = controller
 
@@ -22,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if let url = pendingLaunchURL {
             pendingLaunchURL = nil
-            controller.presentConnectSheet(prefill: url)
+            controller.presentQuickConnectSheet(prefill: url)
         }
     }
 
@@ -32,30 +37,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// macOS routes `mumble://…` URLs here both at launch (after
     /// `applicationDidFinishLaunching(_:)` under normal ordering) and while
-    /// the app is already running. We pre-populate the Connect sheet rather
-    /// than auto-connecting so the user can confirm identity + password
-    /// before hitting an unfamiliar server.
+    /// the app is already running. We pre-populate the Quick Connect sheet
+    /// rather than auto-connecting so the user can confirm identity +
+    /// password before hitting an unfamiliar server.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             do {
                 let mumbleURL = try MumbleURL.parse(url)
-                // The channel path travels via `ServerConnectionParameters.desiredChannelPath`
-                // → `MumbleClient.tryJoinDesiredChannelAfterSync()`.
                 Self.log.info("Received mumble:// URL host=\(mumbleURL.host, privacy: .public):\(mumbleURL.port, privacy: .public) channel=\(mumbleURL.channelPath.joined(separator: "/"), privacy: .public)")
                 if let controller = mainWindowController {
-                    // Activate first so the sheet animates onto a frontmost
-                    // window — otherwise the sheet briefly attaches behind
-                    // whatever app the user clicked the link from.
                     NSApp.activate()
-                    controller.presentConnectSheet(prefill: mumbleURL)
+                    controller.presentQuickConnectSheet(prefill: mumbleURL)
                 } else {
-                    // Launch path: remember the URL and replay after
-                    // `applicationDidFinishLaunching(_:)` spins up the window.
                     pendingLaunchURL = mumbleURL
                 }
             } catch {
-                // Redact the password — the URL is logged at `:public` so it
-                // would otherwise persist in Console.app / Unified Logging.
                 let safe = MumbleURL.redactingPassword(url)
                 Self.log.warning("Ignoring malformed mumble:// URL \(safe, privacy: .public): \(String(describing: error), privacy: .public)")
             }
@@ -69,6 +65,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let controller = certificateManagerController else { return }
         controller.showWindow(nil)
         controller.window?.center()
+        controller.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    @objc func showServersWindow(_ sender: Any?) {
+        if serversWindowController == nil {
+            serversWindowController = ServersWindowController(
+                client: client,
+                mainWindow: mainWindowController?.window
+            )
+        }
+        guard let controller = serversWindowController else { return }
+        controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }

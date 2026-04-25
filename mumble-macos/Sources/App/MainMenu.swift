@@ -76,9 +76,16 @@ enum MainMenu {
     @MainActor
     private static func buildFileMenu() -> NSMenu {
         let menu = NSMenu(title: "File")
-        menu.addItem(withTitle: "Connect to Server…",
-                     action: #selector(MainWindowController.showConnectSheet(_:)),
+        menu.addItem(withTitle: "Servers…",
+                     action: #selector(AppDelegate.showServersWindow(_:)),
                      keyEquivalent: "k")
+        let quickConnect = NSMenuItem(
+            title: "Quick Connect…",
+            action: #selector(MainWindowController.showQuickConnectSheet(_:)),
+            keyEquivalent: "k"
+        )
+        quickConnect.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(quickConnect)
         menu.addItem(withTitle: "Disconnect",
                      action: #selector(MainWindowController.disconnect(_:)),
                      keyEquivalent: "d")
