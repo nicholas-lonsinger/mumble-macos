@@ -14,6 +14,10 @@ struct ConnectView: View {
     @AppStorage("lastServerUsername") private var username = ServerConnectionParameters.defaultPublicTestServer.username
     @State private var password = ""
     @State private var identitySummary: StoredIdentitySummary?
+    /// The URL's channel path travels with the form silently — there's no
+    /// field for it in the UI but it has to survive into `currentParameters`
+    /// so the post-`ServerSync` join code in `MumbleClient` can use it.
+    @State private var desiredChannelPath: [String] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -58,6 +62,7 @@ struct ConnectView: View {
         // Explicit password in the URL wins; otherwise leave the session-scoped
         // field empty so the user can type it (or rely on a client cert).
         password = prefill.password ?? ""
+        desiredChannelPath = prefill.channelPath
     }
 
     @ViewBuilder
@@ -102,7 +107,8 @@ struct ConnectView: View {
             host: host.trimmingCharacters(in: .whitespaces),
             port: UInt16(port) ?? 64738,
             username: username.trimmingCharacters(in: .whitespaces),
-            password: password
+            password: password,
+            desiredChannelPath: desiredChannelPath
         )
     }
 }

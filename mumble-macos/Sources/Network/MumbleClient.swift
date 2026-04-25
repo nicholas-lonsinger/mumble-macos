@@ -245,6 +245,7 @@ final class MumbleClient {
                 let ms = Int(elapsed.components.seconds) * 1_000
                     + Int(elapsed.components.attoseconds / 1_000_000_000_000_000)
                 Self.log.info("ServerSync received — session=\(msg.session ?? 0, privacy: .public), channels=\(self.channels.count, privacy: .public), users=\(self.users.count, privacy: .public), handshake=\(ms, privacy: .public)ms")
+                await tryJoinDesiredChannelAfterSync()
             case .channelState:
                 let msg = try ChannelStateMessage(reader: &reader)
                 applyChannelState(msg)
@@ -566,6 +567,58 @@ final class MumbleClient {
         } catch {
             Self.log.error("Failed to send channel move: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Called immediately after `ServerSync`: if this connect attempt
+    /// originated from a `mumble://host/Channel/Sub` URL, resolve the path
+    /// against the now-populated channel tree and request a move.
+    private func tryJoinDesiredChannelAfterSync() async {
+        guard let path = currentParameters?.desiredChannelPath, !path.isEmpty else { return }
+        if let channelID = resolveChannel(path: path) {
+            Self.log.info("Auto-joining channel '\(path.joined(separator: "/"), privacy: .public)' (id \(channelID, privacy: .public))")
+            await moveToChannel(channelID)
+        } else {
+            Self.log.notice("Desired channel '\(path.joined(separator: "/"), privacy: .public)' not found on server")
+        }
+    }
+
+    /// Walk the channel tree from the root, matching segments against
+    /// child names case-insensitively. Mirrors the reference client's
+    /// `MainWindow::findDesiredChannel` (mumble/src/mumble/MainWindow.cpp:1387):
+    /// when a segment doesn't match any child, accumulate it and try
+    /// `accumulated/next` as a composite — this lets channel names that
+    /// themselves contain '/' resolve without percent-encoding. Returns
+    /// `nil` if no segment ever matched.
+    func resolveChannel(path: [String]) -> UInt32? {
+        guard let rootID = rootChannelID else { return nil }
+        return Self.resolveChannel(path: path, in: channels, rootID: rootID)
+    }
+
+    /// Pure form of `resolveChannel(path:)` — the actor state is passed
+    /// in so unit tests can exercise the matching rules against a
+    /// synthetic channel tree without spinning up a transport.
+    nonisolated static func resolveChannel(path: [String], in channels: [UInt32: ChannelNode], rootID: UInt32) -> UInt32? {
+        var current = rootID
+        var pending: String?
+        var found = false
+
+        for segment in path {
+            let lowered = segment.lowercased()
+            if lowered.isEmpty { continue }
+            let composite = pending.map { "\($0)/\(lowered)" } ?? lowered
+            guard let parent = channels[current] else { break }
+            let match = parent.childChannelIDs.first(where: { childID in
+                channels[childID]?.name.lowercased() == composite
+            })
+            if let matchedID = match {
+                current = matchedID
+                pending = nil
+                found = true
+            } else {
+                pending = composite
+            }
+        }
+        return found ? current : nil
     }
 
     func setSelfMute(_ muted: Bool) async {

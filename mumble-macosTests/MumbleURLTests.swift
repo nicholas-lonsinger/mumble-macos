@@ -115,6 +115,31 @@ final class MumbleURLTests: XCTestCase {
         }
     }
 
+    func test_emptyAuthority_rejected() {
+        // `mumble://` — has the authority delimiter but the host is empty.
+        // Foundation will accept this URL and report `host == ""`.
+        guard let url = URL(string: "mumble://") else {
+            return XCTFail("URL parser refused mumble:// outright; behaviour we'd want to know about")
+        }
+        XCTAssertThrowsError(try MumbleURL.parse(url)) { error in
+            guard case MumbleURL.ParseError.missingHost = error else {
+                return XCTFail("expected missingHost, got \(error)")
+            }
+        }
+    }
+
+    func test_passwordWithoutUsername_isAccepted() throws {
+        // RFC 3986 lets userinfo be `:password` with an empty user. The
+        // reference client accepts it because `QUrl::userName()` returns
+        // empty and `password()` returns the password.
+        let url = try XCTUnwrap(URL(string: "mumble://:secret@example.org"))
+        let parsed = try MumbleURL.parse(url)
+
+        XCTAssertNil(parsed.username)
+        XCTAssertEqual(parsed.password, "secret")
+        XCTAssertEqual(parsed.host, "example.org")
+    }
+
     func test_portOutOfRange_rejected() throws {
         // URLComponents accepts up to 2^31-1 as an Int, but anything outside
         // 1...65535 makes no sense for TCP.
@@ -185,5 +210,22 @@ final class MumbleURLTests: XCTestCase {
         let params = parsed.connectionParameters(defaultUsername: "saved-user")
 
         XCTAssertEqual(params.username, "Fenix878")
+    }
+
+    func test_connectionParameters_passwordFallback() throws {
+        // No password in URL → use the caller-supplied default.
+        let url = try XCTUnwrap(URL(string: "mumble://alice@example.org"))
+        let parsed = try MumbleURL.parse(url)
+        let params = parsed.connectionParameters(defaultUsername: "ignored", defaultPassword: "saved-pw")
+
+        XCTAssertEqual(params.password, "saved-pw")
+    }
+
+    func test_connectionParameters_urlPasswordWins() throws {
+        let url = try XCTUnwrap(URL(string: "mumble://alice:url-pw@example.org"))
+        let parsed = try MumbleURL.parse(url)
+        let params = parsed.connectionParameters(defaultUsername: "ignored", defaultPassword: "saved-pw")
+
+        XCTAssertEqual(params.password, "url-pw")
     }
 }

@@ -112,7 +112,8 @@ struct MumbleURL: Equatable, Sendable {
             host: host,
             port: port,
             username: username ?? defaultUsername,
-            password: password ?? defaultPassword
+            password: password ?? defaultPassword,
+            desiredChannelPath: channelPath
         )
     }
 }

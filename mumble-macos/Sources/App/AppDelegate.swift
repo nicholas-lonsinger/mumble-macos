@@ -39,12 +39,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             do {
                 let mumbleURL = try MumbleURL.parse(url)
-                if !mumbleURL.channelPath.isEmpty {
-                    // The reference client auto-joins a channel after ServerSync.
-                    // We don't yet, so log the request instead of silently dropping it.
-                    let path = mumbleURL.channelPath.joined(separator: "/")
-                    Self.log.notice("mumble:// URL specified channel path '\(path, privacy: .public)' — auto-join not implemented")
-                }
+                // The channel path travels via `ServerConnectionParameters.desiredChannelPath`
+                // → `MumbleClient.tryJoinDesiredChannelAfterSync()`.
+                Self.log.info("Received mumble:// URL host=\(mumbleURL.host, privacy: .public):\(mumbleURL.port, privacy: .public) channel=\(mumbleURL.channelPath.joined(separator: "/"), privacy: .public)")
                 if let controller = mainWindowController {
                     // Activate first so the sheet animates onto a frontmost
                     // window — otherwise the sheet briefly attaches behind
