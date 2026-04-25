@@ -44,10 +44,10 @@ enum WelcomeHTML {
     /// Attributes whose value can encode multiple URLs in one string
     /// (`srcset` is comma-separated `url descriptor` pairs, and a `data:`
     /// URL itself contains commas, so we can't reliably split-and-scrub
-    /// per candidate). Always blanked. Mumble welcome text doesn't need
-    /// responsive image sets, and the reference Qt client (HTML4-era)
+    /// per candidate). Removed outright. Mumble welcome text doesn't
+    /// need responsive image sets, and the reference Qt client (HTML4-era)
     /// doesn't honor srcset anyway.
-    private static let unconditionalBlankAttributes: Set<String> = [
+    private static let unconditionalDiscardAttributes: Set<String> = [
         "srcset",
     ]
 
@@ -117,7 +117,7 @@ enum WelcomeHTML {
             let httpEquiv = meta.attribute(forName: "http-equiv")?.stringValue?.lowercased()
             let hasCharset = meta.attribute(forName: "charset") != nil
             if httpEquiv == "content-type" || hasCharset {
-                head.removeChild(at: meta.index)
+                meta.detach()
             }
         }
         let charsetMeta = XMLElement(name: "meta")
@@ -180,15 +180,20 @@ enum WelcomeHTML {
                 continue
             }
 
-            if unconditionalBlankAttributes.contains(lower) {
-                element.attribute(forName: originalName)?.stringValue = ""
+            if unconditionalDiscardAttributes.contains(lower) {
+                element.removeAttribute(forName: originalName)
                 continue
             }
 
+            // Drop disallowed URLs by removing the attribute outright,
+            // not by blanking the value: `<a href="">` resolves to a
+            // self-link in some renderers, and `<img src="">` can
+            // trigger a request to the document base URL. Removing the
+            // attribute is the only way to guarantee neither happens.
             if anchorTags.contains(tag) && lower == "href" {
                 let value = element.attribute(forName: originalName)?.stringValue ?? ""
                 if !isAllowedAnchorURL(value) {
-                    element.attribute(forName: originalName)?.stringValue = ""
+                    element.removeAttribute(forName: originalName)
                 }
                 continue
             }
@@ -196,7 +201,7 @@ enum WelcomeHTML {
             if urlAttributes.contains(lower) {
                 let value = element.attribute(forName: originalName)?.stringValue ?? ""
                 if !isDataURL(value) {
-                    element.attribute(forName: originalName)?.stringValue = ""
+                    element.removeAttribute(forName: originalName)
                 }
                 continue
             }
