@@ -132,6 +132,40 @@ final class MumbleURLTests: XCTestCase {
         }
     }
 
+    // MARK: - redactingPassword
+
+    func test_redactingPassword_stripsPasswordKeepsEverythingElse() throws {
+        let url = try XCTUnwrap(URL(string: "mumble://alice:hunter2@example.org:64738/Lobby?title=Test"))
+        let redacted = MumbleURL.redactingPassword(url)
+
+        XCTAssertFalse(redacted.contains("hunter2"), "password leaked: \(redacted)")
+        // Reference behaviour (QUrl::RemovePassword) keeps the username.
+        XCTAssertTrue(redacted.contains("alice"))
+        XCTAssertTrue(redacted.contains("example.org"))
+        XCTAssertTrue(redacted.contains("64738"))
+        XCTAssertTrue(redacted.contains("Lobby"))
+        XCTAssertTrue(redacted.contains("title=Test"))
+    }
+
+    func test_redactingPassword_handlesPercentEncodedSecret() throws {
+        // Defence in depth: a percent-encoded password must not survive the
+        // round-trip into the redacted string in any form.
+        let url = try XCTUnwrap(URL(string: "mumble://alice:p%40ss%20word@example.org"))
+        let redacted = MumbleURL.redactingPassword(url)
+
+        XCTAssertFalse(redacted.contains("p@ss"))
+        XCTAssertFalse(redacted.contains("p%40ss"))
+        XCTAssertFalse(redacted.contains("word"))
+    }
+
+    func test_redactingPassword_noPasswordIsNoOp() throws {
+        let url = try XCTUnwrap(URL(string: "mumble://alice@example.org"))
+        let redacted = MumbleURL.redactingPassword(url)
+
+        XCTAssertTrue(redacted.contains("alice"))
+        XCTAssertTrue(redacted.contains("example.org"))
+    }
+
     // MARK: - connectionParameters
 
     func test_connectionParameters_fallsBackToDefaultUsername() throws {

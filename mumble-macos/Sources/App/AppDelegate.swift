@@ -46,15 +46,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     Self.log.notice("mumble:// URL specified channel path '\(path, privacy: .public)' — auto-join not implemented")
                 }
                 if let controller = mainWindowController {
-                    controller.presentConnectSheet(prefill: mumbleURL)
+                    // Activate first so the sheet animates onto a frontmost
+                    // window — otherwise the sheet briefly attaches behind
+                    // whatever app the user clicked the link from.
                     NSApp.activate()
+                    controller.presentConnectSheet(prefill: mumbleURL)
                 } else {
                     // Launch path: remember the URL and replay after
                     // `applicationDidFinishLaunching(_:)` spins up the window.
                     pendingLaunchURL = mumbleURL
                 }
             } catch {
-                Self.log.warning("Ignoring malformed mumble:// URL \(url.absoluteString, privacy: .public): \(String(describing: error), privacy: .public)")
+                // Redact the password — the URL is logged at `:public` so it
+                // would otherwise persist in Console.app / Unified Logging.
+                let safe = MumbleURL.redactingPassword(url)
+                Self.log.warning("Ignoring malformed mumble:// URL \(safe, privacy: .public): \(String(describing: error), privacy: .public)")
             }
         }
     }

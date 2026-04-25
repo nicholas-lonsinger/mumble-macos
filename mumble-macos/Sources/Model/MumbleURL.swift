@@ -70,9 +70,13 @@ struct MumbleURL: Equatable, Sendable {
         let username = components.user.flatMap { $0.isEmpty ? nil : $0 }
         let password = components.password.flatMap { $0.isEmpty ? nil : $0 }
 
+        // `URLComponents.path` is already percent-decoded — split on the
+        // literal '/' is enough. (Channel names containing an encoded '%2F'
+        // would still split here; the reference client has the same
+        // limitation in `MainWindow::findDesiredChannel`.)
         let channelPath = components.path
             .split(separator: "/", omittingEmptySubsequences: true)
-            .map { String($0).removingPercentEncoding ?? String($0) }
+            .map(String.init)
 
         let queryItems = components.queryItems ?? []
         let title = queryItems.first(where: { $0.name == "title" })?.value
@@ -87,6 +91,16 @@ struct MumbleURL: Equatable, Sendable {
             title: title,
             version: version
         )
+    }
+
+    /// Render a `mumble://` URL for logging without leaking the password.
+    /// Mirrors the reference client's `QUrl::RemovePassword` formatting
+    /// (`MainWindow::openUrl` line 1273): username, host, port, path, and
+    /// query are kept; only the password is stripped.
+    static func redactingPassword(_ url: URL) -> String {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.password = nil
+        return components?.string ?? "<unparseable mumble:// URL>"
     }
 
     /// Materialise connection parameters for `MumbleClient.connect(to:)`.
