@@ -40,25 +40,32 @@ struct MumbleAppImportCoordinator {
                 summary.skippedDuplicates += 1
                 continue
             }
+            // Map the row's password presence to a PasswordHandling mode:
+            // a non-empty password means "use stored"; empty means "no
+            // password required" (Mumble.app stores blank passwords as
+            // empty strings, not NULL — see MumbleAppImporter).
+            let initialHandling: PasswordHandling = row.password.isEmpty
+                ? .noPasswordRequired
+                : .useStoredPassword
             let server = SavedServer(
                 label: row.name,
                 host: row.host,
                 port: row.port,
                 username: row.username,
                 groupID: group.id,
-                rememberPassword: !row.password.isEmpty
+                passwordHandling: initialHandling
             )
             bookStore.addServer(server)
-            if !row.password.isEmpty {
+            if initialHandling == .useStoredPassword {
                 do {
                     try passwords.setPassword(row.password, forServer: server.id)
                 } catch {
                     Self.log.error("Couldn't store imported password: \(error.localizedDescription, privacy: .public)")
-                    // Toggle off rememberPassword on the saved entry — the
-                    // user's keychain didn't accept the write so we'd
-                    // otherwise present a stale "remembered" indicator.
+                    // Demote the bookmark to .promptEveryTime — keychain
+                    // refused the write so the invariant "useStoredPassword
+                    // ⇒ keychain entry exists" wouldn't hold otherwise.
                     var s = server
-                    s.rememberPassword = false
+                    s.passwordHandling = .promptEveryTime
                     try? bookStore.updateServer(s)
                     summary.passwordWriteFailures += 1
                 }

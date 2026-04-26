@@ -338,16 +338,24 @@ struct ServersView: View {
         requestConnect(server)
     }
 
-    /// Resolves a stored password if one exists; otherwise hands off to the
-    /// password-prompt sheet. A keychain read failure is treated as
-    /// "no password" — better than refusing to connect.
+    /// Dispatches connect according to the bookmark's `passwordHandling`:
+    /// stored → use the keychain value; none required → blank; prompt →
+    /// pop the password sheet. A `.useStoredPassword` server with no
+    /// keychain entry (recovery path — keychain wiped or write failed
+    /// at save) falls through to the prompt rather than failing silently.
     private func requestConnect(_ server: SavedServer) {
-        if server.rememberPassword,
-           let stored = (try? ServerPasswordStore.shared.password(forServer: server.id)) ?? nil {
-            onConnectRequested(server, stored)
-            return
+        switch server.passwordHandling {
+        case .noPasswordRequired:
+            onConnectRequested(server, "")
+        case .useStoredPassword:
+            if let stored = (try? ServerPasswordStore.shared.password(forServer: server.id)) ?? nil {
+                onConnectRequested(server, stored)
+            } else {
+                pendingPasswordPrompt = PendingPrompt(server: server)
+            }
+        case .promptEveryTime:
+            pendingPasswordPrompt = PendingPrompt(server: server)
         }
-        pendingPasswordPrompt = PendingPrompt(server: server)
     }
 
     private func editSelected() {
@@ -473,16 +481,20 @@ private struct AddServerSheet: View {
             errorMessage = "Port must be 0–65535."
             return
         }
+        if draft.passwordHandling == .useStoredPassword, draft.password.isEmpty {
+            errorMessage = "Password is required when 'Use saved password' is selected."
+            return
+        }
         let server = SavedServer(
             label: draft.label.trimmingCharacters(in: .whitespaces),
             host: draft.host.trimmingCharacters(in: .whitespaces),
             port: port,
             username: draft.username.trimmingCharacters(in: .whitespaces),
             groupID: draft.groupID,
-            rememberPassword: draft.rememberPassword
+            passwordHandling: draft.passwordHandling
         )
         bookStore.addServer(server)
-        if draft.rememberPassword, !draft.password.isEmpty {
+        if draft.passwordHandling == .useStoredPassword {
             do {
                 try ServerPasswordStore.shared.setPassword(draft.password, forServer: server.id)
             } catch {
@@ -540,16 +552,21 @@ private struct EditServerSheet: View {
             errorMessage = "Port must be 0–65535."
             return
         }
+        if draft.passwordHandling == .useStoredPassword, draft.password.isEmpty {
+            errorMessage = "Password is required when 'Use saved password' is selected."
+            return
+        }
         guard var server = bookStore.server(id: serverID) else {
             errorMessage = "Server no longer exists."
             return
         }
+        let priorHandling = server.passwordHandling
         server.label = draft.label.trimmingCharacters(in: .whitespaces)
         server.host = draft.host.trimmingCharacters(in: .whitespaces)
         server.port = port
         server.username = draft.username.trimmingCharacters(in: .whitespaces)
         server.groupID = draft.groupID
-        server.rememberPassword = draft.rememberPassword
+        server.passwordHandling = draft.passwordHandling
         do {
             try bookStore.updateServer(server)
         } catch {
@@ -557,15 +574,17 @@ private struct EditServerSheet: View {
             return
         }
 
-        // Password handling has three branches: forget, store, no-op.
+        // Maintain the invariant: keychain has an entry iff
+        // passwordHandling == .useStoredPassword.
         do {
-            if !draft.rememberPassword {
-                try ServerPasswordStore.shared.deletePassword(forServer: serverID)
-            } else if draft.password != draft.initialPassword {
-                if draft.password.isEmpty {
-                    try ServerPasswordStore.shared.deletePassword(forServer: serverID)
-                } else {
+            switch draft.passwordHandling {
+            case .useStoredPassword:
+                if priorHandling != .useStoredPassword || draft.password != draft.initialPassword {
                     try ServerPasswordStore.shared.setPassword(draft.password, forServer: serverID)
+                }
+            case .noPasswordRequired, .promptEveryTime:
+                if priorHandling == .useStoredPassword {
+                    try ServerPasswordStore.shared.deletePassword(forServer: serverID)
                 }
             }
         } catch {

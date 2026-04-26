@@ -10,10 +10,10 @@ struct BookmarkEditorDraft: Equatable {
     var username: String = ""
     var password: String = ""
     var groupID: UUID? = nil
-    var rememberPassword: Bool = true
+    var passwordHandling: PasswordHandling = .useStoredPassword
 
-    /// The "before" snapshot for an edit, so callers can detect whether the
-    /// password actually changed and avoid a pointless keychain write.
+    /// The "before" snapshot for an edit, so the save path can decide
+    /// whether the keychain needs a write/delete or can no-op.
     var initialPassword: String = ""
 
     static func empty(initialGroupID: UUID? = nil) -> BookmarkEditorDraft {
@@ -24,7 +24,7 @@ struct BookmarkEditorDraft: Equatable {
             username: "",
             password: "",
             groupID: initialGroupID,
-            rememberPassword: true,
+            passwordHandling: .useStoredPassword,
             initialPassword: ""
         )
     }
@@ -37,7 +37,7 @@ struct BookmarkEditorDraft: Equatable {
             username: server.username,
             password: currentPassword ?? "",
             groupID: server.groupID,
-            rememberPassword: server.rememberPassword,
+            passwordHandling: server.passwordHandling,
             initialPassword: currentPassword ?? ""
         )
     }
@@ -73,13 +73,18 @@ struct BookmarkEditorView: View {
                 TextField("Port", text: $draft.port)
                 TextField("Username", text: $draft.username)
                 SecureField("Password", text: $draft.password)
+                    .disabled(draft.passwordHandling == .noPasswordRequired)
+                Picker("Password handling", selection: $draft.passwordHandling) {
+                    ForEach(PasswordHandling.allCases, id: \.self) { option in
+                        Text(Self.label(for: option)).tag(option)
+                    }
+                }
                 Picker("Group", selection: $draft.groupID) {
                     Text("Top Level").tag(UUID?.none)
                     ForEach(groups) { group in
                         Text(group.name).tag(UUID?.some(group.id))
                     }
                 }
-                Toggle("Remember password in keychain", isOn: $draft.rememberPassword)
             }
             .formStyle(.grouped)
 
@@ -114,10 +119,25 @@ struct BookmarkEditorView: View {
     }
 
     private var canSave: Bool {
-        !draft.label.trimmingCharacters(in: .whitespaces).isEmpty
-            && !draft.host.trimmingCharacters(in: .whitespaces).isEmpty
-            && UInt16(draft.port) != nil
-            && !draft.username.trimmingCharacters(in: .whitespaces).isEmpty
+        guard !draft.label.trimmingCharacters(in: .whitespaces).isEmpty,
+              !draft.host.trimmingCharacters(in: .whitespaces).isEmpty,
+              UInt16(draft.port) != nil,
+              !draft.username.trimmingCharacters(in: .whitespaces).isEmpty
+        else { return false }
+        // .useStoredPassword needs an actual password to store. The other
+        // modes don't depend on the field.
+        if draft.passwordHandling == .useStoredPassword, draft.password.isEmpty {
+            return false
+        }
+        return true
+    }
+
+    static func label(for handling: PasswordHandling) -> String {
+        switch handling {
+        case .useStoredPassword: "Use saved password"
+        case .noPasswordRequired: "No password required"
+        case .promptEveryTime: "Ask every time"
+        }
     }
 }
 

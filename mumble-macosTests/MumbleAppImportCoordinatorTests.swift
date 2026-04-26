@@ -101,9 +101,9 @@ final class MumbleAppImportCoordinatorTests: XCTestCase {
         // SQLite row had a non-empty password.
         let alpha = try XCTUnwrap(imported.first(where: { $0.label == "Alpha" }))
         let beta = try XCTUnwrap(imported.first(where: { $0.label == "Beta" }))
-        XCTAssertTrue(alpha.rememberPassword)
+        XCTAssertEqual(alpha.passwordHandling, .useStoredPassword)
         XCTAssertEqual(try passwords.password(forServer: alpha.id), "pw-a")
-        XCTAssertFalse(beta.rememberPassword)
+        XCTAssertEqual(beta.passwordHandling, .noPasswordRequired)
         XCTAssertNil(try passwords.password(forServer: beta.id))
     }
 

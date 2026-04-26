@@ -65,6 +65,11 @@ final class PublicServerRefresh {
     private func applyEntries(_ entries: [PublicServerEntry], defaultUsername: String) {
         let group = ensurePublicGroup()
         let username = defaultUsername.isEmpty ? "Mumble User" : defaultUsername
+        // Public-list entries arrive without passwords. Treat them as
+        // "no password required" so connecting from a freshly seeded
+        // bookmark doesn't always prompt — most public servers are
+        // guest-friendly. If a particular one rejects the empty
+        // password the user can edit the bookmark to add one.
         let replacements: [SavedServer] = entries.enumerated().map { index, entry in
             SavedServer(
                 label: entry.name,
@@ -73,7 +78,7 @@ final class PublicServerRefresh {
                 username: username,
                 groupID: group.id,
                 sortIndex: index + 1,
-                rememberPassword: false,
+                passwordHandling: .noPasswordRequired,
                 publicSource: .mumbleInfo
             )
         }

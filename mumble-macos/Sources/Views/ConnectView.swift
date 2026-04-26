@@ -142,10 +142,14 @@ struct ConnectView: View {
 
     private func openSaveSheet() {
         // Default the label to host (matches the reference client's behavior
-        // when the user adds a bookmark with no explicit name).
+        // when the user adds a bookmark with no explicit name). Default the
+        // mode to "use saved" if the user typed a password, otherwise "no
+        // password" — that's the most likely intent given what they entered.
         saveDraft.label = host.trimmingCharacters(in: .whitespaces)
         saveDraft.groupID = bookStore.group(of: .favorites)?.id
-        saveDraft.rememberPassword = !quickConnect.lastPassword.isEmpty
+        saveDraft.passwordHandling = quickConnect.lastPassword.isEmpty
+            ? .noPasswordRequired
+            : .useStoredPassword
         saveError = nil
         saveSheetVisible = true
     }
@@ -160,6 +164,11 @@ struct ConnectView: View {
             saveError = "Port must be a number 0–65535."
             return
         }
+        if saveDraft.passwordHandling == .useStoredPassword,
+           quickConnect.lastPassword.isEmpty {
+            saveError = "Password is required when 'Use saved password' is selected."
+            return
+        }
 
         let server = SavedServer(
             label: label,
@@ -167,11 +176,11 @@ struct ConnectView: View {
             port: portValue,
             username: username.trimmingCharacters(in: .whitespaces),
             groupID: saveDraft.groupID,
-            rememberPassword: saveDraft.rememberPassword
+            passwordHandling: saveDraft.passwordHandling
         )
         bookStore.addServer(server)
 
-        if saveDraft.rememberPassword, !quickConnect.lastPassword.isEmpty {
+        if saveDraft.passwordHandling == .useStoredPassword {
             do {
                 try ServerPasswordStore.shared.setPassword(
                     quickConnect.lastPassword,
@@ -210,7 +219,11 @@ private struct SaveServerSheet: View {
                         Text(group.name).tag(UUID?.some(group.id))
                     }
                 }
-                Toggle("Remember password in keychain", isOn: $draft.rememberPassword)
+                Picker("Password handling", selection: $draft.passwordHandling) {
+                    ForEach(PasswordHandling.allCases, id: \.self) { option in
+                        Text(BookmarkEditorView.label(for: option)).tag(option)
+                    }
+                }
             }
             .formStyle(.grouped)
 
@@ -238,7 +251,7 @@ private struct SaveServerSheet: View {
 fileprivate struct SaveDraft {
     var label: String = ""
     var groupID: UUID? = nil
-    var rememberPassword: Bool = true
+    var passwordHandling: PasswordHandling = .useStoredPassword
 }
 
 #Preview {
