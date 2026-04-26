@@ -175,7 +175,7 @@ struct ShortcutsTab: View {
     // MARK: - Toolbar
 
     private var toolbar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             Menu {
                 ForEach(ShortcutAction.allCases, id: \.self) { action in
                     Button(action.displayName) {
@@ -184,18 +184,26 @@ struct ShortcutsTab: View {
                 }
             } label: {
                 Image(systemName: "plus")
+                    .frame(width: Self.iconButtonSize.width,
+                           height: Self.iconButtonSize.height)
+                    .contentShape(Rectangle())
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .help("Add shortcut")
 
             Button {
                 removeSelected()
             } label: {
                 Image(systemName: "minus")
+                    .frame(width: Self.iconButtonSize.width,
+                           height: Self.iconButtonSize.height)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             .disabled(selectedID == nil)
+            .help("Remove selected shortcut")
 
             Spacer()
 
@@ -305,6 +313,11 @@ struct ShortcutsTab: View {
 
     private static let functionWidth: CGFloat = 150
     private static let dataWidth: CGFloat = 110
+    /// Hit-target for the +/− icon buttons. The default `Button` + `Image`
+    /// combination only makes the glyph itself tappable, which leaves a
+    /// pixel-precise click target — so we pad the label out to a more
+    /// finger/cursor-friendly area via an explicit frame + contentShape.
+    private static let iconButtonSize = CGSize(width: 26, height: 22)
 }
 
 // MARK: - Capture session
