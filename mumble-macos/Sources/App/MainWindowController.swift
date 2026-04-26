@@ -7,7 +7,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var pttMonitor: Any?
     private var pttDown = false
 
-    init(client: MumbleClient = MumbleClient()) {
+    init(client: MumbleClient) {
         self.client = client
 
         let window = NSWindow(
@@ -54,14 +54,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         fatalError("MainWindowController does not support NSCoding")
     }
 
-    @objc func showConnectSheet(_ sender: Any?) {
-        presentConnectSheet(prefill: nil)
+    @objc func showQuickConnectSheet(_ sender: Any?) {
+        presentQuickConnectSheet(prefill: nil)
     }
 
-    /// Open the Connect sheet with form values pre-populated from a parsed
-    /// `mumble://` URL. If a sheet is already attached it is replaced — the
-    /// newest link wins, matching how the reference client treats URL opens.
-    func presentConnectSheet(prefill: MumbleURL?) {
+    /// Open the Quick Connect sheet with form values pre-populated from a
+    /// parsed `mumble://` URL. If a sheet is already attached it is replaced
+    /// — the newest link wins, matching how the reference client treats
+    /// URL opens.
+    func presentQuickConnectSheet(prefill: MumbleURL?) {
         guard let window else { return }
         if let existing = window.attachedSheet {
             window.endSheet(existing)
