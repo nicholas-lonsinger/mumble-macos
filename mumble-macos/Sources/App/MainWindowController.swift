@@ -7,8 +7,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// Routes user-configured shortcuts (Push-to-Talk, Mute, Whisper, …)
     /// to actions on the client. Replaces the previously hardcoded Fn+Control
     /// `flagsChanged` monitor; the default seeded binding in `ShortcutsStore`
-    /// preserves the same chord on first launch.
-    private var shortcutDispatcher: ShortcutDispatcher?
+    /// preserves the same chord on first launch. Exposed so the Preferences
+    /// capture flow can `pause()` it while the user is binding a new chord.
+    private(set) var shortcutDispatcher: ShortcutDispatcher?
 
     init(client: MumbleClient) {
         self.client = client

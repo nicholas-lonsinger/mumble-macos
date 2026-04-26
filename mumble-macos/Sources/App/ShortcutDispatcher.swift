@@ -38,6 +38,12 @@ final class ShortcutDispatcher {
     private var pressedMouseButtons: Set<Int> = []
     /// Hold-action bindings with an open press. Used to diff per-event.
     private var firedBindingIDs: Set<UUID> = []
+    /// Set during the Preferences capture flow so live shortcuts don't fire
+    /// while the user is binding a new chord. The capture UI suppresses the
+    /// captured event itself, but our local monitor was installed first and
+    /// would otherwise still process the press → fire a binding the user
+    /// is currently editing.
+    private var isPaused = false
 
     private static let log = Logger(subsystem: "com.nicholas-lonsinger.mumble-macos",
                                     category: "shortcuts")
@@ -118,9 +124,35 @@ final class ShortcutDispatcher {
         firedBindingIDs.removeAll()
     }
 
+    // MARK: - Capture coordination
+
+    /// Pause routing while the Preferences UI is capturing a new shortcut.
+    /// Force-releases any hold-style bindings that are currently open and
+    /// drops cached input state so events received between `pause()` and
+    /// `resume()` don't carry stale "is held" assumptions forward.
+    func pause() {
+        guard !isPaused else { return }
+        isPaused = true
+        let toRelease = firedBindingIDs
+        firedBindingIDs.removeAll()
+        activeModifiers = []
+        pressedKeys.removeAll()
+        pressedMouseButtons.removeAll()
+        for id in toRelease {
+            if let binding = store.bindings.first(where: { $0.id == id }) {
+                handleRelease(binding)
+            }
+        }
+    }
+
+    func resume() {
+        isPaused = false
+    }
+
     // MARK: - Event ingestion
 
     private func handleEvent(_ event: NSEvent) {
+        guard !isPaused else { return }
         switch event.type {
         case .flagsChanged:
             activeModifiers = ShortcutModifiers.from(event.modifierFlags)
