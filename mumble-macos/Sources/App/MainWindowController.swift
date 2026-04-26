@@ -4,8 +4,11 @@ import SwiftUI
 @MainActor
 final class MainWindowController: NSWindowController, NSWindowDelegate {
     let client: MumbleClient
-    private var pttMonitor: Any?
-    private var pttDown = false
+    /// Routes user-configured shortcuts (Push-to-Talk, Mute, Whisper, …)
+    /// to actions on the client. Replaces the previously hardcoded Fn+Control
+    /// `flagsChanged` monitor; the default seeded binding in `ShortcutsStore`
+    /// preserves the same chord on first launch.
+    private var shortcutDispatcher: ShortcutDispatcher?
 
     init(client: MumbleClient) {
         self.client = client
@@ -26,27 +29,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         let rootView = MainView().environment(client)
         window.contentView = NSHostingView(rootView: rootView)
-        installPTTMonitor()
-    }
-
-    /// Local monitor for PTT: hold Globe(Fn) + Control while the window is
-    /// focused. Using modifier-only means we don't intercept a character key,
-    /// so no system beep on release. Global hotkeys would require Input
-    /// Monitoring permission — in-app is enough for now.
-    private func installPTTMonitor() {
-        pttMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged]) { [weak self] event in
-            guard let self else { return event }
-            let both = event.modifierFlags.contains(.function)
-                && event.modifierFlags.contains(.control)
-            if both, !self.pttDown {
-                self.pttDown = true
-                self.client.startTalking()
-            } else if !both, self.pttDown {
-                self.pttDown = false
-                self.client.stopTalking()
-            }
-            return event
-        }
+        shortcutDispatcher = ShortcutDispatcher(client: client, store: ShortcutsStore.shared)
     }
 
     @available(*, unavailable)

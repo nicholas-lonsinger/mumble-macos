@@ -41,6 +41,11 @@ final class MumbleClient {
     private let voice = VoiceController()
     private(set) var voiceAvailable = false
     private(set) var isTransmitting = false
+    /// Per-packet `MumbleUDP.Audio.target`. 0 = normal talk, 1..30 =
+    /// whisper via the matching `VoiceTarget` slot, 31 = server loopback.
+    /// Set non-zero by `applyWhisperTarget` when a Whisper/Shout shortcut is
+    /// active; otherwise stays at 0 so plain PTT goes to the user's channel.
+    private(set) var outgoingVoiceTarget: UInt32 = 0
     private(set) var speakingSessions: Set<UInt32> = []
     private var speakingClearTasks: [UInt32: Task<Void, Never>] = [:]
     private var connectStartedAt: ContinuousClock.Instant?
@@ -495,7 +500,7 @@ final class MumbleClient {
                                 opus: Data,
                                 frameNumber: UInt64,
                                 isTerminator: Bool) async {
-        let audio = UDPAudioMessage(target: 0,
+        let audio = UDPAudioMessage(target: outgoingVoiceTarget,
                                     frameNumber: frameNumber,
                                     opusData: opus,
                                     isTerminator: isTerminator)
@@ -628,6 +633,76 @@ final class MumbleClient {
     func setSelfDeaf(_ deafened: Bool) async {
         // Deaf implies mute in Mumble.
         await sendSelfState(selfMute: deafened ? true : nil, selfDeaf: deafened)
+    }
+
+    /// Slot 1 is reserved for the configured Whisper/Shout target. We don't
+    /// register additional slots in this iteration, so a single ID is enough.
+    private static let whisperVoiceTargetID: UInt32 = 1
+
+    /// Configure the per-packet `target` for outgoing voice. Pass a non-nil
+    /// `WhisperTarget` to redirect outgoing audio at the slot 1 VoiceTarget;
+    /// pass `nil` to revert to normal-channel talk (`target = 0`).
+    ///
+    /// When non-nil we also send a `VoiceTargetMessage` to register slot 1 on
+    /// the server with the resolved channel + flags. The slot stays
+    /// registered after release — re-registering on each press is cheap and
+    /// keeps state consistent if the channel resolution changed (e.g. user
+    /// moved between channels and the binding is `.current`).
+    func applyWhisperTarget(_ target: WhisperTarget?) async {
+        guard case .connected = state, let transport else {
+            outgoingVoiceTarget = 0
+            return
+        }
+        guard let target else {
+            outgoingVoiceTarget = 0
+            return
+        }
+        guard let resolvedChannelID = resolveWhisperChannelID(for: target) else {
+            Self.log.warning("Whisper target couldn't be resolved (mode=\(String(describing: target.channelMode), privacy: .public)); falling back to normal talk.")
+            outgoingVoiceTarget = 0
+            return
+        }
+        let msg = VoiceTargetMessage(
+            id: Self.whisperVoiceTargetID,
+            targets: [
+                VoiceTargetMessage.Target(
+                    channelID: resolvedChannelID,
+                    group: target.restrictGroup.isEmpty ? nil : target.restrictGroup,
+                    includeLinks: target.includeLinks ? true : nil,
+                    includeChildren: target.includeChildren ? true : nil
+                )
+            ]
+        )
+        do {
+            try await transport.sendFrame(msg)
+            outgoingVoiceTarget = Self.whisperVoiceTargetID
+        } catch {
+            Self.log.error("Whisper target register failed: \(error.localizedDescription, privacy: .public)")
+            outgoingVoiceTarget = 0
+        }
+    }
+
+    /// Resolve a `WhisperTarget` to a concrete channel id using the current
+    /// channel tree + the local user's location. `nil` means we couldn't
+    /// determine a channel (no current user, no root, etc.) and the caller
+    /// should fall back to normal talk.
+    private func resolveWhisperChannelID(for target: WhisperTarget) -> UInt32? {
+        switch target.channelMode {
+        case .root:
+            return rootChannelID
+        case .current:
+            guard let session = sessionID else { return nil }
+            return users[session]?.channelID
+        case .parent:
+            guard let session = sessionID,
+                  let currentID = users[session]?.channelID,
+                  let current = channels[currentID] else { return nil }
+            // The root has no parent — if the user is at root, "Parent" is
+            // ambiguous; treat it as "current" rather than fail outright.
+            return current.parentID ?? currentID
+        case .byID:
+            return target.channelID
+        }
     }
 
     private func sendSelfState(selfMute: Bool? = nil, selfDeaf: Bool? = nil) async {
