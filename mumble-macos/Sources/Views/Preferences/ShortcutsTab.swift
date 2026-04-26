@@ -74,7 +74,6 @@ struct ShortcutsTab: View {
             Text("Function").columnHeader(width: Self.functionWidth)
             Text("Data").columnHeader(width: Self.dataWidth)
             Text("Shortcut").columnHeader(width: nil)
-            Text("Suppress").columnHeader(width: Self.suppressWidth, alignment: .trailing)
         }
         .padding(.vertical, 4)
     }
@@ -114,11 +113,6 @@ struct ShortcutsTab: View {
                 .columnCell(width: Self.dataWidth)
             shortcutCell(for: binding)
                 .columnCell(width: nil)
-            Toggle("", isOn: .constant(false))
-                .labelsHidden()
-                .disabled(true)
-                .help("Suppression isn't implemented in this MVP — bound input always passes through to the focused app.")
-                .columnCell(width: Self.suppressWidth, alignment: .trailing)
         }
     }
 
@@ -311,7 +305,6 @@ struct ShortcutsTab: View {
 
     private static let functionWidth: CGFloat = 150
     private static let dataWidth: CGFloat = 110
-    private static let suppressWidth: CGFloat = 80
 }
 
 // MARK: - Capture session
