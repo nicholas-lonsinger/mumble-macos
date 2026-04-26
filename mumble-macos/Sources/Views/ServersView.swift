@@ -15,13 +15,10 @@ enum ServersSelection: Hashable {
 /// are also reachable via toolbar buttons for discoverability.
 struct ServersView: View {
     @State private var bookStore = ServerBookStore.shared
-    @State private var publicRefresh = PublicServerRefresh.shared
     /// Dispatches a connect request with the password already resolved (from
     /// the keychain or a prompt). The controller routes this to
     /// `MumbleClient` and brings the main window forward.
     let onConnectRequested: (SavedServer, String) -> Void
-
-    @AppStorage("lastServerUsername") private var defaultUsername = ServerConnectionParameters.defaultPublicTestServer.username
 
     @State private var selection: ServersSelection?
     @State private var sheet: ActiveSheet?
@@ -104,7 +101,6 @@ struct ServersView: View {
             Button("Edit…") { editSelected() }
                 .disabled(selectedServer == nil)
             Spacer()
-            refreshPublicButton
             Menu {
                 Button("New Server") { addServer() }
                 Button("New Group") { sheet = .addGroup }
@@ -119,41 +115,6 @@ struct ServersView: View {
                 Image(systemName: "minus")
             }
             .disabled(!canRemoveSelection)
-        }
-    }
-
-    /// "Refresh Public Servers" button. Disabled while a fetch is in flight;
-    /// post-completion shows a small label to the right with the count or
-    /// the error message until the user triggers the next refresh.
-    @ViewBuilder
-    private var refreshPublicButton: some View {
-        HStack(spacing: 6) {
-            switch publicRefresh.status {
-            case .running:
-                ProgressView()
-                    .scaleEffect(0.5)
-                    .frame(width: 14, height: 14)
-            case .finished(let n):
-                Text("Imported \(n)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            case .failed(let message):
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .help(message)
-            case .idle:
-                EmptyView()
-            }
-            Button {
-                publicRefresh.start(defaultUsername: defaultUsername)
-            } label: {
-                Image(systemName: "arrow.triangle.2.circlepath")
-            }
-            .help("Refresh Public Servers from publist.mumble.info")
-            .disabled(publicRefresh.status == .running)
         }
     }
 
