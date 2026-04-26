@@ -64,7 +64,7 @@ struct ServersView: View {
         .sheet(item: $pendingPasswordPrompt) { prompt in
             PasswordPromptView(
                 serverLabel: prompt.server.label,
-                serverDetails: "\(prompt.server.host):\(prompt.server.port) — \(prompt.server.username)",
+                serverDetails: "\(prompt.server.host):\(String(prompt.server.port)) — \(prompt.server.username)",
                 password: Binding(
                     get: { pendingPasswordPrompt?.password ?? "" },
                     set: { pendingPasswordPrompt?.password = $0 }
@@ -108,6 +108,7 @@ struct ServersView: View {
                 Image(systemName: "plus")
             }
             .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
             .fixedSize()
             Button {
                 removeSelected()
@@ -140,7 +141,12 @@ struct ServersView: View {
                 groupSection(group)
             }
         }
-        .listStyle(.sidebar)
+        // .bordered gives the white-on-content look matching apps where the
+        // list IS the primary surface (Music, Photos library, System
+        // Settings ▸ Network). .sidebar's translucent grey is for nested
+        // navigation sidebars and made selection highlights nearly
+        // invisible against the toolbar chrome.
+        .listStyle(.bordered)
     }
 
     @ViewBuilder
@@ -235,7 +241,10 @@ struct ServersView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(server.label)
                     .fontWeight(.medium)
-                Text("\(server.host):\(server.port)")
+                // Coerce the port through `String(...)` so SwiftUI's
+                // LocalizedStringKey interpolation doesn't apply the user's
+                // grouping separator (e.g. "64,738").
+                Text("\(server.host):\(String(server.port))")
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -244,9 +253,14 @@ struct ServersView: View {
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
+        // simultaneousGesture (not onTapGesture) so the double-click
+        // handler runs *alongside* the List's built-in single-click
+        // selection rather than shadowing it. Without this, a single
+        // click never sets `selection`, leaving the toolbar's
+        // Connect/Edit buttons permanently disabled.
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
             requestConnect(server)
-        }
+        })
         .draggable(SavedServerPayload(id: server.id))
         // Drop a server onto this row → place dropped server immediately
         // after this one, in this row's group.
