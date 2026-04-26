@@ -115,6 +115,7 @@ struct ServersView: View {
             } label: {
                 Image(systemName: "minus")
             }
+            .buttonStyle(.borderless)
             .disabled(!canRemoveSelection)
         }
     }
@@ -131,22 +132,26 @@ struct ServersView: View {
             Section("On This Mac") {
                 ForEach(bookStore.servers(in: nil)) { server in
                     serverRow(server)
+                        .listRowSeparator(.hidden)
                 }
                 if bookStore.servers(in: nil).isEmpty {
                     ungroupDropHint
+                        .listRowSeparator(.hidden)
                 }
             }
+            .listSectionSeparator(.hidden)
 
             ForEach(bookStore.topLevelGroupsSorted) { group in
                 groupSection(group)
+                    .listRowSeparator(.hidden)
             }
         }
-        // .bordered gives the white-on-content look matching apps where the
-        // list IS the primary surface (Music, Photos library, System
-        // Settings ▸ Network). .sidebar's translucent grey is for nested
-        // navigation sidebars and made selection highlights nearly
-        // invisible against the toolbar chrome.
-        .listStyle(.bordered)
+        // Per-row .listRowSeparator(.hidden) on macOS Tahoe: applied at
+        // the List level the modifier doesn't reliably propagate, so
+        // we hang it on each row we render. Section separator gets the
+        // explicit .listSectionSeparator(.hidden) on the wrapping
+        // Section for the same reason.
+        .listStyle(.plain)
     }
 
     @ViewBuilder
@@ -253,11 +258,15 @@ struct ServersView: View {
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())
-        // simultaneousGesture (not onTapGesture) so the double-click
-        // handler runs *alongside* the List's built-in single-click
-        // selection rather than shadowing it. Without this, a single
-        // click never sets `selection`, leaving the toolbar's
-        // Connect/Edit buttons permanently disabled.
+        // The List's built-in selection click is reliably swallowed when
+        // a row is `.draggable` on macOS — the click is interpreted as
+        // a potential drag start and never resolves into a tap that
+        // updates `selection`. Set the selection ourselves from a
+        // simultaneous TapGesture(count: 1); the simultaneous variant
+        // lets the gesture coexist with whatever the List is doing.
+        .simultaneousGesture(TapGesture(count: 1).onEnded {
+            selection = .server(server.id)
+        })
         .simultaneousGesture(TapGesture(count: 2).onEnded {
             requestConnect(server)
         })
