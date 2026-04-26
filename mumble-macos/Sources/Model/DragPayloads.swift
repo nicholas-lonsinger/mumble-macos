@@ -2,13 +2,26 @@ import CoreTransferable
 import Foundation
 import UniformTypeIdentifiers
 
-/// In-app drag payloads. These UTIs are defined ad-hoc — they're not
-/// declared in `Info.plist` because the drag is purely intra-app and we
-/// don't want other apps to recognize or claim drops of our internal
-/// IDs. SwiftUI matches `dropDestination(for:)` by Transferable type,
-/// which in turn matches by `contentType`; distinct UTIs let us drop a
-/// server onto a server target without accidentally satisfying a group
-/// drop target (and vice versa).
+/// In-app drag payloads.
+///
+/// `UTType(exportedAs:)` normally pairs with a matching
+/// `UTExportedTypeDeclarations` entry in `Info.plist` — that's how
+/// macOS publishes the type identifier system-wide. We deliberately
+/// skip the Info.plist declaration here because the drag is purely
+/// intra-app: we don't want other apps recognizing or claiming drops
+/// of our internal server / group IDs, and we don't want LaunchServices
+/// to associate `.savedserver` or similar with our app. SwiftUI's
+/// `dropDestination(for:)` matches by Transferable type / `contentType`
+/// string equality at runtime, which works for unregistered UTIs as
+/// long as both source and destination live in the same process.
+///
+/// Distinct UTI strings keep the server drop target from satisfying a
+/// group drop (and vice versa) — both decode to UUID and would
+/// otherwise be ambiguous to SwiftUI.
+///
+/// If a future need arises (e.g. promoting drag to inter-app paste or
+/// to the Files clipboard), declaring these in Info.plist becomes
+/// straightforward.
 extension UTType {
     static let mumbleSavedServerPayload =
         UTType(exportedAs: "com.nicholas-lonsinger.mumble-macos.saved-server-payload")

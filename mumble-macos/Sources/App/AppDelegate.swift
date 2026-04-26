@@ -88,7 +88,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// uses; the user can override it per-server later.
     @objc func refreshPublicServers(_ sender: Any?) {
         let username = UserDefaults.standard.string(forKey: "lastServerUsername") ?? ""
-        PublicServerRefresh.shared.start(defaultUsername: username)
+        Task { @MainActor in
+            let status = await PublicServerRefresh.shared.run(defaultUsername: username)
+            switch status {
+            case .finished(let count):
+                self.presentRefreshSuccess(count: count)
+            case .failed(let message):
+                self.presentRefreshFailure(message: message)
+            case .idle, .running:
+                // .running can happen if the user double-clicked; no UI
+                // for that — the in-flight refresh will show its result
+                // when it lands.
+                break
+            }
+        }
+    }
+
+    private func presentRefreshSuccess(count: Int) {
+        let alert = NSAlert()
+        alert.messageText = "Refreshed public servers"
+        alert.informativeText = "Imported \(count) server\(count == 1 ? "" : "s") from publist.mumble.info."
+        alert.alertStyle = .informational
+        presentAlertSheet(alert)
+    }
+
+    private func presentRefreshFailure(message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Couldn't refresh public servers"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        presentAlertSheet(alert)
     }
 
     /// One-shot import of the reference Mumble client's bookmarks. NSOpenPanel
@@ -119,9 +148,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func runMumbleAppImport(at url: URL) {
         do {
             let summary = try MumbleAppImportCoordinator().run(at: url)
-            Self.presentImportSuccess(summary: summary)
+            presentImportSuccess(summary: summary)
         } catch {
-            Self.presentImportFailure(error: error)
+            presentImportFailure(error: error)
         }
     }
 
@@ -141,7 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .appendingPathComponent("Library/Application Support/Mumble/Mumble", isDirectory: true)
     }
 
-    private static func presentImportSuccess(summary: MumbleAppImportCoordinator.Summary) {
+    private func presentImportSuccess(summary: MumbleAppImportCoordinator.Summary) {
         let alert = NSAlert()
         let total = summary.imported
         alert.messageText = "Imported \(total) server\(total == 1 ? "" : "s")"
@@ -157,15 +186,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         alert.informativeText = lines.joined(separator: "\n")
         alert.alertStyle = .informational
-        alert.runModal()
+        presentAlertSheet(alert)
     }
 
-    private static func presentImportFailure(error: Error) {
+    private func presentImportFailure(error: Error) {
         let alert = NSAlert()
         alert.messageText = "Couldn't import from Mumble.app"
         alert.informativeText = (error as? LocalizedError)?.errorDescription
             ?? error.localizedDescription
         alert.alertStyle = .warning
-        alert.runModal()
+        presentAlertSheet(alert)
+    }
+
+    /// Attaches `alert` as a sheet on whichever window is currently key,
+    /// falling back to a plain modal if no window is up. Sheets feel more
+    /// macOS-native than full-app modals and don't obscure the rest of
+    /// the UI while the user reads the result.
+    private func presentAlertSheet(_ alert: NSAlert) {
+        let target = NSApp.keyWindow
+            ?? serversWindowController?.window
+            ?? mainWindowController?.window
+        if let target {
+            alert.beginSheetModal(for: target) { _ in }
+        } else {
+            alert.runModal()
+        }
     }
 }

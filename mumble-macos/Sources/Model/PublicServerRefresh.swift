@@ -6,14 +6,15 @@ import OSLog
 /// group exists, fetches the public list, and replaces the seeded entries
 /// in `ServerBookStore`.
 ///
-/// The state machine is observable so the toolbar button can disable
-/// itself / show a spinner / display the result.
+/// The state machine is observable so any UI surface can watch progress.
+/// Currently the only caller is `AppDelegate.refreshPublicServers`, which
+/// awaits `run(defaultUsername:)` and presents the result as a sheet.
 @MainActor
 @Observable
 final class PublicServerRefresh {
-    /// Shared instance so the toolbar button and the File menu item drive
-    /// the same state machine — the user shouldn't see two parallel
-    /// refreshes if they hit both surfaces.
+    /// Shared instance so any future surface that adds a refresh entry
+    /// point drives the same state machine — the user shouldn't see two
+    /// parallel refreshes if they hit both.
     static let shared = PublicServerRefresh()
 
     enum Status: Equatable, Sendable {
@@ -29,7 +30,6 @@ final class PublicServerRefresh {
                                     category: "publist-refresh")
     private let bookStore: ServerBookStore
     private let fetcher: PublicServerListFetcher
-    private var inFlightTask: Task<Void, Never>?
 
     init(bookStore: ServerBookStore = .shared,
          fetcher: PublicServerListFetcher = PublicServerListFetcher()) {
@@ -37,19 +37,14 @@ final class PublicServerRefresh {
         self.fetcher = fetcher
     }
 
-    /// Triggers a refresh. If one is already running, this no-ops — the
-    /// caller wires the button's `disabled` state to `status == .running`
-    /// to make this case unreachable in practice.
-    func start(defaultUsername: String) {
-        if case .running = status { return }
+    /// Async one-shot refresh. Returns the resulting status so callers
+    /// can present a result UI without observing `status` separately.
+    /// If a refresh is already running, returns the current status
+    /// without starting another.
+    @discardableResult
+    func run(defaultUsername: String) async -> Status {
+        if case .running = status { return status }
         status = .running
-        let task = Task { @MainActor in
-            await self.run(defaultUsername: defaultUsername)
-        }
-        inFlightTask = task
-    }
-
-    private func run(defaultUsername: String) async {
         do {
             let entries = try await fetcher.fetch()
             applyEntries(entries, defaultUsername: defaultUsername)
@@ -60,6 +55,7 @@ final class PublicServerRefresh {
             status = .failed(message: message)
             Self.log.error("Public refresh failed: \(message, privacy: .public)")
         }
+        return status
     }
 
     private func applyEntries(_ entries: [PublicServerEntry], defaultUsername: String) {

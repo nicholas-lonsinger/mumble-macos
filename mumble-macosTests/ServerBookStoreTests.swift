@@ -141,6 +141,55 @@ final class ServerBookStoreTests: XCTestCase {
         XCTAssertNil(store.group(id: group.id))
     }
 
+    func test_removingPublicGroupAlsoClearsPublicSourceOnChildren() throws {
+        // Regression: a stale `publicSource` flag on an orphaned server
+        // would cause the next Refresh Public Servers to silently delete
+        // it via `replaceServers(matching:)`. Removing the group is an
+        // explicit "divorce these bookmarks from the public list," so
+        // clear the flag on the way out.
+        let store = ServerBookStore(storageURL: tempURL)
+        let publicGroup = ServerGroup(name: "Public Servers", kind: .publicMumbleInfo)
+        store.addGroup(publicGroup)
+        let server = SavedServer(
+            label: "Seeded", host: "seeded.example", port: 64738, username: "u",
+            groupID: publicGroup.id, publicSource: .mumbleInfo
+        )
+        store.addServer(server)
+
+        try store.removeGroup(id: publicGroup.id)
+
+        let reloaded = try XCTUnwrap(store.server(id: server.id))
+        XCTAssertNil(reloaded.groupID)
+        XCTAssertNil(reloaded.publicSource,
+                     "publicSource must be cleared when its seeded group is removed.")
+
+        // And a follow-up Refresh-style replace must NOT delete the now-
+        // independent bookmark — that's the whole point.
+        store.replaceServers(matching: .mumbleInfo, with: [])
+        XCTAssertNotNil(store.server(id: server.id))
+    }
+
+    func test_removingUserGroupKeepsPublicSourceUntouched() throws {
+        // Belt-and-suspenders: a server that was somehow both in a user
+        // group AND flagged with publicSource (e.g. user dragged it out
+        // of Public into Work) must keep its flag intact when the user
+        // group is removed — the flag's lifecycle is tied to the public
+        // group, not to whichever folder the user has the entry in.
+        let store = ServerBookStore(storageURL: tempURL)
+        let userGroup = ServerGroup(name: "Work", kind: .user)
+        store.addGroup(userGroup)
+        let server = SavedServer(
+            label: "X", host: "x", port: 1, username: "u",
+            groupID: userGroup.id, publicSource: .mumbleInfo
+        )
+        store.addServer(server)
+
+        try store.removeGroup(id: userGroup.id)
+
+        let reloaded = try XCTUnwrap(store.server(id: server.id))
+        XCTAssertEqual(reloaded.publicSource, .mumbleInfo)
+    }
+
     func test_removingGroupUnlinksItsServers() throws {
         let store = ServerBookStore(storageURL: tempURL)
         let group = ServerGroup(name: "Temp")

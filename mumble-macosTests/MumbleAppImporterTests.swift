@@ -141,6 +141,21 @@ final class MumbleAppImporterTests: XCTestCase {
         XCTAssertEqual(read.map(\.host), ["good.example"])
     }
 
+    func test_skipsRowWithAbsurdlyLongField() throws {
+        // Defensive cap: a row carrying a multi-megabyte string in any
+        // text column is treated as junk rather than imported. Mumble
+        // servers don't have multi-KB hostnames or usernames, so this
+        // is purely a guard against a hand-crafted or corrupted db.
+        let huge = String(repeating: "x", count: 5_000)
+        try writeMumbleSchema(rows: [
+            ("Big", huge, 64738, "u", ""),
+            ("Good", "good.example", 64738, "u", ""),
+            ("BigPw", "pw.example", 64738, "u", huge)
+        ])
+        let read = try MumbleAppImporter().read(at: dbURL)
+        XCTAssertEqual(read.map(\.host), ["good.example"])
+    }
+
     // MARK: - Failure modes
 
     func test_throwsOnMissingFile() {

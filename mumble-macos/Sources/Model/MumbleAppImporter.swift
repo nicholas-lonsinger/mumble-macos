@@ -61,6 +61,13 @@ struct MumbleAppImporter: Sendable {
         OpaquePointer(bitPattern: -1), to: sqlite3_destructor_type.self
     )
 
+    /// Defensive cap for any single column the importer pulls in. Real
+    /// Mumble servers have hostnames and usernames well under 1 KB; an
+    /// entry above this limit is almost certainly garbage from a
+    /// corrupted / hand-crafted database, and we'd rather skip it than
+    /// land a multi-megabyte string in the keychain or `Servers.json`.
+    private static let maxFieldLength = 4096
+
     /// Reads `mumble.sqlite` at `url` and returns one row per `servers`
     /// entry. Skips rows with empty hostname or non-positive port — the
     /// reference client occasionally accumulates broken rows from its own
@@ -123,6 +130,14 @@ struct MumbleAppImporter: Sendable {
             let password = Self.stringColumn(stmt, 4) ?? ""
 
             guard !host.isEmpty else { continue }
+            // Skip rows with absurd field lengths — see `maxFieldLength`.
+            if name.count > Self.maxFieldLength
+                || host.count > Self.maxFieldLength
+                || username.count > Self.maxFieldLength
+                || password.count > Self.maxFieldLength {
+                Self.log.warning("Skipping row with oversized field (host=\(host.prefix(64), privacy: .public)…)")
+                continue
+            }
             rows.append(MumbleAppImportRow(
                 name: name.isEmpty ? host : name,
                 host: host,

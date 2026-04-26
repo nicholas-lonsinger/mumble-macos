@@ -12,10 +12,6 @@ struct BookmarkEditorDraft: Equatable {
     var groupID: UUID? = nil
     var passwordHandling: PasswordHandling = .useStoredPassword
 
-    /// The "before" snapshot for an edit, so the save path can decide
-    /// whether the keychain needs a write/delete or can no-op.
-    var initialPassword: String = ""
-
     static func empty(initialGroupID: UUID? = nil) -> BookmarkEditorDraft {
         BookmarkEditorDraft(
             label: "",
@@ -24,8 +20,7 @@ struct BookmarkEditorDraft: Equatable {
             username: "",
             password: "",
             groupID: initialGroupID,
-            passwordHandling: .useStoredPassword,
-            initialPassword: ""
+            passwordHandling: .useStoredPassword
         )
     }
 
@@ -37,8 +32,7 @@ struct BookmarkEditorDraft: Equatable {
             username: server.username,
             password: currentPassword ?? "",
             groupID: server.groupID,
-            passwordHandling: server.passwordHandling,
-            initialPassword: currentPassword ?? ""
+            passwordHandling: server.passwordHandling
         )
     }
 }

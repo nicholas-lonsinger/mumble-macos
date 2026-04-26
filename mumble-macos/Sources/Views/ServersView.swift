@@ -123,18 +123,22 @@ struct ServersView: View {
     // MARK: - Source list
 
     private var sourceList: some View {
-        List(selection: $selection) {
+        // Resolve the top-level (ungrouped) servers once per render so
+        // we don't pay the O(N) `.filter` twice (once in the ForEach,
+        // once in the empty-state check).
+        let topLevelServers = bookStore.servers(in: nil)
+        return List(selection: $selection) {
             // Ungrouped (top-level) servers appear first, in their own
             // implicit "On My Mac"-style section. When the section is
             // empty we render a hint row that doubles as a drop target
             // — that's the only way to ungroup a server when there are
             // no other top-level servers to drop onto.
             Section("On This Mac") {
-                ForEach(bookStore.servers(in: nil)) { server in
+                ForEach(topLevelServers) { server in
                     serverRow(server)
                         .listRowSeparator(.hidden)
                 }
-                if bookStore.servers(in: nil).isEmpty {
+                if topLevelServers.isEmpty {
                     ungroupDropHint
                         .listRowSeparator(.hidden)
                 }
@@ -559,13 +563,15 @@ private struct EditServerSheet: View {
         }
 
         // Maintain the invariant: keychain has an entry iff
-        // passwordHandling == .useStoredPassword.
+        // passwordHandling == .useStoredPassword. Always write on
+        // .useStoredPassword (rather than only when the value changed)
+        // so that Save also repairs the recovery case where the
+        // keychain entry has gone missing — one keychain write per
+        // save is cheap.
         do {
             switch draft.passwordHandling {
             case .useStoredPassword:
-                if priorHandling != .useStoredPassword || draft.password != draft.initialPassword {
-                    try ServerPasswordStore.shared.setPassword(draft.password, forServer: serverID)
-                }
+                try ServerPasswordStore.shared.setPassword(draft.password, forServer: serverID)
             case .noPasswordRequired, .promptEveryTime:
                 if priorHandling == .useStoredPassword {
                     try ServerPasswordStore.shared.deletePassword(forServer: serverID)

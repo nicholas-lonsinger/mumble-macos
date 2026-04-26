@@ -230,6 +230,14 @@ final class ServerBookStore {
 
     /// Removes `id` and unlinks every server inside it (sets `groupID = nil`).
     /// Throws if the group is the always-present Favorites group.
+    ///
+    /// When the removed group is one of the system-managed public groups,
+    /// also clears `publicSource` on its child servers — otherwise the
+    /// next "Refresh Public Servers" would silently delete those entries
+    /// via `replaceServers(matching:)` because the orphaned flag still
+    /// matches the seed source. Removing the group is the user telling
+    /// us they want those bookmarks divorced from the public list, not
+    /// scheduled for deletion.
     func removeGroup(id: UUID) throws {
         guard let idx = groups.firstIndex(where: { $0.id == id }) else {
             throw ServerBookStoreError.unknownGroup(id)
@@ -237,8 +245,20 @@ final class ServerBookStore {
         if groups[idx].kind == .favorites {
             throw ServerBookStoreError.favoritesGroupNotDeletable
         }
+        let removedKind = groups[idx].kind
+        let publicSourceForRemoved: PublicSource? = {
+            switch removedKind {
+            case .publicMumbleInfo: return .mumbleInfo
+            case .publicMumbleCom: return .mumbleCom
+            case .favorites, .user, .imported: return nil
+            }
+        }()
         for i in servers.indices where servers[i].groupID == id {
             servers[i].groupID = nil
+            if let source = publicSourceForRemoved,
+               servers[i].publicSource == source {
+                servers[i].publicSource = nil
+            }
         }
         groups.remove(at: idx)
         save()

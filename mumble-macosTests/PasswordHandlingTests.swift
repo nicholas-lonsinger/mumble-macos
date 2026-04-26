@@ -127,16 +127,16 @@ final class PasswordHandlingTests: XCTestCase {
     // MARK: - Save-flow invariant (mirroring AddServerSheet/EditServerSheet)
 
     /// Helper: applies the save-side keychain rule we use in the editor.
-    /// Asserts the invariant holds on disk.
+    /// Mirrors the production logic in `EditServerSheet.save`: always
+    /// write when the new mode is `.useStoredPassword` (so a missing
+    /// keychain entry is repaired on Save), delete when the prior mode
+    /// was `.useStoredPassword` and the new mode no longer wants one.
     private func applySaveRule(server: SavedServer,
                                typedPassword: String,
-                               priorHandling: PasswordHandling?,
-                               initialPassword: String) throws {
+                               priorHandling: PasswordHandling?) throws {
         switch server.passwordHandling {
         case .useStoredPassword:
-            if priorHandling != .useStoredPassword || typedPassword != initialPassword {
-                try passwords.setPassword(typedPassword, forServer: server.id)
-            }
+            try passwords.setPassword(typedPassword, forServer: server.id)
         case .noPasswordRequired, .promptEveryTime:
             if priorHandling == .useStoredPassword {
                 try passwords.deletePassword(forServer: server.id)
@@ -148,8 +148,7 @@ final class PasswordHandlingTests: XCTestCase {
         let server = SavedServer(label: "X", host: "x", port: 1, username: "u",
                                  passwordHandling: .useStoredPassword)
         keychainAccountsToCleanUp.append(server.id)
-        try applySaveRule(server: server, typedPassword: "pw",
-                          priorHandling: nil, initialPassword: "")
+        try applySaveRule(server: server, typedPassword: "pw", priorHandling: nil)
         XCTAssertEqual(try passwords.password(forServer: server.id), "pw")
     }
 
@@ -157,8 +156,7 @@ final class PasswordHandlingTests: XCTestCase {
         let server = SavedServer(label: "X", host: "x", port: 1, username: "u",
                                  passwordHandling: .noPasswordRequired)
         keychainAccountsToCleanUp.append(server.id)
-        try applySaveRule(server: server, typedPassword: "",
-                          priorHandling: nil, initialPassword: "")
+        try applySaveRule(server: server, typedPassword: "", priorHandling: nil)
         XCTAssertNil(try passwords.password(forServer: server.id))
     }
 
@@ -171,7 +169,7 @@ final class PasswordHandlingTests: XCTestCase {
         var edited = server
         edited.passwordHandling = .noPasswordRequired
         try applySaveRule(server: edited, typedPassword: "old",
-                          priorHandling: .useStoredPassword, initialPassword: "old")
+                          priorHandling: .useStoredPassword)
         XCTAssertNil(try passwords.password(forServer: edited.id),
                      "Switching off useStoredPassword must clear the keychain entry.")
     }
@@ -185,7 +183,7 @@ final class PasswordHandlingTests: XCTestCase {
         var edited = server
         edited.passwordHandling = .promptEveryTime
         try applySaveRule(server: edited, typedPassword: "",
-                          priorHandling: .useStoredPassword, initialPassword: "old")
+                          priorHandling: .useStoredPassword)
         XCTAssertNil(try passwords.password(forServer: edited.id))
     }
 
@@ -196,7 +194,7 @@ final class PasswordHandlingTests: XCTestCase {
         try passwords.setPassword("old", forServer: server.id)
 
         try applySaveRule(server: server, typedPassword: "new",
-                          priorHandling: .useStoredPassword, initialPassword: "old")
+                          priorHandling: .useStoredPassword)
         XCTAssertEqual(try passwords.password(forServer: server.id), "new")
     }
 
@@ -205,7 +203,21 @@ final class PasswordHandlingTests: XCTestCase {
                                  passwordHandling: .useStoredPassword)
         keychainAccountsToCleanUp.append(server.id)
         try applySaveRule(server: server, typedPassword: "fresh",
-                          priorHandling: .promptEveryTime, initialPassword: "")
+                          priorHandling: .promptEveryTime)
         XCTAssertEqual(try passwords.password(forServer: server.id), "fresh")
+    }
+
+    func test_saveRule_useStoredWithMissingKeychainEntry_isRepairedBySave() throws {
+        // Recovery path: a `.useStoredPassword` bookmark whose keychain
+        // entry has gone missing. Re-saving the bookmark must restore
+        // the entry, so the connect flow stops falling through to a
+        // prompt.
+        let server = SavedServer(label: "X", host: "x", port: 1, username: "u",
+                                 passwordHandling: .useStoredPassword)
+        keychainAccountsToCleanUp.append(server.id)
+        // No keychain entry exists yet — simulating the recovery case.
+        try applySaveRule(server: server, typedPassword: "restored",
+                          priorHandling: .useStoredPassword)
+        XCTAssertEqual(try passwords.password(forServer: server.id), "restored")
     }
 }
