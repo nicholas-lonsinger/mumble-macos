@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: MainWindowController?
     private var serversWindowController: ServersWindowController?
     private var certificateManagerController: CertificateManagerWindowController?
+    private var preferencesWindowController: PreferencesWindowController?
     /// A URL that arrived before `applicationDidFinishLaunching(_:)` created
     /// the main window. Replayed once the window exists.
     private var pendingLaunchURL: MumbleURL?
@@ -66,6 +67,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let controller = certificateManagerController else { return }
         controller.showWindow(nil)
         controller.window?.center()
+        controller.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    @objc func showPreferences(_ sender: Any?) {
+        if preferencesWindowController == nil {
+            // The dispatcher lives on `MainWindowController`; the prefs
+            // window needs to pause it while the user captures a chord.
+            // If the main window controller hasn't been created yet,
+            // there's nothing useful to configure — bail.
+            guard let dispatcher = mainWindowController?.shortcutDispatcher else { return }
+            preferencesWindowController = PreferencesWindowController(
+                client: client,
+                dispatcher: dispatcher
+            )
+        }
+        guard let controller = preferencesWindowController else { return }
+        controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
