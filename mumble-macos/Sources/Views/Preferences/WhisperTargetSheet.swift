@@ -11,6 +11,13 @@ struct WhisperTargetSheet: View {
     let onCancel: () -> Void
 
     @State private var target: WhisperTarget
+    /// Pre-flattened (channel, depth) list, computed once on appear.
+    /// A naïve recursive `@ViewBuilder` over the channel hierarchy ends up
+    /// nesting `VStack`s inside the `LazyVStack`, which forces every
+    /// channel to instantiate as soon as the root is visible — eats ~600
+    /// channels on the benchmark server in one shot. Flattening once and
+    /// using a single `ForEach` keeps `LazyVStack` actually lazy.
+    @State private var flattenedTree: [TreeRow] = []
 
     init(initial: WhisperTarget,
          channels: [UInt32: ChannelNode],
@@ -23,6 +30,15 @@ struct WhisperTargetSheet: View {
         self.onSave = onSave
         self.onCancel = onCancel
         _target = State(initialValue: initial)
+    }
+
+    /// Internal (rather than fileprivate) so unit tests can verify the
+    /// flatten-tree ordering without going through SwiftUI rendering.
+    struct TreeRow: Identifiable, Equatable {
+        let channelID: UInt32
+        let name: String
+        let depth: Int
+        var id: UInt32 { channelID }
     }
 
     var body: some View {
@@ -69,6 +85,7 @@ struct WhisperTargetSheet: View {
         }
         .padding(20)
         .frame(width: 480, height: 460)
+        .onAppear { flattenedTree = Self.flattenTree(channels: channels, rootID: rootChannelID) }
     }
 
     // MARK: - Channel picker
@@ -81,12 +98,14 @@ struct WhisperTargetSheet: View {
                 specialRow(label: "Root", mode: .root)
                 specialRow(label: "Parent", mode: .parent)
                 Divider().padding(.vertical, 4)
-                if let rootID = rootChannelID {
-                    channelTreeRows(channelID: rootID, depth: 0)
-                } else {
+                if flattenedTree.isEmpty {
                     Text("Connect to a server to browse channels.")
                         .foregroundStyle(.secondary)
                         .padding(8)
+                } else {
+                    ForEach(flattenedTree) { row in
+                        channelRow(channelID: row.channelID, name: row.name, depth: row.depth)
+                    }
                 }
             }
             .padding(.horizontal, 6)
@@ -111,24 +130,10 @@ struct WhisperTargetSheet: View {
         }
     }
 
-    /// `AnyView` because the function is self-recursive and `some View`
-    /// can't be defined in terms of itself.
-    private func channelTreeRows(channelID: UInt32, depth: Int) -> AnyView {
-        guard let channel = channels[channelID] else { return AnyView(EmptyView()) }
-        return AnyView(
-            VStack(alignment: .leading, spacing: 0) {
-                channelRow(channel, depth: depth)
-                ForEach(sortedChildIDs(of: channel), id: \.self) { childID in
-                    channelTreeRows(channelID: childID, depth: depth + 1)
-                }
-            }
-        )
-    }
-
-    private func channelRow(_ channel: ChannelNode, depth: Int) -> some View {
-        let isSelected = target.channelMode == .byID && target.channelID == channel.id
+    private func channelRow(channelID: UInt32, name: String, depth: Int) -> some View {
+        let isSelected = target.channelMode == .byID && target.channelID == channelID
         return HStack {
-            Text(channel.name.isEmpty ? "Root" : channel.name)
+            Text(name.isEmpty ? "Root" : name)
             Spacer()
         }
         .padding(.leading, CGFloat(depth) * 14 + 6)
@@ -138,19 +143,38 @@ struct WhisperTargetSheet: View {
         .contentShape(Rectangle())
         .onTapGesture {
             target.channelMode = .byID
-            target.channelID = channel.id
+            target.channelID = channelID
         }
     }
 
-    private func sortedChildIDs(of channel: ChannelNode) -> [UInt32] {
-        // Match MainView ordering: by `position`, then alphabetically by name.
-        channel.childChannelIDs.sorted { lhs, rhs in
+    /// Flatten the channel tree into a depth-annotated list, sorted at
+    /// each level by `position` then name (matching the main-window tree).
+    /// Pure / non-isolated so the same logic is testable without spinning
+    /// up the SwiftUI hierarchy.
+    nonisolated static func flattenTree(channels: [UInt32: ChannelNode],
+                                        rootID: UInt32?) -> [TreeRow] {
+        guard let rootID, channels[rootID] != nil else { return [] }
+        var out: [TreeRow] = []
+        appendChannel(rootID, depth: 0, channels: channels, into: &out)
+        return out
+    }
+
+    nonisolated private static func appendChannel(_ channelID: UInt32,
+                                                  depth: Int,
+                                                  channels: [UInt32: ChannelNode],
+                                                  into out: inout [TreeRow]) {
+        guard let channel = channels[channelID] else { return }
+        out.append(TreeRow(channelID: channelID, name: channel.name, depth: depth))
+        let children = channel.childChannelIDs.sorted { lhs, rhs in
             let l = channels[lhs]
             let r = channels[rhs]
             let lp = l?.position ?? 0
             let rp = r?.position ?? 0
             if lp != rp { return lp < rp }
             return (l?.name ?? "") < (r?.name ?? "")
+        }
+        for child in children {
+            appendChannel(child, depth: depth + 1, channels: channels, into: &out)
         }
     }
 

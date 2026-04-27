@@ -38,6 +38,10 @@ final class ShortcutDispatcher {
     private var pressedMouseButtons: Set<Int> = []
     /// Hold-action bindings with an open press. Used to diff per-event.
     private var firedBindingIDs: Set<UUID> = []
+    /// Captured local-mute state at the moment a `pushToMute` binding was
+    /// pressed. Restored on release so a Push-to-Mute hold doesn't end up
+    /// *unmuting* a user who was already muted via Mute Self.
+    private var pushToMutePriorStates: [UUID: Bool] = [:]
     /// Set during the Preferences capture flow so live shortcuts don't fire
     /// while the user is binding a new chord. The capture UI suppresses the
     /// captured event itself, but our local monitor was installed first and
@@ -118,10 +122,19 @@ final class ShortcutDispatcher {
 
     private func resetOpenPresses() {
         guard !firedBindingIDs.isEmpty else { return }
-        // Best-effort: stop voice transmit if we had a hold-style binding
-        // open. If the user wasn't actually transmitting, this is a no-op.
+        // Best-effort: stop voice transmit and clear any active whisper
+        // target. Without the whisper reset, `outgoingVoiceTarget` would
+        // stay pinned to slot 1 from a prior Whisper press — the next
+        // normal PTT would silently transmit as a whisper instead.
         client?.stopTalking()
+        Task { [weak self] in
+            await self?.client?.applyWhisperTarget(nil)
+        }
         firedBindingIDs.removeAll()
+        // Drop any captured push-to-mute prior states. The releases we'd
+        // normally use to restore them aren't going to fire (the bindings
+        // they reference may have changed identity); nothing to restore.
+        pushToMutePriorStates.removeAll()
     }
 
     // MARK: - Capture coordination
@@ -215,6 +228,13 @@ final class ShortcutDispatcher {
         case .pushToTalk:
             client.startTalking()
         case .pushToMute:
+            // Snapshot the local mute state at press-time so the release
+            // can restore it. Without this, holding Push-to-Mute over a
+            // user who's already muted via toggle would unmute them when
+            // released.
+            let session = client.sessionID
+            let priorMute = session.flatMap { client.users[$0]?.isSelfMuted } ?? false
+            pushToMutePriorStates[binding.id] = priorMute
             Task { await client.setSelfMute(true) }
         case .muteSelfToggle:
             // Toggle is atomic on the client (read-modify-write inside the
@@ -224,8 +244,19 @@ final class ShortcutDispatcher {
             Task { await client.toggleSelfDeaf() }
         case .whisperShout:
             let target = binding.whisperTarget
-            Task {
+            let bindingID = binding.id
+            Task { [weak self] in
                 await client.applyWhisperTarget(target)
+                guard let self, self.firedBindingIDs.contains(bindingID) else {
+                    // The user released during our applyWhisperTarget await.
+                    // The release's `applyWhisperTarget(nil)` may have run
+                    // first and we just stomped it; reset if no other
+                    // whisper binding is still holding the slot.
+                    if self?.hasActiveWhisperBinding != true {
+                        await client.applyWhisperTarget(nil)
+                    }
+                    return
+                }
                 client.startTalking()
             }
         }
@@ -235,17 +266,48 @@ final class ShortcutDispatcher {
         guard let client else { return }
         switch binding.action {
         case .pushToTalk:
-            client.stopTalking()
+            // Don't stop the mic if another transmission-triggering binding
+            // (PTT or Whisper) is still held — multi-binding setups would
+            // otherwise cut each other off.
+            if !hasActiveTransmissionBinding {
+                client.stopTalking()
+            }
         case .pushToMute:
-            Task { await client.setSelfMute(false) }
+            // Restore the mute state captured at press-time, defaulting to
+            // unmuted if we somehow missed the snapshot.
+            let prior = pushToMutePriorStates.removeValue(forKey: binding.id) ?? false
+            Task { await client.setSelfMute(prior) }
         case .muteSelfToggle, .deafenSelfToggle:
             // Toggles ignore release.
             return
         case .whisperShout:
+            // Snapshot before the Task — the firedBindingIDs read needs to
+            // happen synchronously on the main actor, before any await.
+            let stopVoice = !hasActiveTransmissionBinding
+            let clearTarget = !hasActiveWhisperBinding
             Task {
-                client.stopTalking()
-                await client.applyWhisperTarget(nil)
+                if stopVoice { client.stopTalking() }
+                if clearTarget {
+                    await client.applyWhisperTarget(nil)
+                }
             }
         }
+    }
+
+    /// True if any other transmission-triggering binding (PTT or Whisper)
+    /// is currently held. Read after the released binding has already been
+    /// removed from `firedBindingIDs`, so this only sees *other* presses.
+    private var hasActiveTransmissionBinding: Bool {
+        firedBindingIDs.contains(where: { id in
+            guard let action = store.bindings.first(where: { $0.id == id })?.action
+            else { return false }
+            return action == .pushToTalk || action == .whisperShout
+        })
+    }
+
+    private var hasActiveWhisperBinding: Bool {
+        firedBindingIDs.contains(where: { id in
+            store.bindings.first(where: { $0.id == id })?.action == .whisperShout
+        })
     }
 }
