@@ -627,12 +627,40 @@ final class MumbleClient {
     }
 
     func setSelfMute(_ muted: Bool) async {
+        applyOptimisticSelfState(selfMute: muted)
         await sendSelfState(selfMute: muted)
     }
 
     func setSelfDeaf(_ deafened: Bool) async {
         // Deaf implies mute in Mumble.
+        applyOptimisticSelfState(selfMute: deafened ? true : nil, selfDeaf: deafened)
         await sendSelfState(selfMute: deafened ? true : nil, selfDeaf: deafened)
+    }
+
+    /// Toggle the local user's self-mute. Atomic read-modify-write on the
+    /// main actor — guards against the "rapid double-tap" race where two
+    /// fire-and-forget toggles both read the pre-toggle observed state and
+    /// end up sending the same value twice.
+    func toggleSelfMute() async {
+        guard let session = sessionID, let user = users[session] else { return }
+        await setSelfMute(!user.isSelfMuted)
+    }
+
+    func toggleSelfDeaf() async {
+        guard let session = sessionID, let user = users[session] else { return }
+        await setSelfDeaf(!user.isSelfDeafened)
+    }
+
+    /// Apply the commanded self-state locally before the server round-trip
+    /// returns. Without this, two rapid toggles in sequence both read the
+    /// stale observed state and both send the same value to the server.
+    /// The next inbound `UserState` will reconcile if the server overrides
+    /// (e.g., suppress flag from ACL).
+    private func applyOptimisticSelfState(selfMute: Bool? = nil, selfDeaf: Bool? = nil) {
+        guard let session = sessionID, var user = users[session] else { return }
+        if let selfMute { user.isSelfMuted = selfMute }
+        if let selfDeaf { user.isSelfDeafened = selfDeaf }
+        users[session] = user
     }
 
     /// Slot 1 is reserved for the configured Whisper/Shout target. We don't

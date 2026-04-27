@@ -11,7 +11,14 @@ struct ShortcutsTab: View {
     @Environment(MumbleClient.self) private var client
 
     @State private var selectedID: UUID?
-    @State private var captureSession: CaptureSession?
+    /// Snapshot of the in-flight capture state. A struct (not a class) so
+    /// SwiftUI re-renders the live-preview cell whenever `liveModifiers`
+    /// or `maxModifiers` change — `@State` keys re-renders on the value's
+    /// equality, which a class would defeat by sharing identity.
+    @State private var captureState: CaptureState?
+    /// `Any` is the NSEvent monitor token. Held in `@State` separately so
+    /// `CaptureState` can stay a pure-data Equatable struct.
+    @State private var captureMonitor: AnyHolder = AnyHolder()
     @State private var whisperEditingID: UUID?
 
     var body: some View {
@@ -121,16 +128,23 @@ struct ShortcutsTab: View {
     @ViewBuilder
     private func dataCell(for binding: ShortcutBinding) -> some View {
         if binding.action == .whisperShout {
+            let summary = binding.whisperTarget?.summary(channelName: { id in
+                client.channels[id]?.name
+            }) ?? "Configure…"
             Button {
                 whisperEditingID = binding.id
             } label: {
-                Text(binding.whisperTarget?.summary(channelName: { id in
-                    client.channels[id]?.name
-                }) ?? "Configure…")
-                .underline(binding.whisperTarget == nil)
-                .foregroundStyle(binding.whisperTarget == nil ? .blue : .primary)
+                Text(summary)
+                    .underline(binding.whisperTarget == nil)
+                    .foregroundStyle(binding.whisperTarget == nil ? .blue : .primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
             .buttonStyle(.plain)
+            // Surface the full target name on hover for channels whose
+            // names exceed the column width (Mumble subchannel naming
+            // conventions can run long).
+            .help(summary)
         } else {
             Text("")
         }
@@ -140,7 +154,7 @@ struct ShortcutsTab: View {
 
     @ViewBuilder
     private func shortcutCell(for binding: ShortcutBinding) -> some View {
-        let isCapturing = (captureSession?.bindingID == binding.id)
+        let isCapturing = (captureState?.bindingID == binding.id)
         Button {
             beginCapture(rowID: binding.id)
         } label: {
@@ -166,7 +180,7 @@ struct ShortcutsTab: View {
 
     private func captureLabel(for binding: ShortcutBinding, isCapturing: Bool) -> String {
         if isCapturing {
-            let live = captureSession?.liveModifiers.displayString ?? ""
+            let live = captureState?.liveModifiers.displayString ?? ""
             return live.isEmpty ? "Press a key, modifier chord, or mouse button…" : "\(live) …"
         }
         return binding.trigger?.displayString ?? "Click to set"
@@ -230,7 +244,7 @@ struct ShortcutsTab: View {
 
     private func removeSelected() {
         guard let id = selectedID else { return }
-        if captureSession?.bindingID == id { cancelCapture() }
+        if captureState?.bindingID == id { cancelCapture() }
         store.remove(id: id)
         selectedID = nil
     }
@@ -240,9 +254,8 @@ struct ShortcutsTab: View {
     private func beginCapture(rowID: UUID) {
         cancelCapture()
         dispatcher.pause()
-        let session = CaptureSession(bindingID: rowID)
-        captureSession = session
-        session.monitor = NSEvent.addLocalMonitorForEvents(
+        captureState = CaptureState(bindingID: rowID)
+        captureMonitor.value = NSEvent.addLocalMonitorForEvents(
             matching: [.flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
         ) { event in
             handleCaptureEvent(event)
@@ -254,19 +267,18 @@ struct ShortcutsTab: View {
     }
 
     private func handleCaptureEvent(_ event: NSEvent) {
-        guard let session = captureSession else { return }
+        guard var state = captureState else { return }
         switch event.type {
         case .flagsChanged:
             let mods = ShortcutModifiers.from(event.modifierFlags)
-            session.liveModifiers = mods
-            if mods.isEmpty, !session.maxModifiers.isEmpty {
+            state.liveModifiers = mods
+            if mods.isEmpty, !state.maxModifiers.isEmpty {
                 // All modifiers released — commit a modifier-only chord
                 // using the peak set the user held during this capture.
-                commitCapture(.modifiersOnly(modifiers: session.maxModifiers))
+                commitCapture(.modifiersOnly(modifiers: state.maxModifiers))
             } else {
-                session.maxModifiers.formUnion(mods)
-                // Force re-render to update the live preview.
-                captureSession = session
+                state.maxModifiers.formUnion(mods)
+                captureState = state
             }
         case .keyDown:
             // Esc cancels.
@@ -289,8 +301,8 @@ struct ShortcutsTab: View {
     }
 
     private func commitCapture(_ trigger: ShortcutTrigger) {
-        guard let session = captureSession,
-              var binding = store.bindings.first(where: { $0.id == session.bindingID }) else {
+        guard let state = captureState,
+              var binding = store.bindings.first(where: { $0.id == state.bindingID }) else {
             cancelCapture()
             return
         }
@@ -300,19 +312,18 @@ struct ShortcutsTab: View {
     }
 
     private func cancelCapture() {
-        if let session = captureSession {
-            if let monitor = session.monitor {
-                NSEvent.removeMonitor(monitor)
-            }
-            captureSession = nil
+        if let monitor = captureMonitor.value {
+            NSEvent.removeMonitor(monitor)
+            captureMonitor.value = nil
         }
+        captureState = nil
         dispatcher.resume()
     }
 
     // MARK: - Layout constants
 
     private static let functionWidth: CGFloat = 150
-    private static let dataWidth: CGFloat = 110
+    private static let dataWidth: CGFloat = 160
     /// Hit-target for the +/− icon buttons. The default `Button` + `Image`
     /// combination only makes the glyph itself tappable, which leaves a
     /// pixel-precise click target — so we pad the label out to a more
@@ -320,24 +331,27 @@ struct ShortcutsTab: View {
     private static let iconButtonSize = CGSize(width: 26, height: 22)
 }
 
-// MARK: - Capture session
+// MARK: - Capture state
 
-/// One in-flight binding-capture. Mutable reference type so the SwiftUI
-/// body can observe live updates of `liveModifiers` while we accumulate
-/// `maxModifiers` for the "release-to-commit" flow.
-@MainActor
-private final class CaptureSession {
+/// In-flight binding-capture state. A pure-data struct so SwiftUI's
+/// `@State` re-renders on every internal change (`liveModifiers` updates
+/// during a held chord, `maxModifiers` accumulates the peak set).
+private struct CaptureState: Equatable {
     let bindingID: UUID
-    var monitor: Any?
     /// Currently held modifiers — drives the live preview text.
     var liveModifiers: ShortcutModifiers = []
     /// Largest modifier set seen during this capture. Committed when the
     /// user releases all modifiers (transitions liveModifiers → empty).
     var maxModifiers: ShortcutModifiers = []
+}
 
-    init(bindingID: UUID) {
-        self.bindingID = bindingID
-    }
+/// Box for the NSEvent monitor token. The token is `Any` (returned by
+/// `addLocalMonitorForEvents` as an opaque object) which isn't `Equatable`,
+/// so it can't live inside `CaptureState`. A reference-typed holder lets
+/// us mutate it without re-rendering the table.
+@MainActor
+private final class AnyHolder {
+    var value: Any?
 }
 
 // MARK: - Whisper sheet identity adapter

@@ -37,7 +37,7 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
             defer: false
         )
         window.title = "Mumble Preferences"
-        window.setFrameAutosaveName("PreferencesWindow")
+        window.setFrameAutosaveName(Self.autosaveName)
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 600, height: 400)
 
@@ -47,16 +47,28 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
         showTab(identifier: tabs[0].identifier)
         // NSHostingView reports the SwiftUI view's intrinsic size, which
         // (for a single-row table) shrinks the window below `contentRect`.
-        // Setting the content size explicitly after the host is in place
-        // pins the window to the intended frame; the user can still
-        // resize from there.
-        window.setContentSize(NSSize(width: 700, height: 500))
-        window.center()
+        // Pin to the intended frame explicitly — but only if the user
+        // doesn't already have a saved frame, otherwise we'd clobber
+        // their resized/repositioned window every relaunch.
+        if !Self.hasSavedFrame(autosaveName: Self.autosaveName) {
+            window.setContentSize(NSSize(width: 700, height: 500))
+            window.center()
+        }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("PreferencesWindowController does not support NSCoding")
+    }
+
+    private static let autosaveName = "PreferencesWindow"
+
+    /// AppKit stores autosaved window frames in `UserDefaults` under the
+    /// key `"NSWindow Frame <autosaveName>"`. We can't rely on
+    /// `setFrameAutosaveName(_:)` returning a Bool because it's no-return
+    /// on macOS; checking the defaults directly is the documented dodge.
+    nonisolated private static func hasSavedFrame(autosaveName: String) -> Bool {
+        UserDefaults.standard.object(forKey: "NSWindow Frame \(autosaveName)") != nil
     }
 
     // MARK: - Tab content swap

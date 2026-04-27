@@ -217,11 +217,11 @@ final class ShortcutDispatcher {
         case .pushToMute:
             Task { await client.setSelfMute(true) }
         case .muteSelfToggle:
-            let isMuted = localUserMuted(client: client)
-            Task { await client.setSelfMute(!isMuted) }
+            // Toggle is atomic on the client (read-modify-write inside the
+            // main actor) — avoids the rapid-double-tap race.
+            Task { await client.toggleSelfMute() }
         case .deafenSelfToggle:
-            let isDeaf = localUserDeafened(client: client)
-            Task { await client.setSelfDeaf(!isDeaf) }
+            Task { await client.toggleSelfDeaf() }
         case .whisperShout:
             let target = binding.whisperTarget
             Task {
@@ -247,15 +247,5 @@ final class ShortcutDispatcher {
                 await client.applyWhisperTarget(nil)
             }
         }
-    }
-
-    private func localUserMuted(client: MumbleClient) -> Bool {
-        guard let session = client.sessionID else { return false }
-        return client.users[session]?.isSelfMuted ?? false
-    }
-
-    private func localUserDeafened(client: MumbleClient) -> Bool {
-        guard let session = client.sessionID else { return false }
-        return client.users[session]?.isSelfDeafened ?? false
     }
 }
