@@ -37,12 +37,28 @@ let package = Package(
                 "dnn/x86",
 
                 // === ARM NEON SIMD ===
-                // Could speed up encode/decode on Apple Silicon, but turning
-                // it on needs OPUS_ARM_NEON_INTR + RTCD wiring + voice-loop
-                // verification. Deferred to a separate change.
-                "celt/arm",
-                "silk/arm",
-                "dnn/arm",
+                // We compile the NEON intrinsic .c files (six in total) and
+                // statically pick the NEON path via `OPUS_ARM_PRESUME_NEON_INTR`
+                // in `config.h` — every arm64 chip has NEON, so we skip the
+                // run-time CPU-detection layer (RTCD) entirely.
+                //
+                // From `celt/arm/` and `silk/arm/` we keep:
+                //   celt_neon_intr.c, pitch_neon_intr.c,
+                //   biquad_alt_neon_intr.c, LPC_inv_pred_gain_neon_intr.c,
+                //   NSQ_del_dec_neon_intr.c, NSQ_neon.c
+                // and exclude the per-file artefacts that would either fail
+                // to compile under SwiftPM or pull in machinery we don't use:
+                "celt/arm/arm_celt_map.c",         // RTCD dispatch table (gated by OPUS_HAVE_RTCD)
+                "celt/arm/armcpu.c",                // RTCD CPU detect (ditto)
+                "celt/arm/celt_fft_ne10.c",         // requires the external NE10 lib (not vendored)
+                "celt/arm/celt_mdct_ne10.c",        // ditto
+                "celt/arm/celt_pitch_xcorr_arm.s",  // GNU asm; Apple `as` can't consume it directly
+                "celt/arm/armopts.s.in",            // autoconf-expanded asm template
+                "celt/arm/arm2gnu.pl",              // perl script that translates GNU asm
+                "celt/arm/meson.build",
+                "silk/arm/arm_silk_map.c",          // RTCD dispatch table
+
+                // dnn/arm/ is covered by the `dnn` exclude below.
 
                 // === MIPS SIMD ===
                 // We don't target MIPS.
