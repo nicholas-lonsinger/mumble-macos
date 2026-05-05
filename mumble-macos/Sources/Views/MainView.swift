@@ -64,8 +64,8 @@ struct MainView: View {
                 serverVersion: client.serverVersion,
                 isTransmitting: client.isTransmitting,
                 voiceAvailable: client.voiceAvailable,
-                isSelfMuted: ownSelfMuted,
-                isSelfDeafened: ownSelfDeafened,
+                isSelfMuted: client.isSelfMuted,
+                isSelfDeafened: client.isSelfDeafened,
                 onToggleMute: { Task { await client.toggleSelfMute() } },
                 onToggleDeafen: { Task { await client.toggleSelfDeaf() } }
             )
@@ -99,16 +99,6 @@ struct MainView: View {
         case .connected: "No channels yet."
         case .failed: "Connection failed."
         }
-    }
-
-    private var ownSelfMuted: Bool {
-        guard let session = client.sessionID else { return false }
-        return client.users[session]?.isSelfMuted ?? false
-    }
-
-    private var ownSelfDeafened: Bool {
-        guard let session = client.sessionID else { return false }
-        return client.users[session]?.isSelfDeafened ?? false
     }
 
     private var detailPlaceholderText: String {

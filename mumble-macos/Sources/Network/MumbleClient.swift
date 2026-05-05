@@ -518,8 +518,7 @@ final class MumbleClient {
 
     func startTalking() {
         guard voiceAvailable, case .connected = state else { return }
-        if let session = sessionID, let user = users[session],
-           user.isSelfMuted || user.isSelfDeafened {
+        if isSelfMuted || isSelfDeafened {
             // PTT while self-muted is a no-op. Otherwise the speaking
             // indicator next to the user's name flips green even though
             // the server drops the audio, which reads as confusing
@@ -638,28 +637,32 @@ final class MumbleClient {
         return found ? current : nil
     }
 
+    /// Local user's self-mute state. Reads from the live `users` map so
+    /// it follows server echoes and optimistic updates without callers
+    /// re-deriving it from `sessionID` + `users`.
+    var isSelfMuted: Bool {
+        sessionID.flatMap { users[$0]?.isSelfMuted } ?? false
+    }
+
+    /// Local user's self-deafen state. Same source as `isSelfMuted`.
+    var isSelfDeafened: Bool {
+        sessionID.flatMap { users[$0]?.isSelfDeafened } ?? false
+    }
+
     func setSelfMute(_ muted: Bool) async {
         let decision = selfState.setMute(muted,
-                                         currentMute: currentSelfMute,
-                                         currentDeaf: currentSelfDeaf)
+                                         currentMute: isSelfMuted,
+                                         currentDeaf: isSelfDeafened)
         applyOptimisticSelfState(selfMute: decision.mute, selfDeaf: decision.deaf)
         await sendSelfState(selfMute: decision.mute, selfDeaf: decision.deaf)
     }
 
     func setSelfDeaf(_ deafened: Bool) async {
         let decision = selfState.setDeaf(deafened,
-                                         currentMute: currentSelfMute,
-                                         currentDeaf: currentSelfDeaf)
+                                         currentMute: isSelfMuted,
+                                         currentDeaf: isSelfDeafened)
         applyOptimisticSelfState(selfMute: decision.mute, selfDeaf: decision.deaf)
         await sendSelfState(selfMute: decision.mute, selfDeaf: decision.deaf)
-    }
-
-    private var currentSelfMute: Bool {
-        sessionID.flatMap { users[$0]?.isSelfMuted } ?? false
-    }
-
-    private var currentSelfDeaf: Bool {
-        sessionID.flatMap { users[$0]?.isSelfDeafened } ?? false
     }
 
     /// Toggle the local user's self-mute. Atomic read-modify-write on the
