@@ -63,7 +63,11 @@ struct MainView: View {
                 state: client.state,
                 serverVersion: client.serverVersion,
                 isTransmitting: client.isTransmitting,
-                voiceAvailable: client.voiceAvailable
+                voiceAvailable: client.voiceAvailable,
+                isSelfMuted: ownSelfMuted,
+                isSelfDeafened: ownSelfDeafened,
+                onToggleMute: { Task { await client.toggleSelfMute() } },
+                onToggleDeafen: { Task { await client.toggleSelfDeaf() } }
             )
             if !client.serverWelcomeText.isEmpty {
                 WelcomeTextView(html: client.serverWelcomeText)
@@ -95,6 +99,16 @@ struct MainView: View {
         case .connected: "No channels yet."
         case .failed: "Connection failed."
         }
+    }
+
+    private var ownSelfMuted: Bool {
+        guard let session = client.sessionID else { return false }
+        return client.users[session]?.isSelfMuted ?? false
+    }
+
+    private var ownSelfDeafened: Bool {
+        guard let session = client.sessionID else { return false }
+        return client.users[session]?.isSelfDeafened ?? false
     }
 
     private var detailPlaceholderText: String {
@@ -249,6 +263,10 @@ private struct StatusBannerView: View {
     let serverVersion: String?
     let isTransmitting: Bool
     let voiceAvailable: Bool
+    let isSelfMuted: Bool
+    let isSelfDeafened: Bool
+    let onToggleMute: () -> Void
+    let onToggleDeafen: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -277,6 +295,25 @@ private struct StatusBannerView: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
+                Divider().frame(height: 14)
+                Button(action: onToggleMute) {
+                    Image(systemName: isSelfMuted ? "mic.slash.fill" : "mic.fill")
+                        .foregroundStyle(isSelfMuted ? .orange : .secondary)
+                        // Pin icon width so the slash variant (wider) doesn't
+                        // shove the deafen button sideways on toggle.
+                        .frame(width: 18, alignment: .center)
+                }
+                .buttonStyle(.borderless)
+                .help(isSelfMuted ? "Unmute" : "Mute")
+                .accessibilityLabel(isSelfMuted ? "Unmute self" : "Mute self")
+                Button(action: onToggleDeafen) {
+                    Image(systemName: isSelfDeafened ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                        .foregroundStyle(isSelfDeafened ? .orange : .secondary)
+                        .frame(width: 22, alignment: .center)
+                }
+                .buttonStyle(.borderless)
+                .help(isSelfDeafened ? "Undeafen" : "Deafen")
+                .accessibilityLabel(isSelfDeafened ? "Undeafen self" : "Deafen self")
             }
         }
     }

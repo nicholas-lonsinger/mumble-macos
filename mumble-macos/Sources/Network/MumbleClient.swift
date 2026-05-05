@@ -49,6 +49,12 @@ final class MumbleClient {
     private(set) var speakingSessions: Set<UInt32> = []
     private var speakingClearTasks: [UInt32: Task<Void, Never>] = [:]
     private var connectStartedAt: ContinuousClock.Instant?
+    /// Self-mute state captured at the moment the user transitioned into
+    /// self-deafen. Restored on undeafen so the deafen action is fully
+    /// reversible: deafen-from-unmuted → undeafen unmutes; mute-then-deafen
+    /// → undeafen leaves the user muted. Nil means "not currently deafened
+    /// by us," so a stray undeafen leaves mute alone.
+    private var preDeafenSelfMute: Bool?
 
     private struct VoiceSendItem: Sendable {
         let opus: Data
@@ -150,6 +156,7 @@ final class MumbleClient {
         for (_, task) in speakingClearTasks { task.cancel() }
         speakingClearTasks.removeAll()
         speakingSessions.removeAll()
+        preDeafenSelfMute = nil
         if let transport {
             await transport.cancel()
         }
@@ -514,6 +521,14 @@ final class MumbleClient {
 
     func startTalking() {
         guard voiceAvailable, case .connected = state else { return }
+        if let session = sessionID, let user = users[session],
+           user.isSelfMuted || user.isSelfDeafened {
+            // PTT while self-muted is a no-op. Otherwise the speaking
+            // indicator next to the user's name flips green even though
+            // the server drops the audio, which reads as confusing
+            // ("am I being heard?"). Gating here keeps wire and UI in sync.
+            return
+        }
         voice.startTransmit()
         isTransmitting = true
     }
@@ -627,14 +642,47 @@ final class MumbleClient {
     }
 
     func setSelfMute(_ muted: Bool) async {
-        applyOptimisticSelfState(selfMute: muted)
-        await sendSelfState(selfMute: muted)
+        // An explicit mute toggle invalidates the pre-deafen snapshot —
+        // the user has set a new baseline, so a later undeafen should
+        // leave mute alone rather than restore an overridden value.
+        preDeafenSelfMute = nil
+        if muted {
+            applyOptimisticSelfState(selfMute: true)
+            await sendSelfState(selfMute: true)
+        } else {
+            // Deaf implies mute, so "unmuted-but-deafened" isn't a valid
+            // state — the server clears selfDeaf when it receives our
+            // selfMute=false. Apply both flags optimistically so the
+            // deafen button doesn't lag behind the round-trip.
+            applyOptimisticSelfState(selfMute: false, selfDeaf: false)
+            await sendSelfState(selfMute: false, selfDeaf: false)
+        }
     }
 
     func setSelfDeaf(_ deafened: Bool) async {
-        // Deaf implies mute in Mumble.
-        applyOptimisticSelfState(selfMute: deafened ? true : nil, selfDeaf: deafened)
-        await sendSelfState(selfMute: deafened ? true : nil, selfDeaf: deafened)
+        // Deaf implies mute, but undeafen needs to restore the *prior*
+        // mute state — not blindly clear mute. Otherwise:
+        //   mute → deafen → undeafen accidentally unmutes.
+        // We snapshot mute on the unmuted→deafened transition and
+        // replay it on undeafen, so deafen is fully reversible while
+        // an existing manual mute survives.
+        let currentlyMuted = sessionID.flatMap { users[$0]?.isSelfMuted } ?? false
+        let currentlyDeaf = sessionID.flatMap { users[$0]?.isSelfDeafened } ?? false
+        if deafened {
+            if !currentlyDeaf {
+                preDeafenSelfMute = currentlyMuted
+            }
+            applyOptimisticSelfState(selfMute: true, selfDeaf: true)
+            await sendSelfState(selfMute: true, selfDeaf: true)
+        } else {
+            // Snapshot present → restore it (handles deafen-only and
+            // mute-then-deafen cases). Snapshot absent (e.g. server-pushed
+            // selfDeaf) → leave mute alone rather than guessing.
+            let restored = preDeafenSelfMute
+            preDeafenSelfMute = nil
+            applyOptimisticSelfState(selfMute: restored, selfDeaf: false)
+            await sendSelfState(selfMute: restored, selfDeaf: false)
+        }
     }
 
     /// Toggle the local user's self-mute. Atomic read-modify-write on the
