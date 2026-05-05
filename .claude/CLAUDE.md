@@ -71,8 +71,10 @@ Rule: the tree in `MainView.swift` renders only when `client.state == .connected
 - `MumbleClient` is `@MainActor` + `@Observable`. All mutations of its state go through main. Network reads hop to main before touching the model.
 - `VoiceController` owns `AVAudioEngine`; audio callbacks run on AU threads. Hand Opus frames back via the `onOpusFrame` closure — don't mutate `MumbleClient` from inside the tap.
 
-## Testing reality
+## Testing
 
-No automated test suite. Two things that need live verification when touched:
+XCTest target at `mumble-macosTests/`, runs via `make test` (which calls `xcodebuild test`). Pure logic — protobuf framing, `mumble://` URL parsing, identity/keychain helpers, channel resolution, shortcut bindings, self-mute/deafen state transitions, welcome-HTML sanitizer, etc. — is unit-testable. Pattern: `@testable import mumble_macos` plus synthetic state. See `MumbleClientChannelResolutionTests.swift` for the recipe to test slices of `MumbleClient` without a live connection (extract pure-logic helpers if a method touches transport/voice; cf. `SelfMuteDeafState`).
+
+Two things still require **live** verification when touched:
 1. Voice audibility end-to-end — requires a second person on the server; we've only confirmed send-side cleanliness via logs.
 2. Handshake time on the 616-channel server after any change to `MumbleClient` message handling or `MainView` rendering.

@@ -49,12 +49,9 @@ final class MumbleClient {
     private(set) var speakingSessions: Set<UInt32> = []
     private var speakingClearTasks: [UInt32: Task<Void, Never>] = [:]
     private var connectStartedAt: ContinuousClock.Instant?
-    /// Self-mute state captured at the moment the user transitioned into
-    /// self-deafen. Restored on undeafen so the deafen action is fully
-    /// reversible: deafen-from-unmuted → undeafen unmutes; mute-then-deafen
-    /// → undeafen leaves the user muted. Nil means "not currently deafened
-    /// by us," so a stray undeafen leaves mute alone.
-    private var preDeafenSelfMute: Bool?
+    /// Snapshot-and-restore logic for the self-mute / self-deafen
+    /// interaction. See `SelfMuteDeafState` for the rules.
+    private var selfState = SelfMuteDeafState()
 
     private struct VoiceSendItem: Sendable {
         let opus: Data
@@ -156,7 +153,7 @@ final class MumbleClient {
         for (_, task) in speakingClearTasks { task.cancel() }
         speakingClearTasks.removeAll()
         speakingSessions.removeAll()
-        preDeafenSelfMute = nil
+        selfState = SelfMuteDeafState()
         if let transport {
             await transport.cancel()
         }
@@ -642,47 +639,27 @@ final class MumbleClient {
     }
 
     func setSelfMute(_ muted: Bool) async {
-        // An explicit mute toggle invalidates the pre-deafen snapshot —
-        // the user has set a new baseline, so a later undeafen should
-        // leave mute alone rather than restore an overridden value.
-        preDeafenSelfMute = nil
-        if muted {
-            applyOptimisticSelfState(selfMute: true)
-            await sendSelfState(selfMute: true)
-        } else {
-            // Deaf implies mute, so "unmuted-but-deafened" isn't a valid
-            // state — the server clears selfDeaf when it receives our
-            // selfMute=false. Apply both flags optimistically so the
-            // deafen button doesn't lag behind the round-trip.
-            applyOptimisticSelfState(selfMute: false, selfDeaf: false)
-            await sendSelfState(selfMute: false, selfDeaf: false)
-        }
+        let decision = selfState.setMute(muted,
+                                         currentMute: currentSelfMute,
+                                         currentDeaf: currentSelfDeaf)
+        applyOptimisticSelfState(selfMute: decision.mute, selfDeaf: decision.deaf)
+        await sendSelfState(selfMute: decision.mute, selfDeaf: decision.deaf)
     }
 
     func setSelfDeaf(_ deafened: Bool) async {
-        // Deaf implies mute, but undeafen needs to restore the *prior*
-        // mute state — not blindly clear mute. Otherwise:
-        //   mute → deafen → undeafen accidentally unmutes.
-        // We snapshot mute on the unmuted→deafened transition and
-        // replay it on undeafen, so deafen is fully reversible while
-        // an existing manual mute survives.
-        let currentlyMuted = sessionID.flatMap { users[$0]?.isSelfMuted } ?? false
-        let currentlyDeaf = sessionID.flatMap { users[$0]?.isSelfDeafened } ?? false
-        if deafened {
-            if !currentlyDeaf {
-                preDeafenSelfMute = currentlyMuted
-            }
-            applyOptimisticSelfState(selfMute: true, selfDeaf: true)
-            await sendSelfState(selfMute: true, selfDeaf: true)
-        } else {
-            // Snapshot present → restore it (handles deafen-only and
-            // mute-then-deafen cases). Snapshot absent (e.g. server-pushed
-            // selfDeaf) → leave mute alone rather than guessing.
-            let restored = preDeafenSelfMute
-            preDeafenSelfMute = nil
-            applyOptimisticSelfState(selfMute: restored, selfDeaf: false)
-            await sendSelfState(selfMute: restored, selfDeaf: false)
-        }
+        let decision = selfState.setDeaf(deafened,
+                                         currentMute: currentSelfMute,
+                                         currentDeaf: currentSelfDeaf)
+        applyOptimisticSelfState(selfMute: decision.mute, selfDeaf: decision.deaf)
+        await sendSelfState(selfMute: decision.mute, selfDeaf: decision.deaf)
+    }
+
+    private var currentSelfMute: Bool {
+        sessionID.flatMap { users[$0]?.isSelfMuted } ?? false
+    }
+
+    private var currentSelfDeaf: Bool {
+        sessionID.flatMap { users[$0]?.isSelfDeafened } ?? false
     }
 
     /// Toggle the local user's self-mute. Atomic read-modify-write on the
