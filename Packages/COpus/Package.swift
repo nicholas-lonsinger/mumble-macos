@@ -42,6 +42,22 @@ let package = Package(
                 // in `config.h` — every arm64 chip has NEON, so we skip the
                 // run-time CPU-detection layer (RTCD) entirely.
                 //
+                // The static dispatch is set up by `celt/arm/pitch_arm.h:47-54`
+                // (and parallel headers in silk/arm): the `_PRESUME_NEON_INTR`
+                // branch rewrites e.g. `celt_inner_prod(...)` directly to
+                // `celt_inner_prod_neon(...)` with no function-pointer table.
+                // That's why dropping `armcpu.c` and `*_map.c` is safe — the
+                // dispatch tables they populate are no longer referenced.
+                //
+                // ARM DotProd (`OPUS_ARM_*_DOTPROD`) is intentionally NOT
+                // enabled: in libopus 1.5.2 the `_dotprod` symbols are
+                // referenced by macros in `celt/arm/armcpu.h:50,74` but no
+                // `_dotprod` implementations exist outside of `dnn/arm/`,
+                // which we don't compile. Enabling PRESUME_DOTPROD here
+                // would expand to undefined symbols → link errors. Revisit
+                // if a future libopus drops actual DotProd-accelerated
+                // SILK/CELT implementations.
+                //
                 // From `celt/arm/` and `silk/arm/` we keep:
                 //   celt_neon_intr.c, pitch_neon_intr.c,
                 //   biquad_alt_neon_intr.c, LPC_inv_pred_gain_neon_intr.c,
