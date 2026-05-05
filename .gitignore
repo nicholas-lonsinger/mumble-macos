@@ -24,9 +24,11 @@ playground.xcworkspace
 # Swift Package Manager
 .build/
 .swiftpm/
-Packages/
 Package.pins
 Package.resolved
+# Per-package build artefacts inside local SwiftPM packages
+Packages/*/.build/
+Packages/*/.swiftpm/
 
 # CocoaPods / Carthage — intentionally unused (no external deps)
 Pods/
