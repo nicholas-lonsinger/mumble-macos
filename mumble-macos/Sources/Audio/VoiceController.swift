@@ -200,14 +200,18 @@ final class VoiceController: @unchecked Sendable {
             let outCapacity = AVAudioFrameCount(Int((Double(inFrames) * ratio).rounded(.up)) + 32)
             guard let out = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
                                              frameCapacity: outCapacity) else { return }
-            var consumed = false
+            // AVAudioConverter calls its input block synchronously, but Swift 6
+            // strict concurrency can't see that — capturing a mutable `var`
+            // here trips a Sendable diagnostic. Box the once-flag in a tiny
+            // reference type to keep the closure capture-list happy.
+            let once = ConvertOnce()
             var err: NSError?
             let status = inputConverter.convert(to: out, error: &err) { _, outStatus in
-                if consumed {
+                if once.done {
                     outStatus.pointee = .noDataNow
                     return nil
                 }
-                consumed = true
+                once.done = true
                 outStatus.pointee = .haveData
                 return buffer
             }
@@ -263,6 +267,13 @@ final class VoiceController: @unchecked Sendable {
             }
         }
     }
+}
+
+// AVAudioConverter's input block is `@Sendable`, but it's invoked
+// synchronously from the same thread that called `convert(to:error:)`.
+// `@unchecked Sendable` tells the compiler we've reasoned about that.
+private final class ConvertOnce: @unchecked Sendable {
+    var done = false
 }
 
 private final class Speaker {

@@ -111,7 +111,6 @@ let package = Package(
                 // per-subdirectory meson.build files
                 "celt/meson.build",
                 "silk/meson.build",
-                "silk/float/meson.build",
                 "src/meson.build",
                 "include/meson.build",
             ],
