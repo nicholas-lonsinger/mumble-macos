@@ -1,21 +1,31 @@
 # mumble-macos
 
-Native macOS Mumble VoIP client in Swift/AppKit/SwiftUI. Apple frameworks + vendored C only (no Qt, no package managers, no dynamic deps).
+Native macOS Mumble VoIP client in Swift/AppKit/SwiftUI. Apple frameworks only, with one third-party exception (libopus, isolated in a local SwiftPM package — see "Third-party isolation" below). No remote package managers, no dynamic deps.
 
 ## Build model
 
 - Xcode project uses `PBXFileSystemSynchronizedRootGroup` for `mumble-macos/`. Dropping a file under that directory adds it to the build automatically — no pbxproj edit needed.
-- Swift ↔ C interop goes through `mumble-macos/mumble-macos-Bridging-Header.h` (set via `SWIFT_OBJC_BRIDGING_HEADER`).
+- Swift ↔ C interop goes through `mumble-macos/mumble-macos-Bridging-Header.h` (set via `SWIFT_OBJC_BRIDGING_HEADER`). Today this header only exposes our own shim (`OpusBridge.h`); raw libopus symbols come from `import COpus`.
 - `ARCHS = arm64` only. Do not re-enable x86_64 / universal. libopus's `kiss_fft.h` and `float_cast.h` `#include <xmmintrin.h>` under `__SSE__`; clang loads the `_Builtin_intrinsics.intel` module at parse time even when the SSE code path isn't taken, which fails on non-x86 hosts.
 
-## Vendored libopus (1.5.2, BSD)
+## Third-party isolation: libopus 1.5.2 (BSD) as local SwiftPM package
 
-Located at `mumble-macos/ThirdParty/opus/` with a handwritten `config.h`. Build flags:
+libopus lives in a **local** SwiftPM package at `Packages/COpus/` (referenced via `XCLocalSwiftPackageReference` — no remote URL, no resolver state). All build flags, header search paths, and `-w` warning suppression for upstream libopus are scoped to that package's `Package.swift`. The app target depends on the `COpus` product; Swift code that touches raw libopus types/constants does `import COpus`.
 
-- `GCC_PREPROCESSOR_DEFINITIONS` includes `OPUS_BUILD` and `HAVE_CONFIG_H`.
-- `HEADER_SEARCH_PATHS` covers `ThirdParty/opus/{include,celt,silk,silk/float,src}`.
-- Do **not** vendor `src/opus_custom_demo.c` — it pulls in `opus_custom_decode` which isn't built, causing a link error.
-- Variadic `opus_encoder_ctl` / `opus_decoder_ctl` are unavailable from Swift. Reach them via the C shim at `ThirdParty/opus-bridge/OpusBridge.{c,h}`, which wraps each CTL we use as a typed function.
+`Packages/COpus/Sources/COpus/` mirrors the upstream xiph/opus 1.5.2 release tree 1:1 (extracted from the v1.5.2 GitHub tag tarball). The one file we override is `config.h` — handwritten, in lieu of upstream's autoconf-generated header. Everything we don't compile (demos, tests, x86/MIPS SIMD, ARM NEON SIMD, fixed-point SILK, DNN/DRED, build-system files, docs) is listed in `Package.swift`'s `exclude:` array with a one-line WHY for each section. Only ~137 of the ~255 `.c` files in the tree are compiled — the rest are present so the layout is recognizably "the libopus 1.5.2 release."
+
+The Swift ↔ C **shim** (`mumble-macos/ThirdParty/opus-bridge/OpusBridge.{c,h}`) deliberately stays in the app target, not in the package. That keeps the our-code/their-code boundary visible: anything under `Packages/COpus/Sources/COpus/` is upstream (modulo `config.h`); anything under `mumble-macos/` is ours.
+
+Things to know:
+
+- ARM NEON SIMD (`celt/arm/`, `silk/arm/`, `dnn/arm/`) is **excluded** today, not enabled. Turning it on for an Apple Silicon perf win means defining `OPUS_ARM_NEON_INTR`, wiring RTCD, and re-verifying the voice loop — deferred as its own change.
+- Variadic `opus_encoder_ctl` / `opus_decoder_ctl` are unavailable from Swift. Reach them via `OpusBridge`, which wraps each CTL we use as a typed function.
+- `import COpus` exposes nullable C pointers as Swift optionals (`UnsafeMutablePointer<UInt8>?`), not implicitly-unwrapped optionals as the bridging header path used to. Force-unwrap or guard at the call site.
+- Updating libopus: drop a new release tarball over `Sources/COpus/` (preserving our `config.h`), then revisit `Package.swift`'s `exclude:` list — upstream sometimes adds new SIMD subdirs or build-system files that need new exclusions. `swift build --package-path Packages/COpus` validates the package in isolation before touching Xcode.
+
+### Why not AudioToolbox
+
+Apple's `kAudioFormatOpus` expects Ogg-framed Opus. Mumble sends raw Opus frames inside `MumbleUDP.Audio.opus_data`. The AudioToolbox path fails with OSStatus 1650549857 ("bdwa") on real packets. libopus is vendored specifically to decode/encode the raw frames — don't "simplify" back to AudioToolbox.
 
 ### Why not AudioToolbox
 

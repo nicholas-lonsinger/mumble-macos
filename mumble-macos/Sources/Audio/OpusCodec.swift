@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import AudioToolbox
+import COpus
 import Foundation
 
 enum OpusCodecError: Error, Sendable, LocalizedError {
@@ -109,7 +110,7 @@ final class OpusEncoder {
             opus_encode_float(encoder,
                               channel,
                               frameCount,
-                              out.baseAddress,
+                              out.baseAddress!,
                               Int32(out.count))
         }
         if written < 0 {

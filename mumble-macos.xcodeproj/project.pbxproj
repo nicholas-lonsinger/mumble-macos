@@ -6,6 +6,10 @@
 	objectVersion = 71;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		1A100000000000000000001E /* COpus in Frameworks */ = {isa = PBXBuildFile; productRef = 1A100000000000000000001D /* COpus */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		1A100000000000000000001A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -41,6 +45,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A100000000000000000001E /* COpus in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +97,7 @@
 			);
 			name = "mumble-macos";
 			packageProductDependencies = (
+				1A100000000000000000001D /* COpus */,
 			);
 			productName = "mumble-macos";
 			productReference = 1A1000000000000000000004 /* mumble-macos.app */;
@@ -149,6 +155,9 @@
 			);
 			mainGroup = 1A1000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				1A100000000000000000001C /* XCLocalSwiftPackageReference "Packages/COpus" */,
+			);
 			productRefGroup = 1A1000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -158,6 +167,20 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		1A100000000000000000001C /* XCLocalSwiftPackageReference "Packages/COpus" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "Packages/COpus";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1A100000000000000000001D /* COpus */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = COpus;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin PBXResourcesBuildPhase section */
 		1A1000000000000000000008 /* Resources */ = {
@@ -248,8 +271,6 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
-					"HAVE_CONFIG_H=1",
-					"OPUS_BUILD=1",
 					"$(inherited)",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -259,12 +280,6 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/include",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/src",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/celt",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/silk",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/silk/float",
 					"$(SRCROOT)/mumble-macos/ThirdParty/opus-bridge",
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
@@ -323,8 +338,6 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"HAVE_CONFIG_H=1",
-					"OPUS_BUILD=1",
 					"$(inherited)",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -334,12 +347,6 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/include",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/src",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/celt",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/silk",
-					"$(SRCROOT)/mumble-macos/ThirdParty/opus/silk/float",
 					"$(SRCROOT)/mumble-macos/ThirdParty/opus-bridge",
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
