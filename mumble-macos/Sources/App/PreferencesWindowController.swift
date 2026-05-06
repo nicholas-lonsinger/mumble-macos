@@ -4,9 +4,8 @@ import SwiftUI
 
 /// Owns the Preferences window. Native macOS pattern: an `NSWindow` with an
 /// `NSToolbar` in the title bar (Safari/Messages prefs aesthetic), each
-/// toolbar item representing a tab. For this MVP only the "Shortcuts" tab
-/// exists; future tabs (Audio Input, Network, …) get appended to
-/// `tabs` and the toolbar delegate auto-picks them up.
+/// toolbar item representing a tab. New tabs get appended to `tabs` and
+/// the toolbar delegate auto-picks them up.
 @MainActor
 final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
     private let client: MumbleClient
@@ -21,6 +20,9 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
     /// One `Tab` per content pane. The order here drives toolbar order and
     /// also the initial selection (first tab is selected on first show).
     private let tabs: [Tab] = [
+        Tab(identifier: .audio,
+            label: "Audio",
+            symbol: "waveform"),
         Tab(identifier: .shortcuts,
             label: "Shortcuts",
             symbol: "character.book.closed")
@@ -89,6 +91,8 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
     @ViewBuilder
     private func contentView(for identifier: NSToolbarItem.Identifier) -> some View {
         switch identifier {
+        case .audio:
+            AudioTab()
         case .shortcuts:
             ShortcutsTab(dispatcher: dispatcher).environment(client)
         default:
@@ -158,5 +162,6 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 }
 
 extension NSToolbarItem.Identifier {
+    static let audio = NSToolbarItem.Identifier("preferences.audio")
     static let shortcuts = NSToolbarItem.Identifier("preferences.shortcuts")
 }

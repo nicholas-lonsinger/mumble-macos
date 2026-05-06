@@ -56,6 +56,25 @@ final class VoiceController: @unchecked Sendable {
     /// finished pacing.
     private var burstTarget: UInt32 = 0
 
+    /// Milliseconds to keep capturing + sending audio after `stopTransmit`
+    /// is called. Without this linger, the last 0–100 ms of speech is
+    /// dropped: the AVAudioEngine input tap delivers in chunks (~100 ms
+    /// in a VM / over Bluetooth — see CLAUDE.md), so when the user
+    /// releases the key the buffer carrying the final syllable is still
+    /// in flight, and `handleCaptureBuffer` ignores it because
+    /// `isTransmitting` already flipped to false. Mutated from main via
+    /// `setReleaseLingerMS(_:)` and read on stop.
+    private var releaseLingerMS: Int = 200
+    /// True between `stopTransmit` (when linger > 0) and the deferred
+    /// `finalizeLingeringStop`. While this is set, the capture tap keeps
+    /// encoding/sending normally — `isTransmitting` stays true so the
+    /// trailing audio buffer that arrives during the linger is captured
+    /// rather than dropped.
+    private var lingerActive = false
+    /// Handle to the deferred-stop Task so `startTransmit` (re-press
+    /// during linger) and `stop()` (engine teardown) can cancel it.
+    private var lingerTask: Task<Void, Never>?
+
     // Per-speaker playback state
     private var speakers: [UInt32: Speaker] = [:]
 
@@ -101,8 +120,12 @@ final class VoiceController: @unchecked Sendable {
     }
 
     func stop() {
-        lock.lock(); defer { lock.unlock() }
-        if !engineRunning { return }
+        let taskToCancel: Task<Void, Never>?
+        lock.lock()
+        if !engineRunning {
+            lock.unlock()
+            return
+        }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         engineRunning = false
@@ -112,7 +135,14 @@ final class VoiceController: @unchecked Sendable {
         pendingSamples.removeAll()
         sendSequence = 0
         encoder = nil
+        // Drop any pending release-linger so it doesn't fire a terminator
+        // after the engine is gone.
+        lingerActive = false
+        taskToCancel = lingerTask
+        lingerTask = nil
         Self.log.info("Audio engine stopped")
+        lock.unlock()
+        taskToCancel?.cancel()
     }
 
     // MARK: - Whisper / target
@@ -126,15 +156,46 @@ final class VoiceController: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// Update the release-linger window. Read on the next `stopTransmit`,
+    /// so changing this mid-burst takes effect on the next release.
+    func setReleaseLingerMS(_ ms: Int) {
+        lock.lock()
+        releaseLingerMS = max(0, ms)
+        lock.unlock()
+    }
+
     // MARK: - Transmit (PTT)
 
     func startTransmit() {
-        lock.lock(); defer { lock.unlock() }
-        guard engineRunning else { return }
-        if isTransmitting { return }
+        let taskToCancel: Task<Void, Never>?
+        lock.lock()
+        // Re-press during the linger window: flush the previous burst's
+        // trailing samples + terminator inline before opening a fresh
+        // burst. Otherwise we'd inherit the previous burst's encoder
+        // state and `burstTarget`, so a Whisper-A → release → Whisper-B
+        // sequence could ship the start of B's audio under A's target.
+        if lingerActive {
+            lingerActive = false
+            drainBurstLocked()
+        }
+        taskToCancel = lingerTask
+        lingerTask = nil
+
+        guard engineRunning else {
+            lock.unlock()
+            taskToCancel?.cancel()
+            return
+        }
+        if isTransmitting {
+            lock.unlock()
+            taskToCancel?.cancel()
+            return
+        }
         do {
             encoder = try OpusEncoder()
         } catch {
+            lock.unlock()
+            taskToCancel?.cancel()
             Self.log.error("Opus encoder init failed: \(error.localizedDescription, privacy: .public)")
             return
         }
@@ -142,32 +203,114 @@ final class VoiceController: @unchecked Sendable {
         sendSequence = 0
         burstTarget = voiceTarget
         isTransmitting = true
-        Self.log.info("PTT transmit start (target=\(self.burstTarget, privacy: .public))")
+        let target = burstTarget
+        lock.unlock()
+        taskToCancel?.cancel()
+        Self.log.info("PTT transmit start (target=\(target, privacy: .public))")
     }
 
     func stopTransmit() {
-        let handler: OpusFrameHandler?
-        let terminatorSeq: UInt64?
-        let terminatorTarget: UInt32
         lock.lock()
-        if !isTransmitting {
+        if !isTransmitting || lingerActive {
+            // `lingerActive` set means a linger is already pending — a
+            // duplicate stop call (e.g. multiple shortcuts releasing
+            // back-to-back) is a no-op.
             lock.unlock()
             return
         }
-        isTransmitting = false
-        handler = onOpusFrame
-        let seq = sendSequence
-        terminatorSeq = seq
-        terminatorTarget = burstTarget
-        encoder = nil
-        pendingSamples.removeAll()
+        let lingerMS = releaseLingerMS
+        if lingerMS <= 0 {
+            // Linger disabled: drain synchronously, matching the pre-pref
+            // behavior. The capture tap may still drop ~100 ms of trailing
+            // audio in this mode, but the user has explicitly opted in.
+            drainBurstLocked()
+            lock.unlock()
+            return
+        }
+        // Defer the actual finalize. While `lingerActive` is true,
+        // `isTransmitting` stays true so the capture tap continues to
+        // encode/send any audio that arrives during the linger window.
+        lingerActive = true
         lock.unlock()
 
-        Self.log.info("PTT transmit stop (frameNumber=\(terminatorSeq ?? 0, privacy: .public) target=\(terminatorTarget, privacy: .public))")
-        // Send an empty-payload terminator so the server knows the burst ended.
-        if let handler, let terminatorSeq {
-            handler(Data(), terminatorSeq, true, terminatorTarget)
+        lingerTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(lingerMS))
+            if Task.isCancelled { return }
+            self?.finalizeLingeringStop()
         }
+    }
+
+    private func finalizeLingeringStop() {
+        lock.lock()
+        // The race we're guarding against: this Task wakes from sleep just
+        // after `startTransmit` clears `lingerActive` and starts a fresh
+        // burst. If we drained unconditionally we'd kill the new burst's
+        // first frame. The flag check inside the lock is what makes this
+        // idempotent — `startTransmit`'s drain already finalized us, so
+        // we no-op.
+        if lingerActive, isTransmitting {
+            lingerActive = false
+            drainBurstLocked()
+        }
+        lock.unlock()
+    }
+
+    /// Caller MUST hold the lock. Pads any partial trailing samples with
+    /// silence to a full 20 ms frame and encodes one final packet (so the
+    /// last <20 ms of speech isn't dropped on the boundary), emits both
+    /// the trailing frame and the terminator via `onOpusFrame`, and
+    /// resets transmit state. Idempotent — no-op when not transmitting.
+    ///
+    /// Yields to `onOpusFrame` happen under the lock. That's safe because
+    /// the handler installed by `MumbleClient.startVoice` only does an
+    /// `AsyncStream.Continuation.yield(_:)` (non-blocking, O(1) enqueue).
+    /// Holding the lock across those yields is what defends the burst
+    /// boundary from a concurrent `handleCaptureBuffer` slipping a
+    /// new-burst frame between this drain's last frame and its
+    /// terminator.
+    private func drainBurstLocked() {
+        guard isTransmitting else { return }
+        let target = burstTarget
+        let handler = onOpusFrame
+        let framesPerPacket = Int(MumbleAudioParameters.framesPerPacket)
+
+        if !pendingSamples.isEmpty,
+           let encoder,
+           let handler,
+           let pcm = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
+                                      frameCapacity: AVAudioFrameCount(framesPerPacket)) {
+            pcm.frameLength = AVAudioFrameCount(framesPerPacket)
+            if let dst = pcm.floatChannelData?[0] {
+                let copyCount = min(pendingSamples.count, framesPerPacket)
+                pendingSamples.withUnsafeBufferPointer { src in
+                    dst.update(from: src.baseAddress!, count: copyCount)
+                }
+                if copyCount < framesPerPacket {
+                    // Pad with silence so libopus encodes a complete frame.
+                    (dst + copyCount).update(repeating: 0,
+                                             count: framesPerPacket - copyCount)
+                }
+            }
+            do {
+                let opus = try encoder.encode(pcm)
+                if !opus.isEmpty {
+                    let seq = sendSequence
+                    sendSequence += MumbleAudioParameters.frameNumberStep
+                    handler(opus, seq, false, target)
+                }
+            } catch {
+                Self.log.error("Opus encode (final pad) failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
+        let terminatorSeq = sendSequence
+        Self.log.info("PTT transmit stop (frameNumber=\(terminatorSeq, privacy: .public) target=\(target, privacy: .public))")
+        // Empty-payload terminator so the receiver finalizes playback.
+        handler?(Data(), terminatorSeq, true, target)
+
+        isTransmitting = false
+        encoder = nil
+        pendingSamples.removeAll()
     }
 
     // MARK: - Receive
