@@ -55,9 +55,9 @@ jobs:
             -destination 'platform=macOS' \
             -derivedDataPath DerivedData \
             -skipPackagePluginValidation \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES \
             2>&1 | xcbeautify --renderer github-actions
 
       - name: Test without building
@@ -71,9 +71,9 @@ jobs:
             -derivedDataPath DerivedData \
             -resultBundlePath TestResults.xcresult \
             -skipPackagePluginValidation \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES \
             2>&1 | xcbeautify --renderer github-actions
 
       - name: Upload test results
