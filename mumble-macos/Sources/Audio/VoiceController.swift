@@ -115,6 +115,8 @@ final class VoiceController: @unchecked Sendable {
         Self.log.info("Audio engine stopped")
     }
 
+    // MARK: - Whisper / target
+
     /// Update the live `MumbleUDP.Audio.target` that the next PTT
     /// burst will snapshot. Safe to call from main while audio is
     /// flowing on the AU thread — protected by the same lock.
