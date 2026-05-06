@@ -57,6 +57,11 @@ final class MumbleClient {
         let opus: Data
         let frameNumber: UInt64
         let isTerminator: Bool
+        /// Target captured at the moment the voice controller emitted
+        /// this frame, *not* read at send time. Prevents the tail of a
+        /// Whisper burst from leaking onto the user's normal channel
+        /// when `outgoingVoiceTarget` resets to 0 mid-drain.
+        let target: UInt32
     }
 
     func connect(to parameters: ServerConnectionParameters) async {
@@ -479,17 +484,15 @@ final class MumbleClient {
                 } else {
                     scheduledAt = now
                 }
-                await self?.sendVoiceFrame(transport: transport,
-                                           opus: item.opus,
-                                           frameNumber: item.frameNumber,
-                                           isTerminator: item.isTerminator)
+                await self?.sendVoiceFrame(transport: transport, item: item)
                 nextSendAt = scheduledAt + frameSpacing
             }
         }
-        voice.onOpusFrame = { opus, frameNumber, isTerminator in
+        voice.onOpusFrame = { opus, frameNumber, isTerminator, target in
             continuation.yield(VoiceSendItem(opus: opus,
                                              frameNumber: frameNumber,
-                                             isTerminator: isTerminator))
+                                             isTerminator: isTerminator,
+                                             target: target))
         }
         do {
             try voice.start()
@@ -501,13 +504,11 @@ final class MumbleClient {
     }
 
     private func sendVoiceFrame(transport: MumbleTransport,
-                                opus: Data,
-                                frameNumber: UInt64,
-                                isTerminator: Bool) async {
-        let audio = UDPAudioMessage(target: outgoingVoiceTarget,
-                                    frameNumber: frameNumber,
-                                    opusData: opus,
-                                    isTerminator: isTerminator)
+                                item: VoiceSendItem) async {
+        let audio = UDPAudioMessage(target: item.target,
+                                    frameNumber: item.frameNumber,
+                                    opusData: item.opus,
+                                    isTerminator: item.isTerminator)
         do {
             try await transport.sendFrame(type: .udpTunnel,
                                           payload: audio.tunneledPacket())
@@ -707,15 +708,18 @@ final class MumbleClient {
     func applyWhisperTarget(_ target: WhisperTarget?) async {
         guard case .connected = state, let transport else {
             outgoingVoiceTarget = 0
+            voice.setVoiceTarget(0)
             return
         }
         guard let target else {
             outgoingVoiceTarget = 0
+            voice.setVoiceTarget(0)
             return
         }
         guard let resolvedChannelID = resolveWhisperChannelID(for: target) else {
             Self.log.warning("Whisper target couldn't be resolved (mode=\(String(describing: target.channelMode), privacy: .public)); falling back to normal talk.")
             outgoingVoiceTarget = 0
+            voice.setVoiceTarget(0)
             return
         }
         let msg = VoiceTargetMessage(
@@ -732,9 +736,11 @@ final class MumbleClient {
         do {
             try await transport.sendFrame(msg)
             outgoingVoiceTarget = Self.whisperVoiceTargetID
+            voice.setVoiceTarget(Self.whisperVoiceTargetID)
         } catch {
             Self.log.error("Whisper target register failed: \(error.localizedDescription, privacy: .public)")
             outgoingVoiceTarget = 0
+            voice.setVoiceTarget(0)
         }
     }
 

@@ -16,8 +16,13 @@ enum VoiceControllerError: Error, Sendable, LocalizedError {
 /// Callback invoked for each finished Opus frame captured from the mic.
 /// `frameNumber` is the Mumble sequence (monotonically increasing over the
 /// life of the current PTT burst). `isTerminator` is true on the last frame
-/// of a burst so the receiver can finalize playback state.
-typealias OpusFrameHandler = @Sendable (Data, UInt64, Bool) -> Void
+/// of a burst so the receiver can finalize playback state. `target` is the
+/// `MumbleUDP.Audio.target` to attach — captured once when the burst started
+/// rather than read at send time, so a target change late in a burst (e.g.
+/// the user releases their Whisper key while the send queue still has
+/// packets pacing out) doesn't mis-route the tail of the burst onto a
+/// different channel.
+typealias OpusFrameHandler = @Sendable (Data, UInt64, Bool, UInt32) -> Void
 
 /// Single-process voice engine: captures mic, encodes with Opus, plays back
 /// remote streams. Lives outside the MumbleClient actor so the audio tap
@@ -38,6 +43,18 @@ final class VoiceController: @unchecked Sendable {
     private var pendingSamples: [Float] = []
     private var sendSequence: UInt64 = 0
     private var isTransmitting = false
+    /// Live `MumbleUDP.Audio.target`. Mutated from main via
+    /// `setVoiceTarget(_:)` whenever the user activates / releases a
+    /// Whisper or Shout shortcut; read by the AU thread when starting
+    /// a burst.
+    private var voiceTarget: UInt32 = 0
+    /// Snapshot of `voiceTarget` taken when the current PTT burst
+    /// began. All packets in the burst (including any that drain
+    /// after the user has already released) carry this value, so the
+    /// tail of a Whisper burst can't leak out as normal-channel talk
+    /// just because `voiceTarget` was reset before the send queue
+    /// finished pacing.
+    private var burstTarget: UInt32 = 0
 
     // Per-speaker playback state
     private var speakers: [UInt32: Speaker] = [:]
@@ -98,6 +115,15 @@ final class VoiceController: @unchecked Sendable {
         Self.log.info("Audio engine stopped")
     }
 
+    /// Update the live `MumbleUDP.Audio.target` that the next PTT
+    /// burst will snapshot. Safe to call from main while audio is
+    /// flowing on the AU thread — protected by the same lock.
+    func setVoiceTarget(_ target: UInt32) {
+        lock.lock()
+        voiceTarget = target
+        lock.unlock()
+    }
+
     // MARK: - Transmit (PTT)
 
     func startTransmit() {
@@ -112,13 +138,15 @@ final class VoiceController: @unchecked Sendable {
         }
         pendingSamples.removeAll()
         sendSequence = 0
+        burstTarget = voiceTarget
         isTransmitting = true
-        Self.log.info("PTT transmit start")
+        Self.log.info("PTT transmit start (target=\(self.burstTarget, privacy: .public))")
     }
 
     func stopTransmit() {
         let handler: OpusFrameHandler?
         let terminatorSeq: UInt64?
+        let terminatorTarget: UInt32
         lock.lock()
         if !isTransmitting {
             lock.unlock()
@@ -128,14 +156,15 @@ final class VoiceController: @unchecked Sendable {
         handler = onOpusFrame
         let seq = sendSequence
         terminatorSeq = seq
+        terminatorTarget = burstTarget
         encoder = nil
         pendingSamples.removeAll()
         lock.unlock()
 
-        Self.log.info("PTT transmit stop (frameNumber=\(terminatorSeq ?? 0, privacy: .public))")
+        Self.log.info("PTT transmit stop (frameNumber=\(terminatorSeq ?? 0, privacy: .public) target=\(terminatorTarget, privacy: .public))")
         // Send an empty-payload terminator so the server knows the burst ended.
         if let handler, let terminatorSeq {
-            handler(Data(), terminatorSeq, true)
+            handler(Data(), terminatorSeq, true, terminatorTarget)
         }
     }
 
@@ -233,6 +262,7 @@ final class VoiceController: @unchecked Sendable {
         pendingSamples.append(contentsOf: UnsafeBufferPointer(start: channelData, count: frameCount))
 
         let framesPerPacket = Int(MumbleAudioParameters.framesPerPacket)
+        let burstTargetSnapshot = burstTarget
         var framesToSend: [(Data, UInt64)] = []
         while pendingSamples.count >= framesPerPacket {
             let slice = Array(pendingSamples.prefix(framesPerPacket))
@@ -263,7 +293,7 @@ final class VoiceController: @unchecked Sendable {
 
         if let handler {
             for (data, seq) in framesToSend {
-                handler(data, seq, false)
+                handler(data, seq, false, burstTargetSnapshot)
             }
         }
     }
