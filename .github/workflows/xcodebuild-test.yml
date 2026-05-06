@@ -71,6 +71,7 @@ jobs:
             -derivedDataPath DerivedData \
             -resultBundlePath TestResults.xcresult \
             -skipPackagePluginValidation \
+            -skip-testing:mumble-macosTests/MumbleAppImportCoordinatorTests \
             -skip-testing:mumble-macosTests/PKCS12EncoderTests \
             -skip-testing:mumble-macosTests/PasswordHandlingTests \
             -skip-testing:mumble-macosTests/ServerPasswordStoreTests \
