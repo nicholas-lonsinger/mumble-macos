@@ -39,7 +39,7 @@ jobs:
           path: |
             DerivedData/SourcePackages
             DerivedData/Build/Intermediates.noindex
-          key: ${{ runner.os }}-xcode-${{ hashFiles('Packages/COpus/**', 'mumble-macos.xcodeproj/project.pbxproj') }}
+          key: ${{ runner.os }}-xcode-${{ hashFiles('Packages/COpus/**') }}
           restore-keys: |
             ${{ runner.os }}-xcode-
 
