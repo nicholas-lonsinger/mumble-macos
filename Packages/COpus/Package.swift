@@ -37,12 +37,44 @@ let package = Package(
                 "dnn/x86",
 
                 // === ARM NEON SIMD ===
-                // Could speed up encode/decode on Apple Silicon, but turning
-                // it on needs OPUS_ARM_NEON_INTR + RTCD wiring + voice-loop
-                // verification. Deferred to a separate change.
-                "celt/arm",
-                "silk/arm",
-                "dnn/arm",
+                // We compile the NEON intrinsic .c files (six in total) and
+                // statically pick the NEON path via `OPUS_ARM_PRESUME_NEON_INTR`
+                // in `config.h` — every arm64 chip has NEON, so we skip the
+                // run-time CPU-detection layer (RTCD) entirely.
+                //
+                // The static dispatch is set up by `celt/arm/pitch_arm.h:47-54`
+                // (and parallel headers in silk/arm): the `_PRESUME_NEON_INTR`
+                // branch rewrites e.g. `celt_inner_prod(...)` directly to
+                // `celt_inner_prod_neon(...)` with no function-pointer table.
+                // That's why dropping `armcpu.c` and `*_map.c` is safe — the
+                // dispatch tables they populate are no longer referenced.
+                //
+                // ARM DotProd (`OPUS_ARM_*_DOTPROD`) is intentionally NOT
+                // enabled: in libopus 1.5.2 the `_dotprod` symbols are
+                // referenced by macros in `celt/arm/armcpu.h:50,74` but no
+                // `_dotprod` implementations exist outside of `dnn/arm/`,
+                // which we don't compile. Enabling PRESUME_DOTPROD here
+                // would expand to undefined symbols → link errors. Revisit
+                // if a future libopus drops actual DotProd-accelerated
+                // SILK/CELT implementations.
+                //
+                // From `celt/arm/` and `silk/arm/` we keep:
+                //   celt_neon_intr.c, pitch_neon_intr.c,
+                //   biquad_alt_neon_intr.c, LPC_inv_pred_gain_neon_intr.c,
+                //   NSQ_del_dec_neon_intr.c, NSQ_neon.c
+                // and exclude the per-file artefacts that would either fail
+                // to compile under SwiftPM or pull in machinery we don't use:
+                "celt/arm/arm_celt_map.c",         // RTCD dispatch table (gated by OPUS_HAVE_RTCD)
+                "celt/arm/armcpu.c",                // RTCD CPU detect (ditto)
+                "celt/arm/celt_fft_ne10.c",         // requires the external NE10 lib (not vendored)
+                "celt/arm/celt_mdct_ne10.c",        // ditto
+                "celt/arm/celt_pitch_xcorr_arm.s",  // GNU asm; Apple `as` can't consume it directly
+                "celt/arm/armopts.s.in",            // autoconf-expanded asm template
+                "celt/arm/arm2gnu.pl",              // perl script that translates GNU asm
+                "celt/arm/meson.build",
+                "silk/arm/arm_silk_map.c",          // RTCD dispatch table
+
+                // dnn/arm/ is covered by the `dnn` exclude below.
 
                 // === MIPS SIMD ===
                 // We don't target MIPS.
