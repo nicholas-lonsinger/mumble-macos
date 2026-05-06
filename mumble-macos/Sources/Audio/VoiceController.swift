@@ -230,14 +230,24 @@ final class VoiceController: @unchecked Sendable {
         // Defer the actual finalize. While `lingerActive` is true,
         // `isTransmitting` stays true so the capture tap continues to
         // encode/send any audio that arrives during the linger window.
+        //
+        // The `lingerTask` write stays under the lock. If we unlocked
+        // before assigning, a concurrent `startTransmit` could observe
+        // the prior `lingerTask` value (or nil), drain, and clear the
+        // task slot — and our pending assignment would land afterward
+        // as a "ghost" task whose later wake-up would terminate the
+        // *next* burst (saved only by the lingerActive flag check, but
+        // a subsequent stopTransmit#2 could legitimately set
+        // lingerActive=true and the ghost would steal #2's drain). The
+        // `Task.init` itself is non-blocking, so holding the lock
+        // across it is cheap.
         lingerActive = true
-        lock.unlock()
-
         lingerTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(lingerMS))
             if Task.isCancelled { return }
             self?.finalizeLingeringStop()
         }
+        lock.unlock()
     }
 
     private func finalizeLingeringStop() {
