@@ -45,7 +45,13 @@ final class MumbleClient {
     /// whisper via the matching `VoiceTarget` slot, 31 = server loopback.
     /// Set non-zero by `applyWhisperTarget` when a Whisper/Shout shortcut is
     /// active; otherwise stays at 0 so plain PTT goes to the user's channel.
-    private(set) var outgoingVoiceTarget: UInt32 = 0
+    /// `didSet` mirrors the value into the voice controller — keeping the two
+    /// in lockstep is what prevents the tail of a Whisper burst from leaking
+    /// onto the user's normal channel, and bundling the two writes here
+    /// stops the pair from drifting at any individual call site.
+    private(set) var outgoingVoiceTarget: UInt32 = 0 {
+        didSet { voice.setVoiceTarget(outgoingVoiceTarget) }
+    }
     private(set) var speakingSessions: Set<UInt32> = []
     private var speakingClearTasks: [UInt32: Task<Void, Never>] = [:]
     private var connectStartedAt: ContinuousClock.Instant?
@@ -155,6 +161,14 @@ final class MumbleClient {
         voiceSendTask = nil
         voiceAvailable = false
         isTransmitting = false
+        // Clear any whisper target state. Otherwise a connection
+        // dropped mid-whisper would leave `outgoingVoiceTarget` (and
+        // the voice controller's mirror) at slot 1 — the next
+        // PTT burst on a fresh connection would inherit it and ship
+        // audio to whisper slot 1 with no whisper key held. The
+        // `didSet` on `outgoingVoiceTarget` propagates the reset
+        // into `voice` automatically.
+        outgoingVoiceTarget = 0
         for (_, task) in speakingClearTasks { task.cancel() }
         speakingClearTasks.removeAll()
         speakingSessions.removeAll()
@@ -708,18 +722,15 @@ final class MumbleClient {
     func applyWhisperTarget(_ target: WhisperTarget?) async {
         guard case .connected = state, let transport else {
             outgoingVoiceTarget = 0
-            voice.setVoiceTarget(0)
             return
         }
         guard let target else {
             outgoingVoiceTarget = 0
-            voice.setVoiceTarget(0)
             return
         }
         guard let resolvedChannelID = resolveWhisperChannelID(for: target) else {
             Self.log.warning("Whisper target couldn't be resolved (mode=\(String(describing: target.channelMode), privacy: .public)); falling back to normal talk.")
             outgoingVoiceTarget = 0
-            voice.setVoiceTarget(0)
             return
         }
         let msg = VoiceTargetMessage(
@@ -736,11 +747,9 @@ final class MumbleClient {
         do {
             try await transport.sendFrame(msg)
             outgoingVoiceTarget = Self.whisperVoiceTargetID
-            voice.setVoiceTarget(Self.whisperVoiceTargetID)
         } catch {
             Self.log.error("Whisper target register failed: \(error.localizedDescription, privacy: .public)")
             outgoingVoiceTarget = 0
-            voice.setVoiceTarget(0)
         }
     }
 
