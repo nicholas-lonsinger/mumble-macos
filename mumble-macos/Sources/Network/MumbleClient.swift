@@ -45,7 +45,13 @@ final class MumbleClient {
     /// whisper via the matching `VoiceTarget` slot, 31 = server loopback.
     /// Set non-zero by `applyWhisperTarget` when a Whisper/Shout shortcut is
     /// active; otherwise stays at 0 so plain PTT goes to the user's channel.
-    private(set) var outgoingVoiceTarget: UInt32 = 0
+    /// `didSet` mirrors the value into the voice controller — keeping the two
+    /// in lockstep is what prevents the tail of a Whisper burst from leaking
+    /// onto the user's normal channel, and bundling the two writes here
+    /// stops the pair from drifting at any individual call site.
+    private(set) var outgoingVoiceTarget: UInt32 = 0 {
+        didSet { voice.setVoiceTarget(outgoingVoiceTarget) }
+    }
     private(set) var speakingSessions: Set<UInt32> = []
     private var speakingClearTasks: [UInt32: Task<Void, Never>] = [:]
     private var connectStartedAt: ContinuousClock.Instant?
@@ -57,6 +63,11 @@ final class MumbleClient {
         let opus: Data
         let frameNumber: UInt64
         let isTerminator: Bool
+        /// Target captured at the moment the voice controller emitted
+        /// this frame, *not* read at send time. Prevents the tail of a
+        /// Whisper burst from leaking onto the user's normal channel
+        /// when `outgoingVoiceTarget` resets to 0 mid-drain.
+        let target: UInt32
     }
 
     func connect(to parameters: ServerConnectionParameters) async {
@@ -150,6 +161,14 @@ final class MumbleClient {
         voiceSendTask = nil
         voiceAvailable = false
         isTransmitting = false
+        // Clear any whisper target state. Otherwise a connection
+        // dropped mid-whisper would leave `outgoingVoiceTarget` (and
+        // the voice controller's mirror) at slot 1 — the next
+        // PTT burst on a fresh connection would inherit it and ship
+        // audio to whisper slot 1 with no whisper key held. The
+        // `didSet` on `outgoingVoiceTarget` propagates the reset
+        // into `voice` automatically.
+        outgoingVoiceTarget = 0
         for (_, task) in speakingClearTasks { task.cancel() }
         speakingClearTasks.removeAll()
         speakingSessions.removeAll()
@@ -479,17 +498,15 @@ final class MumbleClient {
                 } else {
                     scheduledAt = now
                 }
-                await self?.sendVoiceFrame(transport: transport,
-                                           opus: item.opus,
-                                           frameNumber: item.frameNumber,
-                                           isTerminator: item.isTerminator)
+                await self?.sendVoiceFrame(transport: transport, item: item)
                 nextSendAt = scheduledAt + frameSpacing
             }
         }
-        voice.onOpusFrame = { opus, frameNumber, isTerminator in
+        voice.onOpusFrame = { opus, frameNumber, isTerminator, target in
             continuation.yield(VoiceSendItem(opus: opus,
                                              frameNumber: frameNumber,
-                                             isTerminator: isTerminator))
+                                             isTerminator: isTerminator,
+                                             target: target))
         }
         do {
             try voice.start()
@@ -501,13 +518,11 @@ final class MumbleClient {
     }
 
     private func sendVoiceFrame(transport: MumbleTransport,
-                                opus: Data,
-                                frameNumber: UInt64,
-                                isTerminator: Bool) async {
-        let audio = UDPAudioMessage(target: outgoingVoiceTarget,
-                                    frameNumber: frameNumber,
-                                    opusData: opus,
-                                    isTerminator: isTerminator)
+                                item: VoiceSendItem) async {
+        let audio = UDPAudioMessage(target: item.target,
+                                    frameNumber: item.frameNumber,
+                                    opusData: item.opus,
+                                    isTerminator: item.isTerminator)
         do {
             try await transport.sendFrame(type: .udpTunnel,
                                           payload: audio.tunneledPacket())
