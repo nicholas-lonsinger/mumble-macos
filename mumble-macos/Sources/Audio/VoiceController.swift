@@ -82,6 +82,19 @@ final class VoiceController: @unchecked Sendable {
     /// later burst when its cancellation propagated too late.
     private var cutoffFallbackTask: Task<Void, Never>?
 
+    // Reusable PCM buffers. Eliminates the per-tap-callback heap
+    // allocations Apple's tap-block guidance specifically warns about.
+    // All three slots are accessed only from `handleCaptureBuffer` and
+    // its callees (always under `lock`), and live for the lifetime of
+    // the controller — no stop() cleanup, since the `ensureXxx` helpers
+    // re-allocate when the format or capacity demands more, which
+    // already covers a `stop()` → `start()` cycle that lands on a
+    // different mic. Persisting them avoids a benign data race that a
+    // lock-held nil-out would create with the tap thread.
+    private var reuseInputPrefix: AVAudioPCMBuffer?
+    private var reuseConvertedOutput: AVAudioPCMBuffer?
+    private var reuseEncodeFrame: AVAudioPCMBuffer?
+
     // Per-speaker playback state
     private var speakers: [UInt32: Speaker] = [:]
 
@@ -294,6 +307,13 @@ final class VoiceController: @unchecked Sendable {
     /// unified, in-order list outside the lock. Yielding under the lock
     /// would re-order the terminator ahead of complete frames produced
     /// earlier in the same callback — broken on the wire.
+    ///
+    /// Allocates a fresh PCM buffer for the pad frame. Don't share
+    /// `reuseEncodeFrame` here: the tap thread's drain loop has just
+    /// finished writing into it on the same callback, and overwriting
+    /// the contents to encode a different (padded) frame conflicts with
+    /// the still-in-flight encoded result. Drains are infrequent (one
+    /// per PTT release), so the per-call allocation is fine.
     private func drainBurstLocked() -> [(Data, UInt64, Bool)] {
         guard isTransmitting else { return [] }
         var out: [(Data, UInt64, Bool)] = []
@@ -401,10 +421,9 @@ final class VoiceController: @unchecked Sendable {
     // MARK: - Capture tap
 
     private func handleCaptureBuffer(_ buffer: AVAudioPCMBuffer, at time: AVAudioTime) {
-        // Snapshot wall-clock at the very top so the
-        // `!isHostTimeValid` fallback can compute against the actual
-        // tap-fire instant rather than whenever we get around to taking
-        // the lock.
+        // Snapshot wall-clock at the very top so the `!isHostTimeValid`
+        // fallback computes against the actual tap-fire instant rather
+        // than whenever we get around to taking the lock.
         let callbackStart = ContinuousClock.now
 
         guard let inputFormat else { return }
@@ -474,43 +493,43 @@ final class VoiceController: @unchecked Sendable {
             willFinalize = true
         }
 
-        if inputSamplesToConsume > 0, let channelData = buffer.floatChannelData?[0] {
-            // Slice the input first, then convert. Operating on the
-            // converted output would land the cutoff a few samples late
-            // because of `AVAudioConverter`'s linear-phase resampling
-            // group delay.
-            if let pcm = convertedBufferLocked(from: channelData,
-                                               inputSampleCount: inputSamplesToConsume),
-               let dst = pcm.floatChannelData?[0] {
-                let frameCount = Int(pcm.frameLength)
-                pendingSamples.reserveCapacity(pendingSamples.count + frameCount)
-                pendingSamples.append(contentsOf: UnsafeBufferPointer(start: dst, count: frameCount))
-            }
+        if inputSamplesToConsume > 0,
+           let channelData = buffer.floatChannelData?[0],
+           let convertedOut = convertedBufferLocked(
+               from: channelData,
+               inputSampleCount: inputSamplesToConsume,
+               inputFormat: inputFormat
+           ),
+           let convertedDst = convertedOut.floatChannelData?[0] {
+            let frameCount = Int(convertedOut.frameLength)
+            pendingSamples.reserveCapacity(pendingSamples.count + frameCount)
+            pendingSamples.append(contentsOf: UnsafeBufferPointer(start: convertedDst, count: frameCount))
 
-            // Drain complete 20 ms frames out of `pendingSamples`.
+            // Drain complete 20 ms frames out of `pendingSamples`,
+            // reusing the cached encode buffer to avoid a per-frame
+            // alloc. Apple's tap-block guidance specifically calls out
+            // "no allocations on the tap thread"; the pool addresses
+            // that.
             let framesPerPacket = Int(MumbleAudioParameters.framesPerPacket)
-            while pendingSamples.count >= framesPerPacket {
-                let slice = Array(pendingSamples.prefix(framesPerPacket))
-                pendingSamples.removeFirst(framesPerPacket)
-                guard let pcm = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
-                                                 frameCapacity: AVAudioFrameCount(framesPerPacket)) else {
-                    continue
-                }
-                pcm.frameLength = AVAudioFrameCount(framesPerPacket)
-                if let dst = pcm.floatChannelData?[0] {
-                    slice.withUnsafeBufferPointer { src in
-                        dst.update(from: src.baseAddress!, count: framesPerPacket)
+            if let encodeFrame = ensureEncodeFrameLocked() {
+                while pendingSamples.count >= framesPerPacket {
+                    encodeFrame.frameLength = AVAudioFrameCount(framesPerPacket)
+                    if let dst = encodeFrame.floatChannelData?[0] {
+                        pendingSamples.withUnsafeBufferPointer { src in
+                            dst.update(from: src.baseAddress!, count: framesPerPacket)
+                        }
                     }
-                }
-                do {
-                    let opus = try encoder.encode(pcm)
-                    let seq = sendSequence
-                    sendSequence += MumbleAudioParameters.frameNumberStep
-                    if !opus.isEmpty {
-                        framesToSend.append((opus, seq, false))
+                    pendingSamples.removeFirst(framesPerPacket)
+                    do {
+                        let opus = try encoder.encode(encodeFrame)
+                        let seq = sendSequence
+                        sendSequence += MumbleAudioParameters.frameNumberStep
+                        if !opus.isEmpty {
+                            framesToSend.append((opus, seq, false))
+                        }
+                    } catch {
+                        Self.log.error("Opus encode failed: \(error.localizedDescription, privacy: .public)")
                     }
-                } catch {
-                    Self.log.error("Opus encode failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
         }
@@ -527,21 +546,20 @@ final class VoiceController: @unchecked Sendable {
         handler = onOpusFrame
     }
 
-    /// Caller MUST hold the lock. Builds an input-format temp buffer of
-    /// `n` frames (channel 0 only — matches the existing single-channel
-    /// assumption in the consume loop), runs it through the existing
-    /// converter (or pass-through if input already matches
-    /// `MumbleAudioParameters.pcmFormat`), and returns the converted
-    /// buffer. Returns nil if allocation fails.
+    /// Caller MUST hold the lock. Builds an input-format slice of the
+    /// first `n` samples (channel 0 only — matches the existing
+    /// single-channel assumption), runs it through the existing
+    /// converter, returns the converted buffer. Pass-through fast path
+    /// when input already matches `MumbleAudioParameters.pcmFormat`.
+    /// Returns nil only on allocation failure.
     private func convertedBufferLocked(from channelData: UnsafeMutablePointer<Float>,
-                                       inputSampleCount n: Int) -> AVAudioPCMBuffer? {
-        guard let inputFormat else { return nil }
+                                       inputSampleCount n: Int,
+                                       inputFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
         let isPassThrough = inputConverter == nil
             && inputFormat.sampleRate == MumbleAudioParameters.sampleRate
             && inputFormat.channelCount == MumbleAudioParameters.channelCount
         if isPassThrough {
-            guard let pcm = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
-                                             frameCapacity: AVAudioFrameCount(n)) else {
+            guard let pcm = ensureConvertedOutputLocked(capacity: AVAudioFrameCount(n)) else {
                 return nil
             }
             pcm.frameLength = AVAudioFrameCount(n)
@@ -551,8 +569,8 @@ final class VoiceController: @unchecked Sendable {
             return pcm
         }
         guard let converter = inputConverter,
-              let inBuf = AVAudioPCMBuffer(pcmFormat: inputFormat,
-                                           frameCapacity: AVAudioFrameCount(n)) else {
+              let inBuf = ensureInputPrefixLocked(format: inputFormat,
+                                                  capacity: AVAudioFrameCount(n)) else {
             return nil
         }
         inBuf.frameLength = AVAudioFrameCount(n)
@@ -564,8 +582,7 @@ final class VoiceController: @unchecked Sendable {
         // tap callback and audio comes out broken/muffled on the wire.
         let ratio = MumbleAudioParameters.sampleRate / inputFormat.sampleRate
         let outCapacity = AVAudioFrameCount(Int((Double(n) * ratio).rounded(.up)) + 32)
-        guard let out = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
-                                         frameCapacity: outCapacity) else {
+        guard let out = ensureConvertedOutputLocked(capacity: outCapacity) else {
             return nil
         }
         // AVAudioConverter calls its input block synchronously, but Swift 6
@@ -587,6 +604,44 @@ final class VoiceController: @unchecked Sendable {
         return out
     }
 
+    /// Caller MUST hold the lock. Returns the cached input-prefix buffer
+    /// if its format matches and capacity suffices; otherwise allocates
+    /// a fresh one. Format equality uses `isEqual` on `AVAudioFormat`,
+    /// which compares the channel-layout fields correctly.
+    private func ensureInputPrefixLocked(format: AVAudioFormat,
+                                         capacity: AVAudioFrameCount) -> AVAudioPCMBuffer? {
+        if let buf = reuseInputPrefix,
+           buf.format.isEqual(format),
+           buf.frameCapacity >= capacity {
+            return buf
+        }
+        reuseInputPrefix = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity)
+        return reuseInputPrefix
+    }
+
+    /// Caller MUST hold the lock. Returns the cached 48 kHz mono output
+    /// buffer if capacity suffices; otherwise allocates fresh.
+    private func ensureConvertedOutputLocked(capacity: AVAudioFrameCount) -> AVAudioPCMBuffer? {
+        if let buf = reuseConvertedOutput, buf.frameCapacity >= capacity {
+            return buf
+        }
+        reuseConvertedOutput = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
+                                                frameCapacity: capacity)
+        return reuseConvertedOutput
+    }
+
+    /// Caller MUST hold the lock. Returns the cached 20 ms encode buffer
+    /// (fixed at `framesPerPacket` samples), allocating once on first
+    /// use.
+    private func ensureEncodeFrameLocked() -> AVAudioPCMBuffer? {
+        if let buf = reuseEncodeFrame {
+            return buf
+        }
+        let cap = MumbleAudioParameters.framesPerPacket
+        reuseEncodeFrame = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
+                                            frameCapacity: cap)
+        return reuseEncodeFrame
+    }
 }
 
 // AVAudioConverter's input block is `@Sendable`, but it's invoked
