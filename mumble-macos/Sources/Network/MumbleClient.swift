@@ -99,7 +99,11 @@ final class MumbleClient {
     }
 
     func connect(to parameters: ServerConnectionParameters) async {
-        await disconnect()
+        // Implicit reset before a fresh attempt — but don't wipe the
+        // saved last-connected record. Otherwise, if the new attempt
+        // fails, we'd lose a perfectly good auto-reconnect target the
+        // user already had on file.
+        await disconnect(forgetLastConnected: false)
         state = .connecting
         lastError = nil
         currentParameters = parameters
@@ -161,7 +165,15 @@ final class MumbleClient {
         }
     }
 
-    func disconnect() async {
+    /// Disconnects the current session and tears down the transport.
+    ///
+    /// `forgetLastConnected` controls whether the auto-reconnect record
+    /// is wiped. The default is `true`: explicit user-initiated
+    /// disconnects (File > Disconnect) should not be silently
+    /// re-established on next launch. The implicit reset inside
+    /// `connect(...)` calls this with `false` so a failed switch from
+    /// server A → B doesn't lose A's record.
+    func disconnect(forgetLastConnected: Bool = true) async {
         let wasActive = state != .disconnected
         if wasActive {
             state = .disconnected
@@ -174,6 +186,9 @@ final class MumbleClient {
         sessionID = nil
         serverWelcomeText = ""
         serverVersion = nil
+        if forgetLastConnected {
+            LastConnectedServerStore.shared.clear()
+        }
     }
 
     private func teardown() async {
@@ -291,6 +306,15 @@ final class MumbleClient {
                 let msg = try RejectMessage(reader: &reader)
                 state = .failed(reason: msg.humanDescription)
                 lastError = msg.humanDescription
+                // Reject types (WrongUserPW, WrongServerPW, InvalidUsername,
+                // ServerFull, NoCertificate, AuthenticatorFail, …) won't
+                // self-heal across a relaunch. If the saved auto-reconnect
+                // record points at this same server+username, clear it so
+                // the user isn't stuck retrying the same dead credential
+                // on every launch. The host/port/username gate keeps a
+                // failed manual Quick Connect to a *different* server from
+                // wiping an unrelated valid record.
+                forgetLastConnectedIfMatchesCurrent()
                 await teardown()
             case .serverSync:
                 let msg = try ServerSyncMessage(reader: &reader)
@@ -301,6 +325,7 @@ final class MumbleClient {
                 let ms = Int(elapsed.components.seconds) * 1_000
                     + Int(elapsed.components.attoseconds / 1_000_000_000_000_000)
                 Self.log.info("ServerSync received — session=\(msg.session ?? 0, privacy: .public), channels=\(self.channels.count, privacy: .public), users=\(self.users.count, privacy: .public), handshake=\(ms, privacy: .public)ms")
+                rememberAsLastConnectedIfEnabled()
                 await tryJoinDesiredChannelAfterSync()
             case .channelState:
                 let msg = try ChannelStateMessage(reader: &reader)
@@ -626,6 +651,37 @@ final class MumbleClient {
         } catch {
             Self.log.error("Failed to send channel move: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Clears the saved auto-reconnect record if (and only if) it points
+    /// at the same host/port/username as the currently-failing connection.
+    /// Call from terminal-failure paths whose causes won't self-heal —
+    /// today, just `Reject`. We don't touch the password during the
+    /// match check, so a stale keychain read doesn't bias the decision.
+    private func forgetLastConnectedIfMatchesCurrent() {
+        guard let params = currentParameters,
+              let saved = LastConnectedServerStore.shared.peekRecord() else { return }
+        guard saved.host == params.host,
+              saved.port == params.port,
+              saved.username == params.username else { return }
+        LastConnectedServerStore.shared.clear()
+    }
+
+    /// Snapshots the in-flight `ServerConnectionParameters` into
+    /// `LastConnectedServerStore` if the user has the reconnect-on-launch
+    /// preference enabled. We persist *only* in that case so users who
+    /// haven't opted in never get a password parked in the keychain as a
+    /// side effect of connecting.
+    private func rememberAsLastConnectedIfEnabled() {
+        guard GeneralSettingsStore.shared.reconnectOnLaunch,
+              let params = currentParameters else { return }
+        let record = LastConnectedServerStore.Record(
+            host: params.host,
+            port: params.port,
+            username: params.username,
+            desiredChannelPath: params.desiredChannelPath
+        )
+        LastConnectedServerStore.shared.save(record, password: params.password)
     }
 
     /// Called immediately after `ServerSync`: if this connect attempt

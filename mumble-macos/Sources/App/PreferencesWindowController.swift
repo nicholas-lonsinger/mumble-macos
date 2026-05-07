@@ -20,6 +20,9 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
     /// One `Tab` per content pane. The order here drives toolbar order and
     /// also the initial selection (first tab is selected on first show).
     private let tabs: [Tab] = [
+        Tab(identifier: .general,
+            label: "General",
+            symbol: "gearshape"),
         Tab(identifier: .audio,
             label: "Audio",
             symbol: "waveform"),
@@ -91,6 +94,8 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
     @ViewBuilder
     private func contentView(for identifier: NSToolbarItem.Identifier) -> some View {
         switch identifier {
+        case .general:
+            GeneralTab()
         case .audio:
             AudioTab()
         case .shortcuts:
@@ -162,6 +167,7 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 }
 
 extension NSToolbarItem.Identifier {
+    static let general = NSToolbarItem.Identifier("preferences.general")
     static let audio = NSToolbarItem.Identifier("preferences.audio")
     static let shortcuts = NSToolbarItem.Identifier("preferences.shortcuts")
 }

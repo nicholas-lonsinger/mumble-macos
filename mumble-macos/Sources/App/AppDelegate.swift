@@ -30,6 +30,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let url = pendingLaunchURL {
             pendingLaunchURL = nil
             controller.presentQuickConnectSheet(prefill: url)
+        } else {
+            scheduleAutoReconnectIfNeeded()
+        }
+    }
+
+    /// If the user has "Reconnect to last server on launch" enabled and
+    /// `LastConnectedServerStore` has a record, kick off a connect.
+    ///
+    /// We defer briefly so a `mumble://` URL that arrives via
+    /// `application(_:open:)` shortly after `applicationDidFinishLaunching(_:)`
+    /// (the documented ordering on URL launches) wins — auto-reconnect
+    /// shouldn't override an explicit URL the user clicked. Once the
+    /// short window passes, if no Quick Connect sheet is up and the
+    /// client is still idle, replay the saved params.
+    private func scheduleAutoReconnectIfNeeded() {
+        guard GeneralSettingsStore.shared.reconnectOnLaunch else { return }
+        guard let saved = LastConnectedServerStore.shared.load() else { return }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard let self else { return }
+            // A mumble:// URL landing during the delay would surface as an
+            // attached sheet on the main window — yield to it.
+            if let window = self.mainWindowController?.window,
+               window.attachedSheet != nil { return }
+            if self.pendingLaunchURL != nil { return }
+            // Idempotency guard: if something else already started a
+            // connection (e.g. user clicked Quick Connect during the
+            // 150 ms delay), don't stomp on it.
+            if self.client.state != .disconnected { return }
+            let params = ServerConnectionParameters(
+                host: saved.record.host,
+                port: saved.record.port,
+                username: saved.record.username,
+                password: saved.password,
+                desiredChannelPath: saved.record.desiredChannelPath
+            )
+            Self.log.info("Auto-reconnecting to \(params.host, privacy: .public):\(params.port, privacy: .public) as \(params.username, privacy: .public)")
+            await self.client.connect(to: params)
         }
     }
 
