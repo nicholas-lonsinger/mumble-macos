@@ -168,18 +168,29 @@ final class VoiceController: @unchecked Sendable {
 
     func startTransmit() {
         var framesToYield: [(Data, UInt64, Bool)] = []
+        // The drain frames (if any) carry the *previous* burst's target
+        // — they were captured under that burst's `burstTarget` before
+        // we overwrite the slot with `voiceTarget` for the new burst.
+        // Keeping a separate variable for the drain target prevents a
+        // Whisper-A → release → PTT-B sequence from shipping A's tail
+        // under B's target. (The old yields-under-the-lock code didn't
+        // hit this because the yields happened before `burstTarget`
+        // was reassigned; moving yields out of the lock — which we did
+        // to keep the straddle path's frame ordering correct — broke
+        // the ordering this hidden invariant relied on.)
+        var drainTarget: UInt32 = 0
         var taskToCancel: Task<Void, Never>?
-        var burstTargetSnapshot: UInt32 = 0
+        var newBurstTarget: UInt32 = 0
         var handler: OpusFrameHandler?
         var startedBurst = false
 
         lock.lock()
         defer {
             lock.unlock()
-            yieldFrames(framesToYield, target: burstTargetSnapshot, handler: handler)
+            yieldFrames(framesToYield, target: drainTarget, handler: handler)
             taskToCancel?.cancel()
             if startedBurst {
-                Self.log.info("PTT transmit start (target=\(burstTargetSnapshot, privacy: .public))")
+                Self.log.info("PTT transmit start (target=\(newBurstTarget, privacy: .public))")
             }
         }
 
@@ -191,11 +202,11 @@ final class VoiceController: @unchecked Sendable {
         if cutoffMark != nil {
             cutoffMark = nil
             cutoffWallClock = nil
+            drainTarget = burstTarget
             framesToYield = drainBurstLocked()
         }
         taskToCancel = cutoffFallbackTask
         cutoffFallbackTask = nil
-        burstTargetSnapshot = burstTarget
         handler = onOpusFrame
 
         guard engineRunning else { return }
@@ -211,7 +222,7 @@ final class VoiceController: @unchecked Sendable {
         sendSequence = 0
         burstTarget = voiceTarget
         isTransmitting = true
-        burstTargetSnapshot = burstTarget
+        newBurstTarget = burstTarget
         startedBurst = true
     }
 
