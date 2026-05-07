@@ -111,4 +111,117 @@ final class CaptureCutoffTests: XCTestCase {
         )
         XCTAssertEqual(d, .afterCutoff)
     }
+
+    // MARK: - Wall-clock variant
+    //
+    // Mirrors the host-time cases above. Exercised when the tap's
+    // `AVAudioTime.isHostTimeValid` is false. Uses a fixed `base`
+    // `ContinuousClock.Instant` plus deterministic offsets — `Instant`
+    // arithmetic is exact for these magnitudes.
+
+    func test_wallClock_wholeBufferBeforeCutoff() {
+        let base = ContinuousClock.now
+        let d = CaptureCutoff.decideWallClock(
+            bufferStart: base,
+            bufferEnd: base.advanced(by: .milliseconds(100)),
+            cutoff: base.advanced(by: .milliseconds(500)),
+            inputFrameLength: 100
+        )
+        XCTAssertEqual(d, .beforeCutoff)
+    }
+
+    func test_wallClock_wholeBufferAfterCutoff() {
+        let base = ContinuousClock.now
+        let d = CaptureCutoff.decideWallClock(
+            bufferStart: base.advanced(by: .milliseconds(1_000)),
+            bufferEnd: base.advanced(by: .milliseconds(2_000)),
+            cutoff: base.advanced(by: .milliseconds(500)),
+            inputFrameLength: 100
+        )
+        XCTAssertEqual(d, .afterCutoff)
+    }
+
+    func test_wallClock_cutoffExactlyAtBufferStart_isAfterCutoff() {
+        let base = ContinuousClock.now
+        let d = CaptureCutoff.decideWallClock(
+            bufferStart: base,
+            bufferEnd: base.advanced(by: .milliseconds(100)),
+            cutoff: base,
+            inputFrameLength: 100
+        )
+        XCTAssertEqual(d, .afterCutoff)
+    }
+
+    func test_wallClock_cutoffExactlyAtBufferEnd_isBeforeCutoff() {
+        let base = ContinuousClock.now
+        let bufferEnd = base.advanced(by: .milliseconds(100))
+        let d = CaptureCutoff.decideWallClock(
+            bufferStart: base,
+            bufferEnd: bufferEnd,
+            cutoff: bufferEnd,
+            inputFrameLength: 100
+        )
+        XCTAssertEqual(d, .beforeCutoff)
+    }
+
+    func test_wallClock_midBuffer30Percent_takes30Samples() {
+        let base = ContinuousClock.now
+        let d = CaptureCutoff.decideWallClock(
+            bufferStart: base,
+            bufferEnd: base.advanced(by: .milliseconds(100)),
+            cutoff: base.advanced(by: .milliseconds(30)),
+            inputFrameLength: 100
+        )
+        XCTAssertEqual(d, .straddle(inputSamplesToTake: 30))
+    }
+
+    func test_wallClock_fractionNearOne_clampsToWholeBuffer() {
+        // 99.9% through the buffer rounds to 100 samples; the explicit
+        // `n >= inputFrameLength` clamp keeps it at exactly the buffer
+        // length (the host-time path's CaptureCutoff.decide doesn't
+        // need this clamp because integer mach ticks can't drift past
+        // it via rounding the way `Duration`'s atto-second precision
+        // sometimes can).
+        let base = ContinuousClock.now
+        let d = CaptureCutoff.decideWallClock(
+            bufferStart: base,
+            bufferEnd: base.advanced(by: .milliseconds(1_000)),
+            cutoff: base.advanced(by: .milliseconds(999)),
+            inputFrameLength: 100
+        )
+        XCTAssertEqual(d, .straddle(inputSamplesToTake: 100))
+    }
+
+    func test_wallClock_fractionRoundingToZero_collapsesToAfterCutoff() {
+        let base = ContinuousClock.now
+        let d = CaptureCutoff.decideWallClock(
+            bufferStart: base,
+            bufferEnd: base.advanced(by: .milliseconds(1_000)),
+            cutoff: base.advanced(by: .milliseconds(4)),
+            inputFrameLength: 100
+        )
+        XCTAssertEqual(d, .afterCutoff)
+    }
+
+    func test_wallClock_degenerate_zeroDurationBuffer_isAfterCutoff() {
+        let base = ContinuousClock.now
+        let d = CaptureCutoff.decideWallClock(
+            bufferStart: base,
+            bufferEnd: base,
+            cutoff: base,
+            inputFrameLength: 100
+        )
+        XCTAssertEqual(d, .afterCutoff)
+    }
+
+    func test_wallClock_degenerate_zeroFrameLength_isAfterCutoff() {
+        let base = ContinuousClock.now
+        let d = CaptureCutoff.decideWallClock(
+            bufferStart: base,
+            bufferEnd: base.advanced(by: .milliseconds(1_000)),
+            cutoff: base.advanced(by: .milliseconds(500)),
+            inputFrameLength: 0
+        )
+        XCTAssertEqual(d, .afterCutoff)
+    }
 }

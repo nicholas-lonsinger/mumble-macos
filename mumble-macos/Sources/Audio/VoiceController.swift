@@ -425,10 +425,15 @@ final class VoiceController: @unchecked Sendable {
                     inputFrameLength: inputFrameLength
                 )
             } else if let wall = cutoffWallClock {
-                regime = decideViaWallClock(
-                    callbackStart: callbackStart,
-                    bufferDurationSec: bufferDurationSec,
-                    cutoffWallClock: wall,
+                // Wall-clock fallback: approximate the buffer's span as
+                // ending at the callback-fire instant and starting one
+                // duration earlier. The audio was captured before
+                // delivery, so `callbackStart` is the latest plausible
+                // edge.
+                regime = CaptureCutoff.decideWallClock(
+                    bufferStart: callbackStart.advanced(by: .seconds(-bufferDurationSec)),
+                    bufferEnd: callbackStart,
+                    cutoff: wall,
                     inputFrameLength: inputFrameLength
                 )
             } else {
@@ -449,7 +454,10 @@ final class VoiceController: @unchecked Sendable {
             willFinalize = false
         case .afterCutoff:
             inputSamplesToConsume = 0
-            willFinalize = (cutoffMark != nil)
+            // `.afterCutoff` is only ever returned when `cutoffMark` is
+            // non-nil (the no-cutoff path returns `.beforeCutoff` above),
+            // so we always finalize here.
+            willFinalize = true
         case .straddle(let n):
             inputSamplesToConsume = n
             willFinalize = true
@@ -568,33 +576,6 @@ final class VoiceController: @unchecked Sendable {
         return out
     }
 
-    /// Caller MUST hold the lock. Computes the cutoff regime when the
-    /// tap's `AVAudioTime.isHostTimeValid` is false (rare — AUv3, virtual
-    /// devices). Same fraction math as the host-time path, just over
-    /// `Duration` deltas. Approximates the buffer's wall-clock span as
-    /// ending at `callbackStart` (when the tap callback fired) and
-    /// starting `bufferDurationSec` earlier — the audio was captured
-    /// before delivery, so `callbackStart` is the latest possible time.
-    /// Less precise than host-time but no worse than the linger it
-    /// replaces, and only hit when `AVAudioTime` lies.
-    private func decideViaWallClock(callbackStart: ContinuousClock.Instant,
-                                    bufferDurationSec: Double,
-                                    cutoffWallClock: ContinuousClock.Instant,
-                                    inputFrameLength: Int) -> CaptureCutoff.Decision {
-        let bufferEnd = callbackStart
-        let bufferStart = callbackStart.advanced(by: .seconds(-bufferDurationSec))
-        if cutoffWallClock <= bufferStart { return .afterCutoff }
-        if cutoffWallClock >= bufferEnd { return .beforeCutoff }
-        let into = cutoffWallClock - bufferStart
-        let span = bufferEnd - bufferStart
-        let intoSec = Double(into.components.seconds) + Double(into.components.attoseconds) / 1e18
-        let spanSec = Double(span.components.seconds) + Double(span.components.attoseconds) / 1e18
-        guard spanSec > 0 else { return .afterCutoff }
-        let n = Int(((intoSec / spanSec) * Double(inputFrameLength)).rounded())
-        if n <= 0 { return .afterCutoff }
-        if n >= inputFrameLength { return .straddle(inputSamplesToTake: inputFrameLength) }
-        return .straddle(inputSamplesToTake: n)
-    }
 }
 
 // AVAudioConverter's input block is `@Sendable`, but it's invoked

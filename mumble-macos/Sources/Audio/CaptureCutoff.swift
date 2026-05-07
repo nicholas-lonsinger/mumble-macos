@@ -61,4 +61,42 @@ struct CaptureCutoff {
         }
         return .straddle(inputSamplesToTake: n)
     }
+
+    /// Wall-clock variant of `decide(...)` used when the tap's
+    /// `AVAudioTime.isHostTimeValid` is false (rare — AUv3, virtual
+    /// devices). Same regime semantics, just over `ContinuousClock`
+    /// timestamps instead of mach ticks. The caller passes the
+    /// approximate buffer span — typically `bufferEnd` is when the tap
+    /// callback fired and `bufferStart` is that minus the buffer's
+    /// duration, since the tap delivers audio captured *before* the
+    /// callback fires.
+    static func decideWallClock(
+        bufferStart: ContinuousClock.Instant,
+        bufferEnd: ContinuousClock.Instant,
+        cutoff: ContinuousClock.Instant,
+        inputFrameLength: Int
+    ) -> Decision {
+        if inputFrameLength <= 0 || bufferEnd <= bufferStart {
+            return .afterCutoff
+        }
+        if cutoff <= bufferStart {
+            return .afterCutoff
+        }
+        if cutoff >= bufferEnd {
+            return .beforeCutoff
+        }
+        let into = cutoff - bufferStart
+        let span = bufferEnd - bufferStart
+        let intoSec = Double(into.components.seconds) + Double(into.components.attoseconds) / 1e18
+        let spanSec = Double(span.components.seconds) + Double(span.components.attoseconds) / 1e18
+        guard spanSec > 0 else { return .afterCutoff }
+        let n = Int(((intoSec / spanSec) * Double(inputFrameLength)).rounded())
+        if n <= 0 {
+            return .afterCutoff
+        }
+        if n >= inputFrameLength {
+            return .straddle(inputSamplesToTake: inputFrameLength)
+        }
+        return .straddle(inputSamplesToTake: n)
+    }
 }
