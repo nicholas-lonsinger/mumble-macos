@@ -51,6 +51,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | xcbeautify --renderer github-actions
 
+      # The four skipped suites need team-prefixed keychain-access-groups,
+      # which requires real Apple Developer signing in CI. Run them locally
+      # via `make test`. Importing the dev cert was evaluated and declined.
       - name: Test without building
         run: |
           set -o pipefail
