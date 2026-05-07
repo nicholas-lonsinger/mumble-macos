@@ -62,7 +62,7 @@ final class ShortcutBindingTests: XCTestCase {
     }
 
     private func assertRoundTrips(_ trigger: ShortcutTrigger,
-                                  file: StaticString = #file,
+                                  file: StaticString = #filePath,
                                   line: UInt = #line) throws {
         let data = try JSONEncoder().encode(trigger)
         let decoded = try JSONDecoder().decode(ShortcutTrigger.self, from: data)
