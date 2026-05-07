@@ -23,9 +23,6 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
         Tab(identifier: .general,
             label: "General",
             symbol: "gearshape"),
-        Tab(identifier: .audio,
-            label: "Audio",
-            symbol: "waveform"),
         Tab(identifier: .shortcuts,
             label: "Shortcuts",
             symbol: "character.book.closed")
@@ -96,8 +93,6 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
         switch identifier {
         case .general:
             GeneralTab()
-        case .audio:
-            AudioTab()
         case .shortcuts:
             ShortcutsTab(dispatcher: dispatcher).environment(client)
         default:
@@ -168,6 +163,5 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 
 extension NSToolbarItem.Identifier {
     static let general = NSToolbarItem.Identifier("preferences.general")
-    static let audio = NSToolbarItem.Identifier("preferences.audio")
     static let shortcuts = NSToolbarItem.Identifier("preferences.shortcuts")
 }
