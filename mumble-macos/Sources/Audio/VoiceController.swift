@@ -30,6 +30,14 @@ typealias OpusFrameHandler = @Sendable (Data, UInt64, Bool, UInt32) -> Void
 final class VoiceController: @unchecked Sendable {
     private static let log = Logger(subsystem: "com.nicholas-lonsinger.mumble-macos", category: "voice")
 
+    /// Wall-clock floor for terminating a burst when no further input-tap
+    /// callback arrives after `stopTransmit`. The sample-accurate cutoff
+    /// path runs on the *next* tap callback after stop; this fires only
+    /// in the degenerate case where the engine stalls or the device
+    /// disconnects mid-burst. 500 ms is ~5x the worst observed tap
+    /// cadence (~100 ms in VM/Bluetooth per CLAUDE.md).
+    private static let cutoffFallbackInterval: Duration = .milliseconds(500)
+
     private let engine = AVAudioEngine()
     private let playersMixer = AVAudioMixerNode()
     private let lock = NSLock()
@@ -56,24 +64,23 @@ final class VoiceController: @unchecked Sendable {
     /// finished pacing.
     private var burstTarget: UInt32 = 0
 
-    /// Milliseconds to keep capturing + sending audio after `stopTransmit`
-    /// is called. Without this linger, the last 0–100 ms of speech is
-    /// dropped: the AVAudioEngine input tap delivers in chunks (~100 ms
-    /// in a VM / over Bluetooth — see CLAUDE.md), so when the user
-    /// releases the key the buffer carrying the final syllable is still
-    /// in flight, and `handleCaptureBuffer` ignores it because
-    /// `isTransmitting` already flipped to false. Mutated from main via
-    /// `setReleaseLingerMS(_:)` and read on stop.
-    private var releaseLingerMS: Int = 200
-    /// True between `stopTransmit` (when linger > 0) and the deferred
-    /// `finalizeLingeringStop`. While this is set, the capture tap keeps
-    /// encoding/sending normally — `isTransmitting` stays true so the
-    /// trailing audio buffer that arrives during the linger is captured
-    /// rather than dropped.
-    private var lingerActive = false
-    /// Handle to the deferred-stop Task so `startTransmit` (re-press
-    /// during linger) and `stop()` (engine teardown) can cancel it.
-    private var lingerTask: Task<Void, Never>?
+    /// Host-time mark snapshotted when `stopTransmit` is called, used to
+    /// truncate the next tap callback at the exact sample of release.
+    /// Non-nil while the burst is finalizing; the tap callback path and
+    /// the fallback Task both check-then-clear under the lock so whichever
+    /// runs first wins and the loser no-ops.
+    private var cutoffMark: CaptureCutoff.Mark?
+    /// Wall-clock pair for `cutoffMark`, used only on the
+    /// `AVAudioTime.isHostTimeValid == false` fallback (rare — AUv3,
+    /// virtual devices). Cleared together with `cutoffMark`.
+    private var cutoffWallClock: ContinuousClock.Instant?
+    /// Safety-net deferred finalize. Fires `cutoffFallbackInterval` after
+    /// `stopTransmit` if the next tap callback hasn't already drained the
+    /// burst. The Task captures the `Mark` it was scheduled for and
+    /// `finalizeAfterCutoff` only drains when the live `cutoffMark`
+    /// still matches — defends against a "ghost" wakeup terminating a
+    /// later burst when its cancellation propagated too late.
+    private var cutoffFallbackTask: Task<Void, Never>?
 
     // Per-speaker playback state
     private var speakers: [UInt32: Speaker] = [:]
@@ -104,8 +111,8 @@ final class VoiceController: @unchecked Sendable {
 
         input.installTap(onBus: 0,
                          bufferSize: 1_024,
-                         format: hardwareFormat) { [weak self] buffer, _ in
-            self?.handleCaptureBuffer(buffer)
+                         format: hardwareFormat) { [weak self] buffer, time in
+            self?.handleCaptureBuffer(buffer, at: time)
         }
 
         engine.prepare()
@@ -135,11 +142,12 @@ final class VoiceController: @unchecked Sendable {
         pendingSamples.removeAll()
         sendSequence = 0
         encoder = nil
-        // Drop any pending release-linger so it doesn't fire a terminator
-        // after the engine is gone.
-        lingerActive = false
-        taskToCancel = lingerTask
-        lingerTask = nil
+        // Drop any pending cutoff so the fallback Task doesn't fire a
+        // terminator after the engine is gone.
+        cutoffMark = nil
+        cutoffWallClock = nil
+        taskToCancel = cutoffFallbackTask
+        cutoffFallbackTask = nil
         Self.log.info("Audio engine stopped")
         lock.unlock()
         taskToCancel?.cancel()
@@ -156,46 +164,46 @@ final class VoiceController: @unchecked Sendable {
         lock.unlock()
     }
 
-    /// Update the release-linger window. Read on the next `stopTransmit`,
-    /// so changing this mid-burst takes effect on the next release.
-    func setReleaseLingerMS(_ ms: Int) {
-        lock.lock()
-        releaseLingerMS = max(0, ms)
-        lock.unlock()
-    }
-
     // MARK: - Transmit (PTT)
 
     func startTransmit() {
-        let taskToCancel: Task<Void, Never>?
+        var framesToYield: [(Data, UInt64, Bool)] = []
+        var taskToCancel: Task<Void, Never>?
+        var burstTargetSnapshot: UInt32 = 0
+        var handler: OpusFrameHandler?
+        var startedBurst = false
+
         lock.lock()
-        // Re-press during the linger window: flush the previous burst's
+        defer {
+            lock.unlock()
+            yieldFrames(framesToYield, target: burstTargetSnapshot, handler: handler)
+            taskToCancel?.cancel()
+            if startedBurst {
+                Self.log.info("PTT transmit start (target=\(burstTargetSnapshot, privacy: .public))")
+            }
+        }
+
+        // Re-press during the cutoff window: flush the previous burst's
         // trailing samples + terminator inline before opening a fresh
         // burst. Otherwise we'd inherit the previous burst's encoder
         // state and `burstTarget`, so a Whisper-A → release → Whisper-B
         // sequence could ship the start of B's audio under A's target.
-        if lingerActive {
-            lingerActive = false
-            drainBurstLocked()
+        if cutoffMark != nil {
+            cutoffMark = nil
+            cutoffWallClock = nil
+            framesToYield = drainBurstLocked()
         }
-        taskToCancel = lingerTask
-        lingerTask = nil
+        taskToCancel = cutoffFallbackTask
+        cutoffFallbackTask = nil
+        burstTargetSnapshot = burstTarget
+        handler = onOpusFrame
 
-        guard engineRunning else {
-            lock.unlock()
-            taskToCancel?.cancel()
-            return
-        }
-        if isTransmitting {
-            lock.unlock()
-            taskToCancel?.cancel()
-            return
-        }
+        guard engineRunning else { return }
+        if isTransmitting { return }
+
         do {
             encoder = try OpusEncoder()
         } catch {
-            lock.unlock()
-            taskToCancel?.cancel()
             Self.log.error("Opus encoder init failed: \(error.localizedDescription, privacy: .public)")
             return
         }
@@ -203,90 +211,86 @@ final class VoiceController: @unchecked Sendable {
         sendSequence = 0
         burstTarget = voiceTarget
         isTransmitting = true
-        let target = burstTarget
-        lock.unlock()
-        taskToCancel?.cancel()
-        Self.log.info("PTT transmit start (target=\(target, privacy: .public))")
+        burstTargetSnapshot = burstTarget
+        startedBurst = true
     }
 
     func stopTransmit() {
         lock.lock()
-        if !isTransmitting || lingerActive {
-            // `lingerActive` set means a linger is already pending — a
-            // duplicate stop call (e.g. multiple shortcuts releasing
-            // back-to-back) is a no-op.
+        // Idempotency: not transmitting at all, or a cutoff is already
+        // pending → no-op. Defends against rapid release/release.
+        if !isTransmitting || cutoffMark != nil {
             lock.unlock()
             return
         }
-        let lingerMS = releaseLingerMS
-        if lingerMS <= 0 {
-            // Linger disabled: drain synchronously, matching the pre-pref
-            // behavior. The capture tap may still drop ~100 ms of trailing
-            // audio in this mode, but the user has explicitly opted in.
-            drainBurstLocked()
-            lock.unlock()
-            return
-        }
-        // Defer the actual finalize. While `lingerActive` is true,
-        // `isTransmitting` stays true so the capture tap continues to
-        // encode/send any audio that arrives during the linger window.
-        //
-        // The `lingerTask` write stays under the lock. If we unlocked
-        // before assigning, a concurrent `startTransmit` could observe
-        // the prior `lingerTask` value (or nil), drain, and clear the
-        // task slot — and our pending assignment would land afterward
-        // as a "ghost" task whose later wake-up would terminate the
-        // *next* burst (saved only by the lingerActive flag check, but
-        // a subsequent stopTransmit#2 could legitimately set
-        // lingerActive=true and the ghost would steal #2's drain). The
-        // `Task.init` itself is non-blocking, so holding the lock
-        // across it is cheap.
-        lingerActive = true
-        lingerTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(lingerMS))
+        // Snapshot host time at release. The next tap callback compares
+        // each subsequent buffer's `AVAudioTime.hostTime` against this
+        // mark and truncates the boundary buffer at the cutoff sample.
+        // Wall-clock is the fallback for `!isHostTimeValid` taps.
+        let mark = CaptureCutoff.Mark(hostTime: mach_absolute_time())
+        cutoffMark = mark
+        cutoffWallClock = ContinuousClock.now
+        // Schedule the safety-net fallback under the lock — same race
+        // rationale as the prior linger-task assignment: a concurrent
+        // `startTransmit` could otherwise observe a stale
+        // `cutoffFallbackTask` value, drain, and clear the slot, leaving
+        // our pending assignment to land afterward as a "ghost" task.
+        // The Task captures `mark` so `finalizeAfterCutoff` can verify
+        // the cutoff hasn't been replaced by a later burst's mark
+        // (cancellation can propagate after the timer has already
+        // fired).
+        cutoffFallbackTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.cutoffFallbackInterval)
             if Task.isCancelled { return }
-            self?.finalizeLingeringStop()
+            self?.finalizeAfterCutoff(expecting: mark)
         }
         lock.unlock()
     }
 
-    private func finalizeLingeringStop() {
+    /// Safety-net finalize. Runs `cutoffFallbackInterval` after
+    /// `stopTransmit` if the boundary tap callback hasn't already
+    /// finalized the burst. `expecting` is the mark this task was
+    /// scheduled for; if `cutoffMark` has been replaced (`startTransmit`
+    /// → `stopTransmit` cycled while we slept), we no-op.
+    private func finalizeAfterCutoff(expecting mark: CaptureCutoff.Mark) {
+        var frames: [(Data, UInt64, Bool)] = []
+        var target: UInt32 = 0
+        var handler: OpusFrameHandler?
+
         lock.lock()
-        // The race we're guarding against: this Task wakes from sleep just
-        // after `startTransmit` clears `lingerActive` and starts a fresh
-        // burst. If we drained unconditionally we'd kill the new burst's
-        // first frame. The flag check inside the lock is what makes this
-        // idempotent — `startTransmit`'s drain already finalized us, so
-        // we no-op.
-        if lingerActive, isTransmitting {
-            lingerActive = false
-            drainBurstLocked()
+        defer {
+            lock.unlock()
+            yieldFrames(frames, target: target, handler: handler)
         }
-        lock.unlock()
+        guard cutoffMark == mark, isTransmitting else { return }
+        cutoffMark = nil
+        cutoffWallClock = nil
+        cutoffFallbackTask = nil
+        frames = drainBurstLocked()
+        target = burstTarget
+        handler = onOpusFrame
     }
 
     /// Caller MUST hold the lock. Pads any partial trailing samples with
     /// silence to a full 20 ms frame and encodes one final packet (so the
-    /// last <20 ms of speech isn't dropped on the boundary), emits both
-    /// the trailing frame and the terminator via `onOpusFrame`, and
-    /// resets transmit state. Idempotent — no-op when not transmitting.
+    /// last <20 ms of speech isn't dropped on the boundary), appends that
+    /// trailing frame and the empty-payload terminator to the returned
+    /// list, and resets transmit state. Idempotent — returns an empty
+    /// list when not transmitting.
     ///
-    /// Yields to `onOpusFrame` happen under the lock. That's safe because
-    /// the handler installed by `MumbleClient.startVoice` only does an
-    /// `AsyncStream.Continuation.yield(_:)` (non-blocking, O(1) enqueue).
-    /// Holding the lock across those yields is what defends the burst
-    /// boundary from a concurrent `handleCaptureBuffer` slipping a
-    /// new-burst frame between this drain's last frame and its
-    /// terminator.
-    private func drainBurstLocked() {
-        guard isTransmitting else { return }
+    /// Returns rather than yielding so callers (which may also have
+    /// complete-frame yields built up before calling this) can yield the
+    /// unified, in-order list outside the lock. Yielding under the lock
+    /// would re-order the terminator ahead of complete frames produced
+    /// earlier in the same callback — broken on the wire.
+    private func drainBurstLocked() -> [(Data, UInt64, Bool)] {
+        guard isTransmitting else { return [] }
+        var out: [(Data, UInt64, Bool)] = []
         let target = burstTarget
-        let handler = onOpusFrame
         let framesPerPacket = Int(MumbleAudioParameters.framesPerPacket)
 
         if !pendingSamples.isEmpty,
            let encoder,
-           let handler,
            let pcm = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
                                       frameCapacity: AVAudioFrameCount(framesPerPacket)) {
             pcm.frameLength = AVAudioFrameCount(framesPerPacket)
@@ -306,7 +310,7 @@ final class VoiceController: @unchecked Sendable {
                 if !opus.isEmpty {
                     let seq = sendSequence
                     sendSequence += MumbleAudioParameters.frameNumberStep
-                    handler(opus, seq, false, target)
+                    out.append((opus, seq, false))
                 }
             } catch {
                 Self.log.error("Opus encode (final pad) failed: \(error.localizedDescription, privacy: .public)")
@@ -316,11 +320,23 @@ final class VoiceController: @unchecked Sendable {
         let terminatorSeq = sendSequence
         Self.log.info("PTT transmit stop (frameNumber=\(terminatorSeq, privacy: .public) target=\(target, privacy: .public))")
         // Empty-payload terminator so the receiver finalizes playback.
-        handler?(Data(), terminatorSeq, true, target)
+        out.append((Data(), terminatorSeq, true))
 
         isTransmitting = false
         encoder = nil
         pendingSamples.removeAll()
+        return out
+    }
+
+    /// Caller must NOT hold the lock. `target` should be captured from
+    /// `burstTarget` while the lock was held (right before unlock).
+    private func yieldFrames(_ frames: [(Data, UInt64, Bool)],
+                             target: UInt32,
+                             handler: OpusFrameHandler?) {
+        guard let handler else { return }
+        for (opus, seq, isTerminator) in frames {
+            handler(opus, seq, isTerminator, target)
+        }
     }
 
     // MARK: - Receive
@@ -373,84 +389,211 @@ final class VoiceController: @unchecked Sendable {
 
     // MARK: - Capture tap
 
-    private func handleCaptureBuffer(_ buffer: AVAudioPCMBuffer) {
-        let converted: AVAudioPCMBuffer
-        if let inputConverter, let inputFormat {
-            // Scale output capacity by the sample-rate ratio — otherwise
-            // upsampling (e.g. 16 kHz Bluetooth mic → 48 kHz) truncates each
-            // tap callback and audio comes out broken/muffled on the wire.
-            let ratio = MumbleAudioParameters.sampleRate / inputFormat.sampleRate
-            let inFrames = max(Int(buffer.frameLength), 1)
-            let outCapacity = AVAudioFrameCount(Int((Double(inFrames) * ratio).rounded(.up)) + 32)
-            guard let out = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
-                                             frameCapacity: outCapacity) else { return }
-            // AVAudioConverter calls its input block synchronously, but Swift 6
-            // strict concurrency can't see that — capturing a mutable `var`
-            // here trips a Sendable diagnostic. Box the once-flag in a tiny
-            // reference type to keep the closure capture-list happy.
-            let once = ConvertOnce()
-            var err: NSError?
-            let status = inputConverter.convert(to: out, error: &err) { _, outStatus in
-                if once.done {
-                    outStatus.pointee = .noDataNow
-                    return nil
-                }
-                once.done = true
-                outStatus.pointee = .haveData
-                return buffer
-            }
-            if status == .error { return }
-            converted = out
-        } else {
-            converted = buffer
-        }
+    private func handleCaptureBuffer(_ buffer: AVAudioPCMBuffer, at time: AVAudioTime) {
+        // Snapshot wall-clock at the very top so the
+        // `!isHostTimeValid` fallback can compute against the actual
+        // tap-fire instant rather than whenever we get around to taking
+        // the lock.
+        let callbackStart = ContinuousClock.now
 
-        guard let channelData = converted.floatChannelData?[0] else { return }
-        let frameCount = Int(converted.frameLength)
+        guard let inputFormat else { return }
+        let inputFrameLength = Int(buffer.frameLength)
+        let bufferDurationSec = Double(inputFrameLength) / inputFormat.sampleRate
+
+        var framesToSend: [(Data, UInt64, Bool)] = []
+        var fallbackTaskToCancel: Task<Void, Never>?
+        var burstTargetSnapshot: UInt32 = 0
+        var handler: OpusFrameHandler?
 
         lock.lock()
-        guard isTransmitting, let encoder else {
+        defer {
             lock.unlock()
-            return
+            yieldFrames(framesToSend, target: burstTargetSnapshot, handler: handler)
+            fallbackTaskToCancel?.cancel()
         }
-        pendingSamples.reserveCapacity(pendingSamples.count + frameCount)
-        pendingSamples.append(contentsOf: UnsafeBufferPointer(start: channelData, count: frameCount))
+        guard isTransmitting, let encoder else { return }
 
-        let framesPerPacket = Int(MumbleAudioParameters.framesPerPacket)
-        let burstTargetSnapshot = burstTarget
-        var framesToSend: [(Data, UInt64)] = []
-        while pendingSamples.count >= framesPerPacket {
-            let slice = Array(pendingSamples.prefix(framesPerPacket))
-            pendingSamples.removeFirst(framesPerPacket)
+        let regime: CaptureCutoff.Decision
+        if let mark = cutoffMark {
+            if time.isHostTimeValid {
+                let bufferStartHost = time.hostTime
+                let bufferEndHost = bufferStartHost + AVAudioTime.hostTime(forSeconds: bufferDurationSec)
+                regime = CaptureCutoff.decide(
+                    bufferStartHost: bufferStartHost,
+                    bufferEndHost: bufferEndHost,
+                    cutoffHost: mark.hostTime,
+                    inputFrameLength: inputFrameLength
+                )
+            } else if let wall = cutoffWallClock {
+                regime = decideViaWallClock(
+                    callbackStart: callbackStart,
+                    bufferDurationSec: bufferDurationSec,
+                    cutoffWallClock: wall,
+                    inputFrameLength: inputFrameLength
+                )
+            } else {
+                // Defensive: cutoffMark set but cutoffWallClock missing —
+                // shouldn't happen, but treat as already-past-cutoff so
+                // we drain rather than spin.
+                regime = .afterCutoff
+            }
+        } else {
+            regime = .beforeCutoff
+        }
+
+        let inputSamplesToConsume: Int
+        let willFinalize: Bool
+        switch regime {
+        case .beforeCutoff:
+            inputSamplesToConsume = inputFrameLength
+            willFinalize = false
+        case .afterCutoff:
+            inputSamplesToConsume = 0
+            willFinalize = (cutoffMark != nil)
+        case .straddle(let n):
+            inputSamplesToConsume = n
+            willFinalize = true
+        }
+
+        if inputSamplesToConsume > 0, let channelData = buffer.floatChannelData?[0] {
+            // Slice the input first, then convert. Operating on the
+            // converted output would land the cutoff a few samples late
+            // because of `AVAudioConverter`'s linear-phase resampling
+            // group delay.
+            if let pcm = convertedBufferLocked(from: channelData,
+                                               inputSampleCount: inputSamplesToConsume),
+               let dst = pcm.floatChannelData?[0] {
+                let frameCount = Int(pcm.frameLength)
+                pendingSamples.reserveCapacity(pendingSamples.count + frameCount)
+                pendingSamples.append(contentsOf: UnsafeBufferPointer(start: dst, count: frameCount))
+            }
+
+            // Drain complete 20 ms frames out of `pendingSamples`.
+            let framesPerPacket = Int(MumbleAudioParameters.framesPerPacket)
+            while pendingSamples.count >= framesPerPacket {
+                let slice = Array(pendingSamples.prefix(framesPerPacket))
+                pendingSamples.removeFirst(framesPerPacket)
+                guard let pcm = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
+                                                 frameCapacity: AVAudioFrameCount(framesPerPacket)) else {
+                    continue
+                }
+                pcm.frameLength = AVAudioFrameCount(framesPerPacket)
+                if let dst = pcm.floatChannelData?[0] {
+                    slice.withUnsafeBufferPointer { src in
+                        dst.update(from: src.baseAddress!, count: framesPerPacket)
+                    }
+                }
+                do {
+                    let opus = try encoder.encode(pcm)
+                    let seq = sendSequence
+                    sendSequence += MumbleAudioParameters.frameNumberStep
+                    if !opus.isEmpty {
+                        framesToSend.append((opus, seq, false))
+                    }
+                } catch {
+                    Self.log.error("Opus encode failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+
+        if willFinalize {
+            cutoffMark = nil
+            cutoffWallClock = nil
+            fallbackTaskToCancel = cutoffFallbackTask
+            cutoffFallbackTask = nil
+            framesToSend += drainBurstLocked()
+        }
+
+        burstTargetSnapshot = burstTarget
+        handler = onOpusFrame
+    }
+
+    /// Caller MUST hold the lock. Builds an input-format temp buffer of
+    /// `n` frames (channel 0 only — matches the existing single-channel
+    /// assumption in the consume loop), runs it through the existing
+    /// converter (or pass-through if input already matches
+    /// `MumbleAudioParameters.pcmFormat`), and returns the converted
+    /// buffer. Returns nil if allocation fails.
+    private func convertedBufferLocked(from channelData: UnsafeMutablePointer<Float>,
+                                       inputSampleCount n: Int) -> AVAudioPCMBuffer? {
+        guard let inputFormat else { return nil }
+        let isPassThrough = inputConverter == nil
+            && inputFormat.sampleRate == MumbleAudioParameters.sampleRate
+            && inputFormat.channelCount == MumbleAudioParameters.channelCount
+        if isPassThrough {
             guard let pcm = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
-                                             frameCapacity: AVAudioFrameCount(framesPerPacket)) else {
-                continue
+                                             frameCapacity: AVAudioFrameCount(n)) else {
+                return nil
             }
-            pcm.frameLength = AVAudioFrameCount(framesPerPacket)
+            pcm.frameLength = AVAudioFrameCount(n)
             if let dst = pcm.floatChannelData?[0] {
-                slice.withUnsafeBufferPointer { src in
-                    dst.update(from: src.baseAddress!, count: framesPerPacket)
-                }
+                dst.update(from: channelData, count: n)
             }
-            do {
-                let opus = try encoder.encode(pcm)
-                let seq = sendSequence
-                sendSequence += MumbleAudioParameters.frameNumberStep
-                if !opus.isEmpty {
-                    framesToSend.append((opus, seq))
-                }
-            } catch {
-                Self.log.error("Opus encode failed: \(error.localizedDescription, privacy: .public)")
-            }
+            return pcm
         }
-        let handler = onOpusFrame
-        lock.unlock()
+        guard let converter = inputConverter,
+              let inBuf = AVAudioPCMBuffer(pcmFormat: inputFormat,
+                                           frameCapacity: AVAudioFrameCount(n)) else {
+            return nil
+        }
+        inBuf.frameLength = AVAudioFrameCount(n)
+        if let dst = inBuf.floatChannelData?[0] {
+            dst.update(from: channelData, count: n)
+        }
+        // Scale output capacity by the sample-rate ratio — otherwise
+        // upsampling (e.g. 16 kHz Bluetooth mic → 48 kHz) truncates each
+        // tap callback and audio comes out broken/muffled on the wire.
+        let ratio = MumbleAudioParameters.sampleRate / inputFormat.sampleRate
+        let outCapacity = AVAudioFrameCount(Int((Double(n) * ratio).rounded(.up)) + 32)
+        guard let out = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
+                                         frameCapacity: outCapacity) else {
+            return nil
+        }
+        // AVAudioConverter calls its input block synchronously, but Swift 6
+        // strict concurrency can't see that — capturing a mutable `var`
+        // here trips a Sendable diagnostic. Box the once-flag in a tiny
+        // reference type to keep the closure capture-list happy.
+        let once = ConvertOnce()
+        var err: NSError?
+        let status = converter.convert(to: out, error: &err) { _, outStatus in
+            if once.done {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            once.done = true
+            outStatus.pointee = .haveData
+            return inBuf
+        }
+        if status == .error { return nil }
+        return out
+    }
 
-        if let handler {
-            for (data, seq) in framesToSend {
-                handler(data, seq, false, burstTargetSnapshot)
-            }
-        }
+    /// Caller MUST hold the lock. Computes the cutoff regime when the
+    /// tap's `AVAudioTime.isHostTimeValid` is false (rare — AUv3, virtual
+    /// devices). Same fraction math as the host-time path, just over
+    /// `Duration` deltas. Approximates the buffer's wall-clock span as
+    /// ending at `callbackStart` (when the tap callback fired) and
+    /// starting `bufferDurationSec` earlier — the audio was captured
+    /// before delivery, so `callbackStart` is the latest possible time.
+    /// Less precise than host-time but no worse than the linger it
+    /// replaces, and only hit when `AVAudioTime` lies.
+    private func decideViaWallClock(callbackStart: ContinuousClock.Instant,
+                                    bufferDurationSec: Double,
+                                    cutoffWallClock: ContinuousClock.Instant,
+                                    inputFrameLength: Int) -> CaptureCutoff.Decision {
+        let bufferEnd = callbackStart
+        let bufferStart = callbackStart.advanced(by: .seconds(-bufferDurationSec))
+        if cutoffWallClock <= bufferStart { return .afterCutoff }
+        if cutoffWallClock >= bufferEnd { return .beforeCutoff }
+        let into = cutoffWallClock - bufferStart
+        let span = bufferEnd - bufferStart
+        let intoSec = Double(into.components.seconds) + Double(into.components.attoseconds) / 1e18
+        let spanSec = Double(span.components.seconds) + Double(span.components.attoseconds) / 1e18
+        guard spanSec > 0 else { return .afterCutoff }
+        let n = Int(((intoSec / spanSec) * Double(inputFrameLength)).rounded())
+        if n <= 0 { return .afterCutoff }
+        if n >= inputFrameLength { return .straddle(inputSamplesToTake: inputFrameLength) }
+        return .straddle(inputSamplesToTake: n)
     }
 }
 

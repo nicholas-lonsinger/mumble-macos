@@ -3,10 +3,9 @@ import Observation
 import OSLog
 
 /// Persists the user's "general" preferences — currently just the
-/// reconnect-on-launch toggle. Same on-disk shape as
-/// `AudioSettingsStore`: each setting is its own scalar in
-/// `UserDefaults`, so they're individually inspectable / clearable
-/// with the `defaults` CLI.
+/// reconnect-on-launch toggle. Each setting is its own scalar in
+/// `UserDefaults` (rather than bundled into one JSON blob), so they're
+/// individually inspectable / clearable with the `defaults` CLI.
 @MainActor
 @Observable
 final class GeneralSettingsStore {

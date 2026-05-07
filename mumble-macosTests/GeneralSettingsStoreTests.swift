@@ -1,11 +1,11 @@
 import XCTest
 @testable import mumble_macos
 
-/// Unit tests for `GeneralSettingsStore`. Mirrors `AudioSettingsStoreTests`:
-/// each test gets a unique `UserDefaults` suite, and the `onDisable`
-/// closure is stubbed so we never reach into the real keychain via
-/// `LastConnectedServerStore` (those suites are CI-skipped — see CLAUDE
-/// memory "CI skips keychain-coupled test suites").
+/// Unit tests for `GeneralSettingsStore`. Each test gets a unique
+/// `UserDefaults` suite, and the `onDisable` closure is stubbed so we
+/// never reach into the real keychain via `LastConnectedServerStore`
+/// (those suites are CI-skipped — see CLAUDE memory "CI skips
+/// keychain-coupled test suites").
 @MainActor
 final class GeneralSettingsStoreTests: XCTestCase {
 

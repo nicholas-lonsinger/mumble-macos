@@ -70,34 +70,6 @@ final class MumbleClient {
         let target: UInt32
     }
 
-    private var audioSettingsObserver: NSObjectProtocol?
-
-    init() {
-        // Push the user's release-linger preference into the voice
-        // controller before any audio flows, then track future changes
-        // so a tweak in the Preferences > Audio tab takes effect on the
-        // next PTT release without requiring a reconnect.
-        //
-        // The notification observer is held for the lifetime of the
-        // client. Swift 6 disallows reaching back into main-actor state
-        // from a nonisolated `deinit` to remove it, so we follow the
-        // same pattern as `ShortcutDispatcher` (no deinit cleanup):
-        // `MumbleClient` is app-scope and never released before
-        // termination, so the leak is bounded.
-        let initial = AudioSettingsStore.shared.releaseLingerMS
-        voice.setReleaseLingerMS(initial)
-        audioSettingsObserver = NotificationCenter.default.addObserver(
-            forName: AudioSettingsStore.didChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.voice.setReleaseLingerMS(AudioSettingsStore.shared.releaseLingerMS)
-            }
-        }
-    }
-
     func connect(to parameters: ServerConnectionParameters) async {
         // Implicit reset before a fresh attempt — but don't wipe the
         // saved last-connected record. Otherwise, if the new attempt
