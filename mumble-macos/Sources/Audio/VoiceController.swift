@@ -152,7 +152,12 @@ final class VoiceController: @unchecked Sendable {
         speakers.values.forEach { $0.player.stop() }
         speakers.removeAll()
         isTransmitting = false
-        pendingSamples.removeAll()
+        // Hold the underlying capacity across stop/start cycles so the
+        // next burst's first append doesn't have to grow the array — no
+        // allocation on the tap thread. (Same rationale on the
+        // `removeAll(keepingCapacity: true)` calls in `startTransmit`
+        // and `drainBurstLocked`.)
+        pendingSamples.removeAll(keepingCapacity: true)
         sendSequence = 0
         encoder = nil
         // Drop any pending cutoff so the fallback Task doesn't fire a
@@ -231,7 +236,7 @@ final class VoiceController: @unchecked Sendable {
             Self.log.error("Opus encoder init failed: \(error.localizedDescription, privacy: .public)")
             return
         }
-        pendingSamples.removeAll()
+        pendingSamples.removeAll(keepingCapacity: true)
         sendSequence = 0
         burstTarget = voiceTarget
         isTransmitting = true
@@ -354,7 +359,7 @@ final class VoiceController: @unchecked Sendable {
 
         isTransmitting = false
         encoder = nil
-        pendingSamples.removeAll()
+        pendingSamples.removeAll(keepingCapacity: true)
         return out
     }
 
@@ -508,28 +513,35 @@ final class VoiceController: @unchecked Sendable {
             // reusing the cached encode buffer to avoid a per-frame
             // alloc. Apple's tap-block guidance specifically calls out
             // "no allocations on the tap thread"; the pool addresses
-            // that.
+            // that. Encode all complete frames inside one
+            // `withUnsafeBufferPointer` block, then do a single
+            // `removeFirst` at the end — `removeFirst(k)` on `[Float]`
+            // is O(remaining), so a per-frame call would be O(N²) in
+            // the buffer size. One trailing call is O(N).
             let framesPerPacket = Int(MumbleAudioParameters.framesPerPacket)
-            if let encodeFrame = ensureEncodeFrameLocked() {
-                while pendingSamples.count >= framesPerPacket {
+            let framesToProcess = pendingSamples.count / framesPerPacket
+            if framesToProcess > 0, let encodeFrame = ensureEncodeFrameLocked() {
+                pendingSamples.withUnsafeBufferPointer { src in
+                    guard let base = src.baseAddress else { return }
                     encodeFrame.frameLength = AVAudioFrameCount(framesPerPacket)
-                    if let dst = encodeFrame.floatChannelData?[0] {
-                        pendingSamples.withUnsafeBufferPointer { src in
-                            dst.update(from: src.baseAddress!, count: framesPerPacket)
+                    for i in 0..<framesToProcess {
+                        let offset = i * framesPerPacket
+                        if let dst = encodeFrame.floatChannelData?[0] {
+                            dst.update(from: base + offset, count: framesPerPacket)
                         }
-                    }
-                    pendingSamples.removeFirst(framesPerPacket)
-                    do {
-                        let opus = try encoder.encode(encodeFrame)
-                        let seq = sendSequence
-                        sendSequence += MumbleAudioParameters.frameNumberStep
-                        if !opus.isEmpty {
-                            framesToSend.append((opus, seq, false))
+                        do {
+                            let opus = try encoder.encode(encodeFrame)
+                            let seq = sendSequence
+                            sendSequence += MumbleAudioParameters.frameNumberStep
+                            if !opus.isEmpty {
+                                framesToSend.append((opus, seq, false))
+                            }
+                        } catch {
+                            Self.log.error("Opus encode failed: \(error.localizedDescription, privacy: .public)")
                         }
-                    } catch {
-                        Self.log.error("Opus encode failed: \(error.localizedDescription, privacy: .public)")
                     }
                 }
+                pendingSamples.removeFirst(framesToProcess * framesPerPacket)
             }
         }
 
