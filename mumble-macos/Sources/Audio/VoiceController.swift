@@ -308,12 +308,12 @@ final class VoiceController: @unchecked Sendable {
     /// would re-order the terminator ahead of complete frames produced
     /// earlier in the same callback — broken on the wire.
     ///
-    /// Allocates a fresh PCM buffer for the pad frame. Don't share
-    /// `reuseEncodeFrame` here: the tap thread's drain loop has just
-    /// finished writing into it on the same callback, and overwriting
-    /// the contents to encode a different (padded) frame conflicts with
-    /// the still-in-flight encoded result. Drains are infrequent (one
-    /// per PTT release), so the per-call allocation is fine.
+    /// Reuses the same `reuseEncodeFrame` slot the per-frame drain loop
+    /// uses. `encoder.encode` is synchronous and returns a fresh `Data`,
+    /// so overwriting the buffer's contents after the call is safe even
+    /// when both paths run inside the same tap callback (handleCapture-
+    /// Buffer's loop, then drainBurstLocked here). All callers of this
+    /// helper hold `lock`, so the shared-slot access is serialized.
     private func drainBurstLocked() -> [(Data, UInt64, Bool)] {
         guard isTransmitting else { return [] }
         var out: [(Data, UInt64, Bool)] = []
@@ -322,8 +322,7 @@ final class VoiceController: @unchecked Sendable {
 
         if !pendingSamples.isEmpty,
            let encoder,
-           let pcm = AVAudioPCMBuffer(pcmFormat: MumbleAudioParameters.pcmFormat,
-                                      frameCapacity: AVAudioFrameCount(framesPerPacket)) {
+           let pcm = ensureEncodeFrameLocked() {
             pcm.frameLength = AVAudioFrameCount(framesPerPacket)
             if let dst = pcm.floatChannelData?[0] {
                 let copyCount = min(pendingSamples.count, framesPerPacket)
