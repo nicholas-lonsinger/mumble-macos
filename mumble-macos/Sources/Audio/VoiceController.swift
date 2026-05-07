@@ -542,7 +542,14 @@ final class VoiceController: @unchecked Sendable {
             let framesToProcess = pendingSamples.count / framesPerPacket
             if framesToProcess > 0, let encodeFrame = ensureEncodeFrameLocked() {
                 pendingSamples.withUnsafeBufferPointer { src in
-                    guard let base = src.baseAddress else { return }
+                    // `framesToProcess > 0` requires `pendingSamples.count > 0`,
+                    // so the contiguous-storage buffer pointer's `baseAddress`
+                    // is non-nil here. Force-unwrap rather than a `guard`-and-
+                    // return: if the precondition were ever violated, the
+                    // trailing `removeFirst` outside the closure would drop
+                    // samples we never encoded, which is worse than crashing
+                    // on the impossible case.
+                    let base = src.baseAddress!
                     encodeFrame.frameLength = AVAudioFrameCount(framesPerPacket)
                     for i in 0..<framesToProcess {
                         let offset = i * framesPerPacket
