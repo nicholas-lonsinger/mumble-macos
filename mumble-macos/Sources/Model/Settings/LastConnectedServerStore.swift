@@ -74,6 +74,12 @@ final class LastConnectedServerStore {
             try writePassword(password)
         } catch {
             Self.log.error("Failed to store last-connected password in keychain: \(error.localizedDescription, privacy: .public)")
+            // The defaults write above already succeeded, so without this
+            // we'd leak an orphaned record (no password to pair with).
+            // `peekRecord` and `load` both have to defend against this
+            // anyway — clearing here keeps the invariant tight at the
+            // write site instead.
+            clear()
         }
     }
 
@@ -107,7 +113,16 @@ final class LastConnectedServerStore {
             Self.log.error("Failed to read last-connected password: \(error.localizedDescription, privacy: .public)")
             return nil
         }
-        guard let password else { return nil }
+        guard let password else {
+            // Record present but the keychain item is gone (e.g. a
+            // user-driven Keychain Access cleanup, or a previous failed
+            // `save` that's now been observed). Clear the orphan so we
+            // don't keep returning nil from a stale record forever — and
+            // so `peekRecord` doesn't keep matching a record we know is
+            // unusable.
+            clear()
+            return nil
+        }
         return (record, password)
     }
 
