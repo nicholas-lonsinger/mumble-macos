@@ -77,6 +77,16 @@ final class LastConnectedServerStore {
         }
     }
 
+    /// Returns just the non-secret record half, without touching the
+    /// keychain. Use this for cheap "does the saved record match
+    /// `currentParameters`?" checks — e.g. clearing on `Reject`, where
+    /// we only need host/port/username to decide whether the rejection
+    /// applies to the saved target.
+    func peekRecord() -> Record? {
+        guard let data = defaults.data(forKey: recordKey) else { return nil }
+        return try? JSONDecoder().decode(Record.self, from: data)
+    }
+
     /// Returns the record + password if both are present, else `nil`.
     /// "Either piece missing" is treated as "no record" — partial state
     /// shouldn't trigger a half-baked auto-reconnect attempt.

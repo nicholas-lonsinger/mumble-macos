@@ -306,6 +306,15 @@ final class MumbleClient {
                 let msg = try RejectMessage(reader: &reader)
                 state = .failed(reason: msg.humanDescription)
                 lastError = msg.humanDescription
+                // Reject types (WrongUserPW, WrongServerPW, InvalidUsername,
+                // ServerFull, NoCertificate, AuthenticatorFail, …) won't
+                // self-heal across a relaunch. If the saved auto-reconnect
+                // record points at this same server+username, clear it so
+                // the user isn't stuck retrying the same dead credential
+                // on every launch. The host/port/username gate keeps a
+                // failed manual Quick Connect to a *different* server from
+                // wiping an unrelated valid record.
+                forgetLastConnectedIfMatchesCurrent()
                 await teardown()
             case .serverSync:
                 let msg = try ServerSyncMessage(reader: &reader)
@@ -642,6 +651,20 @@ final class MumbleClient {
         } catch {
             Self.log.error("Failed to send channel move: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Clears the saved auto-reconnect record if (and only if) it points
+    /// at the same host/port/username as the currently-failing connection.
+    /// Call from terminal-failure paths whose causes won't self-heal —
+    /// today, just `Reject`. We don't touch the password during the
+    /// match check, so a stale keychain read doesn't bias the decision.
+    private func forgetLastConnectedIfMatchesCurrent() {
+        guard let params = currentParameters,
+              let saved = LastConnectedServerStore.shared.peekRecord() else { return }
+        guard saved.host == params.host,
+              saved.port == params.port,
+              saved.username == params.username else { return }
+        LastConnectedServerStore.shared.clear()
     }
 
     /// Snapshots the in-flight `ServerConnectionParameters` into
