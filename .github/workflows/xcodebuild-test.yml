@@ -30,11 +30,8 @@ jobs:
           sudo xcode-select -s "$XCODE/Contents/Developer"
           xcodebuild -version
 
-      - name: Install xcbeautify
-        run: brew install xcbeautify
-
       - name: Cache SwiftPM and libopus build products
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             DerivedData/SourcePackages
