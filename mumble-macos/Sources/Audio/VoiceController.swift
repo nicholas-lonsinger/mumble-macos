@@ -94,6 +94,17 @@ final class VoiceController: @unchecked Sendable {
     private var reuseInputPrefix: AVAudioPCMBuffer?
     private var reuseConvertedOutput: AVAudioPCMBuffer?
     private var reuseEncodeFrame: AVAudioPCMBuffer?
+    /// Per-callback frame list used by `handleCaptureBuffer`. Held as a
+    /// property + reset with `keepingCapacity: true` so we don't
+    /// re-allocate a new `[(Data, UInt64, Bool)]` on every tap. The
+    /// `defer` block snapshots it before releasing the lock so a yielded
+    /// copy is safe from any subsequent mutation.
+    private var reuseFramesToSend: [(Data, UInt64, Bool)] = []
+    /// Reusable once-flag for `AVAudioConverter.convert`'s input
+    /// callback. Reset to `done = false` before each conversion.
+    /// Synchronized by `lock` (only accessed inside
+    /// `convertedBufferLocked`).
+    private let reuseConvertOnce = ConvertOnce()
 
     // Per-speaker playback state
     private var speakers: [UInt32: Speaker] = [:]
@@ -221,7 +232,7 @@ final class VoiceController: @unchecked Sendable {
             cutoffMark = nil
             cutoffWallClock = nil
             drainTarget = burstTarget
-            framesToYield = drainBurstLocked()
+            drainBurstLocked(into: &framesToYield)
         }
         taskToCancel = cutoffFallbackTask
         cutoffFallbackTask = nil
@@ -295,7 +306,7 @@ final class VoiceController: @unchecked Sendable {
         cutoffMark = nil
         cutoffWallClock = nil
         cutoffFallbackTask = nil
-        frames = drainBurstLocked()
+        drainBurstLocked(into: &frames)
         target = burstTarget
         handler = onOpusFrame
     }
@@ -303,15 +314,16 @@ final class VoiceController: @unchecked Sendable {
     /// Caller MUST hold the lock. Pads any partial trailing samples with
     /// silence to a full 20 ms frame and encodes one final packet (so the
     /// last <20 ms of speech isn't dropped on the boundary), appends that
-    /// trailing frame and the empty-payload terminator to the returned
-    /// list, and resets transmit state. Idempotent — returns an empty
-    /// list when not transmitting.
+    /// trailing frame and the empty-payload terminator to `out`, and
+    /// resets transmit state. Idempotent — appends nothing when not
+    /// transmitting.
     ///
-    /// Returns rather than yielding so callers (which may also have
-    /// complete-frame yields built up before calling this) can yield the
-    /// unified, in-order list outside the lock. Yielding under the lock
-    /// would re-order the terminator ahead of complete frames produced
-    /// earlier in the same callback — broken on the wire.
+    /// Takes `out` as `inout` rather than returning a fresh array so the
+    /// caller's reusable array (`reuseFramesToSend` in
+    /// `handleCaptureBuffer`, locals elsewhere) absorbs the appends
+    /// directly — avoids the per-call `[]` allocation an internal-array-
+    /// then-return pattern would incur, and keeps every yield path
+    /// emitting its frames in encoder order from a single buffer.
     ///
     /// Reuses the same `reuseEncodeFrame` slot the per-frame drain loop
     /// uses. `encoder.encode` is synchronous and returns a fresh `Data`,
@@ -319,9 +331,8 @@ final class VoiceController: @unchecked Sendable {
     /// when both paths run inside the same tap callback (handleCapture-
     /// Buffer's loop, then drainBurstLocked here). All callers of this
     /// helper hold `lock`, so the shared-slot access is serialized.
-    private func drainBurstLocked() -> [(Data, UInt64, Bool)] {
-        guard isTransmitting else { return [] }
-        var out: [(Data, UInt64, Bool)] = []
+    private func drainBurstLocked(into out: inout [(Data, UInt64, Bool)]) {
+        guard isTransmitting else { return }
         let target = burstTarget
         let framesPerPacket = Int(MumbleAudioParameters.framesPerPacket)
 
@@ -360,7 +371,6 @@ final class VoiceController: @unchecked Sendable {
         isTransmitting = false
         encoder = nil
         pendingSamples.removeAll(keepingCapacity: true)
-        return out
     }
 
     /// Caller must NOT hold the lock. `target` should be captured from
@@ -434,15 +444,25 @@ final class VoiceController: @unchecked Sendable {
         let inputFrameLength = Int(buffer.frameLength)
         let bufferDurationSec = Double(inputFrameLength) / inputFormat.sampleRate
 
-        var framesToSend: [(Data, UInt64, Bool)] = []
         var fallbackTaskToCancel: Task<Void, Never>?
         var burstTargetSnapshot: UInt32 = 0
         var handler: OpusFrameHandler?
 
         lock.lock()
+        // Reset the per-callback frame list while we still hold the lock
+        // — `reuseFramesToSend` is a property held across calls to skip
+        // the per-callback `[(...)]` allocation. Capacity persists.
+        reuseFramesToSend.removeAll(keepingCapacity: true)
         defer {
+            // Snapshot the property *before* unlocking. `[Float]`-style
+            // arrays use COW: a subsequent mutation on
+            // `self.reuseFramesToSend` triggers a new buffer for the
+            // mutator, leaving our captured `framesToYield` reference
+            // pointing at the original (now-stable) backing storage. So
+            // yielding outside the lock is safe.
+            let framesToYield = reuseFramesToSend
             lock.unlock()
-            yieldFrames(framesToSend, target: burstTargetSnapshot, handler: handler)
+            yieldFrames(framesToYield, target: burstTargetSnapshot, handler: handler)
             fallbackTaskToCancel?.cancel()
         }
         guard isTransmitting, let encoder else { return }
@@ -534,7 +554,7 @@ final class VoiceController: @unchecked Sendable {
                             let seq = sendSequence
                             sendSequence += MumbleAudioParameters.frameNumberStep
                             if !opus.isEmpty {
-                                framesToSend.append((opus, seq, false))
+                                reuseFramesToSend.append((opus, seq, false))
                             }
                         } catch {
                             Self.log.error("Opus encode failed: \(error.localizedDescription, privacy: .public)")
@@ -550,7 +570,7 @@ final class VoiceController: @unchecked Sendable {
             cutoffWallClock = nil
             fallbackTaskToCancel = cutoffFallbackTask
             cutoffFallbackTask = nil
-            framesToSend += drainBurstLocked()
+            drainBurstLocked(into: &reuseFramesToSend)
         }
 
         burstTargetSnapshot = burstTarget
@@ -596,11 +616,15 @@ final class VoiceController: @unchecked Sendable {
         guard let out = ensureConvertedOutputLocked(capacity: outCapacity) else {
             return nil
         }
-        // AVAudioConverter calls its input block synchronously, but Swift 6
-        // strict concurrency can't see that — capturing a mutable `var`
-        // here trips a Sendable diagnostic. Box the once-flag in a tiny
-        // reference type to keep the closure capture-list happy.
-        let once = ConvertOnce()
+        // AVAudioConverter calls its input block synchronously, but
+        // Swift 6 strict concurrency can't see that — capturing a
+        // mutable `var` here trips a Sendable diagnostic. The once-flag
+        // is a `private let reuseConvertOnce = ConvertOnce()` property
+        // (synchronized by `lock`, since this function is lock-held);
+        // we just reset its `done` flag instead of allocating a fresh
+        // ConvertOnce per callback.
+        reuseConvertOnce.done = false
+        let once = reuseConvertOnce
         var err: NSError?
         let status = converter.convert(to: out, error: &err) { _, outStatus in
             if once.done {
