@@ -43,13 +43,23 @@
 
 // ARM: NEON intrinsics. arm64 always has NEON; the runtime probe will
 // confirm this and pick the NEON-accelerated path on every Apple Silicon.
+// Gated on `__aarch64__` (and i386's 32-bit-arm sibling) so the x86_64
+// slice doesn't try to compile against ARM headers.
+#if defined(__aarch64__) || defined(__arm__)
 #define OPUS_ARM_MAY_HAVE_NEON_INTR 1
+#endif
 
-// x86 SSE/AVX feature toggles are gated on `__x86_64__` further down so
-// they only activate in the x86_64 slice — defining them unconditionally
-// makes pitch.h #include x86/pitch_sse.h on arm64 too, which declares
-// externs (XCORR_KERNEL_IMPL etc.) whose definitions live in
-// celt/x86/x86_celt_map.c — files we exclude on arm64.
+// x86: no SSE/AVX SIMD enabled. Each upstream `*_sse*.c` / `*_avx*.c` file
+// requires its own per-file compile flag (`-msse4.1`, `-mavx -mfma`, etc.)
+// because clang refuses to inline e.g. `_mm256_loadu_ps` into a function
+// not compiled with `avx`. Xcode's synchronized-group source layout
+// doesn't expose per-file compiler flags cleanly, and we don't need x86
+// SIMD for correctness — the x86_64 slice falls through to libopus's
+// reference C path, which is correct everywhere. RTCD remains active on
+// arm64 and inactive on x86_64. If/when we actually ship x86_64 and
+// performance becomes a concern, the migration path is to switch the x86
+// SIMD files to explicit PBXBuildFile refs with `COMPILER_FLAGS` set
+// per-file, and add the corresponding `OPUS_X86_MAY_HAVE_*` here.
 
 // Hardening / assertions off in release paths — opt in later if we want
 // extra validation during development.
