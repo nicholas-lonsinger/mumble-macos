@@ -9,7 +9,10 @@
 #ifndef OPUS_VENDORED_CONFIG_H
 #define OPUS_VENDORED_CONFIG_H
 
-#define PACKAGE_VERSION "1.5.2-mumble-macos"
+// Match upstream's release version verbatim; libopus exposes this through
+// its version-string API and any "-mumble-macos" suffix would be confusing
+// for upstream issue triage if it ever surfaces in logs.
+#define PACKAGE_VERSION "1.5.2"
 
 // Build as a library, not a consumer.
 #define OPUS_BUILD 1

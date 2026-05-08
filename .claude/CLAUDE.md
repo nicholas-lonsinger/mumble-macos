@@ -34,10 +34,6 @@ Things to know:
 
 Apple's `kAudioFormatOpus` expects Ogg-framed Opus. Mumble sends raw Opus frames inside `MumbleUDP.Audio.opus_data`. The AudioToolbox path fails with OSStatus 1650549857 ("bdwa") on real packets. libopus is vendored specifically to decode/encode the raw frames — don't "simplify" back to AudioToolbox.
 
-### Why not AudioToolbox
-
-Apple's `kAudioFormatOpus` expects Ogg-framed Opus. Mumble sends raw Opus frames inside `MumbleUDP.Audio.opus_data`. The AudioToolbox path fails with OSStatus 1650549857 ("bdwa") on real packets. libopus is vendored specifically to decode/encode the raw frames — don't "simplify" back to AudioToolbox.
-
 ## Mumble protocol notes (v1.5)
 
 - TCP control channel carries typed protobuf messages (`Mumble.proto`, types 0–26).
