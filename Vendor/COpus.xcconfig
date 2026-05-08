@@ -1,0 +1,77 @@
+// Build settings for the COpus static-library target (vendored libopus 1.5.2).
+//
+// Translated from Packages/COpus/Package.swift cSettings when libopus moved
+// from a local SwiftPM package to a native Xcode target.
+
+PRODUCT_NAME = COpus
+
+// Universal-binary capable: produces arm64 + x86_64 slices in Release.
+// ONLY_ACTIVE_ARCH lives on each XCBuildConfiguration (YES for Debug,
+// default NO for Release) so we don't override the per-config setting here.
+ARCHS = arm64 x86_64
+
+MACOSX_DEPLOYMENT_TARGET = 26.0
+SDKROOT = macosx
+SUPPORTED_PLATFORMS = macosx
+
+GCC_C_LANGUAGE_STANDARD = gnu17
+
+// libopus's #include "config.h" finds our handwritten replacement here.
+// The other entries replicate Package.swift cSettings.headerSearchPath().
+HEADER_SEARCH_PATHS = $(SRCROOT)/Vendor/opus-config $(SRCROOT)/Vendor/opus $(SRCROOT)/Vendor/opus/include $(SRCROOT)/Vendor/opus/celt $(SRCROOT)/Vendor/opus/silk $(SRCROOT)/Vendor/opus/silk/float $(SRCROOT)/Vendor/opus/src
+
+// Only HAVE_CONFIG_H lives here — it's the meta-flag that tells libopus's
+// source files to `#include "config.h"`. Every other libopus #define
+// (OPUS_BUILD, OPUS_HAVE_RTCD, NEON/SSE gating, HAVE_STDINT_H, …) lives
+// in Vendor/opus-config/config.h, where it belongs as upstream's autoconf
+// would have generated it.
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) HAVE_CONFIG_H=1
+
+// libopus is upstream third-party C; suppress its diagnostics so they don't
+// pollute the app's issue list. Matches Package.swift's .unsafeFlags(["-w"]).
+OTHER_CFLAGS = $(inherited) -w
+
+// We're a static library; don't try to codesign or strip the .a.
+SKIP_INSTALL = YES
+CODE_SIGNING_ALLOWED = NO
+DEAD_CODE_STRIPPING = YES
+EXECUTABLE_PREFIX = lib
+
+// All warnings off (libopus uses many idioms current clang flags as warnings).
+GCC_WARN_64_TO_32_BIT_CONVERSION = NO
+CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO
+
+// Disable Clang modules for the libopus compilation. Modules-on causes clang
+// to scan the system Intel intrinsics modulemap when it parses kiss_fft.h /
+// float_cast.h (which `#include <xmmintrin.h>` under `__SSE__`), and the
+// _Builtin_intrinsics.intel.sse module's `requires feature "x86"` clause then
+// errors on arm64 hosts — even though the include itself is gated and never
+// fires. Plain preprocessing (no modules) respects the #if guard correctly.
+//
+// The Swift `import COpus` path is unaffected: consumers still pick up the
+// hand-written module.modulemap via SWIFT_INCLUDE_PATHS on the app target.
+CLANG_ENABLE_MODULES = NO
+
+// File exclusions. Xcode 16's PBXFileSystemSynchronizedBuildFileExceptionSet
+// `membershipExceptions` only matches individual files (not directory
+// paths), so directory-wide exclusions live here as fnmatch patterns.
+// Two buckets:
+//
+//   1. Universal — never compiled on any slice. DNN/DRED features we don't
+//      use, MIPS SIMD we don't target, tests/demos, fixed-point SILK (we
+//      use float), all x86 SIMD .c files (see config.h for why x86 is
+//      scalar-only), and upstream build-system droppings.
+//
+//   2. x86_64-only — the ARM NEON intrinsics and ARM RTCD glue compile
+//      cleanly only on arm64; on x86_64 they error at intrinsic headers.
+//
+// fnmatch's `*` doesn't cross `/`, so each directory depth needs its own
+// pattern. The deepest .c-bearing path in upstream 1.5.2 is
+// dnn/torch/rdovae/packets/*.c (4 levels) — when bumping libopus, recheck
+// each excluded subtree's max depth and extend the pattern set if upstream
+// added a deeper directory.
+
+EXCLUDED_SOURCE_FILE_NAMES = $(inherited) */celt/x86/* */silk/x86/* */silk/float/x86/* */dnn/* */dnn/*/* */dnn/*/*/* */dnn/*/*/*/* */silk/fixed/* */silk/fixed/*/* */celt/mips/* */silk/mips/* */celt/tests/* */silk/tests/* */tests/* */celt/dump_modes/* */doc/* */training/* */cmake/* */scripts/* */m4/* */meson/* */.github/*
+
+EXCLUDED_SOURCE_FILE_NAMES[arch=x86_64] = $(inherited) */celt/arm/* */silk/arm/*
+

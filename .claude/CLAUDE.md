@@ -1,31 +1,34 @@
 # mumble-macos
 
-Native macOS Mumble VoIP client in Swift/AppKit/SwiftUI. Apple frameworks only, with one third-party exception (libopus, isolated in a local SwiftPM package — see "Third-party isolation" below). No remote package managers, no dynamic deps.
+Native macOS Mumble VoIP client in Swift/AppKit/SwiftUI. Apple frameworks only, with one third-party exception (libopus, isolated in a native Xcode static-library target — see "Third-party isolation" below). No package managers, no dynamic deps.
 
 ## Build model
 
 - Xcode project uses `PBXFileSystemSynchronizedRootGroup` for `mumble-macos/`. Dropping a file under that directory adds it to the build automatically — no pbxproj edit needed.
 - Swift ↔ C interop goes through `mumble-macos/mumble-macos-Bridging-Header.h` (set via `SWIFT_OBJC_BRIDGING_HEADER`). Today this header only exposes our own shim (`OpusBridge.h`); raw libopus symbols come from `import COpus`.
-- `ARCHS = arm64` only. Do not re-enable x86_64 / universal. libopus's `kiss_fft.h` and `float_cast.h` `#include <xmmintrin.h>` under `__SSE__`; clang loads the `_Builtin_intrinsics.intel` module at parse time even when the SSE code path isn't taken, which fails on non-x86 hosts.
+- Release is a universal binary (`arm64 + x86_64`); Debug is arm64-only on the host via `ONLY_ACTIVE_ARCH = YES`. The x86_64 slice exists for future shipping/Rosetta — it is built, but never live-tested. See "Third-party isolation" for the SIMD trade-offs.
+- Builds run via the `Makefile` (`make build` / `make release` / `make test` / `make clean`), which wraps `xcodebuild` with `-derivedDataPath ./DerivedData` so artifacts stay inside the repo. Avoid raw `xcodebuild` — it writes to `~/Library/Developer/Xcode/DerivedData/`.
 
-## Third-party isolation: libopus 1.5.2 (BSD) as local SwiftPM package
+## Third-party isolation: libopus 1.5.2 (BSD) as native Xcode static-library target
 
-libopus lives in a **local** SwiftPM package at `Packages/COpus/` (referenced via `XCLocalSwiftPackageReference` — no remote URL, no resolver state). All build flags, header search paths, and `-w` warning suppression for upstream libopus are scoped to that package's `Package.swift`. The app target depends on the `COpus` product; Swift code that touches raw libopus types/constants does `import COpus`.
+libopus lives in a native `COpus` static-library target inside `mumble-macos.xcodeproj`. Sources live at `Vendor/opus/` (verbatim upstream); the handwritten `config.h` and the `module.modulemap` for Swift `import COpus` live at `Vendor/opus-config/`; every build setting (header paths, exclusions, defines, the `-w` warning suppression) lives in `Vendor/COpus.xcconfig`. The app target has a target dependency on `COpus` and links `libCOpus.a`; Swift code that touches raw libopus types/constants does `import COpus`.
 
-`Packages/COpus/Sources/COpus/` mirrors the upstream xiph/opus 1.5.2 release tree 1:1 (extracted from the v1.5.2 GitHub tag tarball). The one file we override is `config.h` — handwritten, in lieu of upstream's autoconf-generated header. Everything we don't compile (demos, tests, x86/MIPS SIMD, fixed-point SILK, DNN/DRED, build-system files, docs) is listed in `Package.swift`'s `exclude:` array with a one-line WHY for each section. The rest is present so the layout is recognizably "the libopus 1.5.2 release."
+`Vendor/opus/` mirrors the upstream xiph/opus 1.5.2 release tree byte-for-byte, with no carve-out files (extracted from the v1.5.2 GitHub tag tarball). The handwritten `config.h` lives in `Vendor/opus-config/` next door, on the COpus target's `HEADER_SEARCH_PATHS` so libopus's `#include "config.h"` finds it. Everything we don't compile (demos, tests, x86/MIPS SIMD, fixed-point SILK, DNN/DRED, build-system files, docs) is excluded via `EXCLUDED_SOURCE_FILE_NAMES` in `Vendor/COpus.xcconfig`. The rest is present so the layout is recognizably "the libopus 1.5.2 release."
 
-The Swift ↔ C **shim** (`mumble-macos/ThirdParty/opus-bridge/OpusBridge.{c,h}`) deliberately stays in the app target, not in the package. That keeps the our-code/their-code boundary visible: anything under `Packages/COpus/Sources/COpus/` is upstream (modulo `config.h`); anything under `mumble-macos/` is ours.
+The Swift ↔ C **shim** (`mumble-macos/ThirdParty/opus-bridge/OpusBridge.{c,h}`) deliberately stays in the app target, not the COpus target. That keeps the our-code/their-code boundary visible: anything under `Vendor/opus/` is upstream; anything under `Vendor/opus-config/` or `mumble-macos/` is ours.
 
 Things to know:
 
-- ARM NEON SIMD is **enabled** for arm64 via `OPUS_ARM_MAY_HAVE_NEON_INTR` + `OPUS_ARM_PRESUME_NEON_INTR` in `config.h`. Six intrinsic .c files compile in (`celt_neon_intr`, `pitch_neon_intr`, `biquad_alt_neon_intr`, `LPC_inv_pred_gain_neon_intr`, `NSQ_del_dec_neon_intr`, `NSQ_neon`); the run-time CPU-detect (RTCD) layer (`armcpu.c`, `*_map.c`) is excluded because every arm64 chip has NEON, so we can statically pick the SIMD path. `dnn/arm/` stays excluded along with the rest of `dnn/`. The GNU-asm `.s` file and the NE10-dependent files in `celt/arm/` are likewise excluded — see the per-file list in `Package.swift`.
+- **arm64 slice — RTCD with NEON.** `OPUS_HAVE_RTCD` + `OPUS_ARM_MAY_HAVE_NEON_INTR` in `config.h`. libopus probes the CPU at startup (`armcpu.c`) and dispatches SIMD-accelerated functions via tables in the `*_map.c` files. One function-pointer indirection per call, vs. the previous static-NEON dispatch — but it's the upstream-supported multi-arch model, and on arm64 the probe always picks NEON. Six NEON intrinsic `.c` files compile in (`celt_neon_intr`, `pitch_neon_intr`, `biquad_alt_neon_intr`, `LPC_inv_pred_gain_neon_intr`, `NSQ_del_dec_neon_intr`, `NSQ_neon`). The GNU-asm `.s` file and the NE10-dependent files in `celt/arm/` are excluded.
+- **x86_64 slice — scalar only.** No SSE/AVX SIMD enabled. Each upstream `*_sse*.c` / `*_avx*.c` file requires its own per-file `-msse4.1`/`-mavx -mfma` flags (clang refuses to inline `_mm256_loadu_ps` into a function not built with `-mavx`), and Xcode's synchronized-group source layout doesn't expose per-file `COMPILER_FLAGS` cleanly. The slice falls through to libopus's reference C path, which is correct everywhere. Migration path if x86_64 ever ships and perf matters: switch the x86 SIMD files to explicit `PBXBuildFile` refs with `COMPILER_FLAGS` set per-file, then enable the corresponding `OPUS_X86_MAY_HAVE_*` macros in `config.h`.
+- **Modules off on the COpus target** (`CLANG_ENABLE_MODULES = NO` in `Vendor/COpus.xcconfig`). With modules on, clang preloads the system Intel intrinsics modulemap while parsing `kiss_fft.h` / `float_cast.h` (which `#include <xmmintrin.h>` under `__SSE__`), and `_Builtin_intrinsics.intel.sse`'s `requires feature "x86"` errors on arm64 — even though the include itself is gated and never fires. Plain preprocessing respects the `#if` guard. Swift `import COpus` is unaffected; consumer-side modulemap discovery happens via `SWIFT_INCLUDE_PATHS` on the app target.
 - Variadic `opus_encoder_ctl` / `opus_decoder_ctl` are unavailable from Swift. Reach them via `OpusBridge`, which wraps each CTL we use as a typed function.
 - `import COpus` exposes nullable C pointers as Swift optionals (`UnsafeMutablePointer<UInt8>?`), not implicitly-unwrapped optionals as the bridging header path used to. Force-unwrap or guard at the call site.
-- Updating libopus: drop a new release tarball over `Sources/COpus/` (preserving our `config.h`), then revisit `Package.swift`'s `exclude:` list — upstream sometimes adds new SIMD subdirs or build-system files that need new exclusions. `swift build --package-path Packages/COpus` validates the package in isolation before touching Xcode.
-
-### Why not AudioToolbox
-
-Apple's `kAudioFormatOpus` expects Ogg-framed Opus. Mumble sends raw Opus frames inside `MumbleUDP.Audio.opus_data`. The AudioToolbox path fails with OSStatus 1650549857 ("bdwa") on real packets. libopus is vendored specifically to decode/encode the raw frames — don't "simplify" back to AudioToolbox.
+- **Updating libopus.** Drop a new release tarball into `Vendor/opus/` (overwriting; preserve `Vendor/opus-config/config.h`), then re-audit:
+  1. The `EXCLUDED_SOURCE_FILE_NAMES` patterns in `Vendor/COpus.xcconfig` — fnmatch's `*` doesn't cross `/`, so each excluded subtree's max depth needs its own pattern. The deepest `.c`-bearing path in 1.5.2 is `dnn/torch/rdovae/packets/*.c` (4 levels). If upstream adds a deeper `.c` under any excluded subtree, extend the pattern set.
+  2. `config.h` for any new feature flags (1.5 added DNN/DRED; 1.6 added BWE / 96 kHz / 24-bit API — all require explicit opt-in).
+  3. `OpusBridge.{c,h}` if any `opus_*_ctl` calls we use grew new variants.
+  4. Run `make build` and `make release`; both should stay green. `lipo -info` on the Release `mumble-macos` binary should still report `arm64 x86_64`.
 
 ### Why not AudioToolbox
 

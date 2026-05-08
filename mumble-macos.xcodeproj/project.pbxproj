@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1A100000000000000000001E /* COpus in Frameworks */ = {isa = PBXBuildFile; productRef = 1A100000000000000000001D /* COpus */; };
+		1A100000000000000000001E /* libCOpus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A100000000000000000002C /* libCOpus.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -18,11 +18,22 @@
 			remoteGlobalIDString = 1A1000000000000000000005;
 			remoteInfo = "mumble-macos";
 		};
+		1A100000000000000000002E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A1000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A100000000000000000001F;
+			remoteInfo = COpus;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		1A1000000000000000000004 /* mumble-macos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "mumble-macos.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A1000000000000000000018 /* mumble-macosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mumble-macosTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A1000000000000000000029 /* config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
+		1A100000000000000000002A /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
+		1A100000000000000000002B /* COpus.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = COpus.xcconfig; sourceTree = "<group>"; };
+		1A100000000000000000002C /* libCOpus.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCOpus.a; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -33,11 +44,25 @@
 			);
 			target = 1A1000000000000000000005 /* mumble-macos */;
 		};
+		1A1000000000000000000026 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				celt/arm/celt_fft_ne10.c,
+				celt/arm/celt_mdct_ne10.c,
+				celt/arm/celt_pitch_xcorr_arm.s,
+				celt/opus_custom_demo.c,
+				src/opus_compare.c,
+				src/opus_demo.c,
+				src/repacketizer_demo.c,
+			);
+			target = 1A100000000000000000001F /* COpus */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1A100000000000000000000F /* mumble-macos */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (1A100000000000000000001B /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = "mumble-macos"; sourceTree = "<group>"; };
 		1A1000000000000000000010 /* mumble-macosTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "mumble-macosTests"; sourceTree = "<group>"; };
+		1A1000000000000000000025 /* opus */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (1A1000000000000000000026 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = opus; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,11 +70,18 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1A100000000000000000001E /* COpus in Frameworks */,
+				1A100000000000000000001E /* libCOpus.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1A1000000000000000000013 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A1000000000000000000021 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -64,6 +96,7 @@
 			children = (
 				1A100000000000000000000F /* mumble-macos */,
 				1A1000000000000000000010 /* mumble-macosTests */,
+				1A1000000000000000000027 /* Vendor */,
 				1A1000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -73,8 +106,28 @@
 			children = (
 				1A1000000000000000000004 /* mumble-macos.app */,
 				1A1000000000000000000018 /* mumble-macosTests.xctest */,
+				1A100000000000000000002C /* libCOpus.a */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		1A1000000000000000000027 /* Vendor */ = {
+			isa = PBXGroup;
+			children = (
+				1A100000000000000000002B /* COpus.xcconfig */,
+				1A1000000000000000000028 /* opus-config */,
+				1A1000000000000000000025 /* opus */,
+			);
+			path = Vendor;
+			sourceTree = "<group>";
+		};
+		1A1000000000000000000028 /* opus-config */ = {
+			isa = PBXGroup;
+			children = (
+				1A1000000000000000000029 /* config.h */,
+				1A100000000000000000002A /* module.modulemap */,
+			);
+			path = "opus-config";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -91,14 +144,12 @@
 			buildRules = (
 			);
 			dependencies = (
+				1A100000000000000000002D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				1A100000000000000000000F /* mumble-macos */,
 			);
 			name = "mumble-macos";
-			packageProductDependencies = (
-				1A100000000000000000001D /* COpus */,
-			);
 			productName = "mumble-macos";
 			productReference = 1A1000000000000000000004 /* mumble-macos.app */;
 			productType = "com.apple.product-type.application";
@@ -120,11 +171,28 @@
 				1A1000000000000000000010 /* mumble-macosTests */,
 			);
 			name = "mumble-macosTests";
-			packageProductDependencies = (
-			);
 			productName = "mumble-macosTests";
 			productReference = 1A1000000000000000000018 /* mumble-macosTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		1A100000000000000000001F /* COpus */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A1000000000000000000022 /* Build configuration list for PBXNativeTarget "COpus" */;
+			buildPhases = (
+				1A1000000000000000000020 /* Sources */,
+				1A1000000000000000000021 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				1A1000000000000000000025 /* opus */,
+			);
+			name = COpus;
+			productName = COpus;
+			productReference = 1A100000000000000000002C /* libCOpus.a */;
+			productType = "com.apple.product-type.library.static";
 		};
 /* End PBXNativeTarget section */
 
@@ -143,6 +211,9 @@
 						CreatedOnToolsVersion = 26.4;
 						TestTargetID = 1A1000000000000000000005;
 					};
+					1A100000000000000000001F = {
+						CreatedOnToolsVersion = 26.4;
+					};
 				};
 			};
 			buildConfigurationList = 1A1000000000000000000009 /* Build configuration list for PBXProject "mumble-macos" */;
@@ -155,13 +226,11 @@
 			);
 			mainGroup = 1A1000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				1A100000000000000000001C /* XCLocalSwiftPackageReference "Packages/COpus" */,
-			);
 			productRefGroup = 1A1000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				1A100000000000000000001F /* COpus */,
 				1A1000000000000000000005 /* mumble-macos */,
 				1A1000000000000000000011 /* mumble-macosTests */,
 			);
@@ -200,6 +269,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1A1000000000000000000020 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -208,6 +284,11 @@
 			target = 1A1000000000000000000005 /* mumble-macos */;
 			targetProxy = 1A100000000000000000001A /* PBXContainerItemProxy */;
 		};
+		1A100000000000000000002D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A100000000000000000001F /* COpus */;
+			targetProxy = 1A100000000000000000002E /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -215,7 +296,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = arm64;
+				ARCHS = (
+					arm64,
+					x86_64,
+				);
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -265,7 +349,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/mumble-macos/ThirdParty/opus-bridge";
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus-bridge",
+					"$(SRCROOT)/Vendor/opus/include",
+				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -273,6 +360,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/opus-config";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
@@ -283,7 +371,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = arm64;
+				ARCHS = (
+					arm64,
+					x86_64,
+				);
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -328,13 +419,17 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/mumble-macos/ThirdParty/opus-bridge";
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/mumble-macos/ThirdParty/opus-bridge",
+					"$(SRCROOT)/Vendor/opus/include",
+				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/opus-config";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 			};
@@ -412,7 +507,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = arm64;
+				ARCHS = (
+					arm64,
+					x86_64,
+				);
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -448,7 +546,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = arm64;
+				ARCHS = (
+					arm64,
+					x86_64,
+				);
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -469,6 +570,25 @@
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/mumble-macos.app/Contents/MacOS/mumble-macos";
+			};
+			name = Release;
+		};
+		1A1000000000000000000023 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1A100000000000000000002B /* COpus.xcconfig */;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = YES;
+			};
+			name = Debug;
+		};
+		1A1000000000000000000024 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1A100000000000000000002B /* COpus.xcconfig */;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_OPTIMIZATION_LEVEL = s;
 			};
 			name = Release;
 		};
@@ -502,21 +622,16 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		1A1000000000000000000022 /* Build configuration list for PBXNativeTarget "COpus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A1000000000000000000023 /* Debug */,
+				1A1000000000000000000024 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		1A100000000000000000001C /* XCLocalSwiftPackageReference "Packages/COpus" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/COpus;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		1A100000000000000000001D /* COpus */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = COpus;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1A1000000000000000000001 /* Project object */;
 }
