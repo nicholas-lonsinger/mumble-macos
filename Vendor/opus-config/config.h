@@ -1,8 +1,9 @@
 // Minimal config.h for vendored libopus 1.5.2 on Apple platforms.
 // Derived from upstream config.h.in — only the knobs that actually affect
-// the portable-C build on macOS are set. x86 and MIPS SIMD aren't
-// vendored; ARM NEON SIMD is wired in below for arm64 (every arm64 chip
-// has NEON, so we PRESUME it and skip the runtime-CPU-detection layer).
+// the portable-C build on macOS are set. MIPS SIMD isn't vendored; ARM
+// NEON and x86 SSE/AVX SIMD are wired below via libopus's runtime-CPU-
+// detection (RTCD) layer so a single config can drive both arm64 and
+// (future) x86_64 slices.
 
 #ifndef OPUS_VENDORED_CONFIG_H
 #define OPUS_VENDORED_CONFIG_H
@@ -29,16 +30,26 @@
 // desktop anyway.
 #define FLOAT_APPROX 1
 
-// === ARM NEON ===
-// `MAY_HAVE` advertises that the compiler accepts NEON intrinsics;
-// `PRESUME` tells the source the binary can call them unconditionally.
-// Together they take the static `OPUS_ARM_PRESUME_NEON_INTR` branches
-// in celt/arm/*_arm.h and silk/arm/*_arm.h, which hard-wire calls to
-// the `_neon` symbols and dead-code the function-pointer dispatch
-// table. Without `OPUS_HAVE_RTCD` defined, `armcpu.c` and `*_map.c`
-// compile to nothing and stay excluded from the package.
+// === Runtime CPU detection (RTCD) ===
+// libopus probes the CPU at startup (armcpu.c on ARM, x86cpu.c on x86)
+// and dispatches SIMD-accelerated functions through tables populated by
+// the `*_map.c` files. Compared to the previous static dispatch via
+// `OPUS_ARM_PRESUME_NEON_INTR`, RTCD adds one function-pointer indirection
+// per call but lets a single binary serve both arm64 (always-NEON) and
+// x86_64 (where SSE/AVX support varies). The `MAY_HAVE` macros say which
+// instruction sets the compiler can emit; without a matching `PRESUME`,
+// the runtime probe gets the final say.
+#define OPUS_HAVE_RTCD 1
+
+// ARM: NEON intrinsics. arm64 always has NEON; the runtime probe will
+// confirm this and pick the NEON-accelerated path on every Apple Silicon.
 #define OPUS_ARM_MAY_HAVE_NEON_INTR 1
-#define OPUS_ARM_PRESUME_NEON_INTR 1
+
+// x86 SSE/AVX feature toggles are gated on `__x86_64__` further down so
+// they only activate in the x86_64 slice — defining them unconditionally
+// makes pitch.h #include x86/pitch_sse.h on arm64 too, which declares
+// externs (XCORR_KERNEL_IMPL etc.) whose definitions live in
+// celt/x86/x86_celt_map.c — files we exclude on arm64.
 
 // Hardening / assertions off in release paths — opt in later if we want
 // extra validation during development.
