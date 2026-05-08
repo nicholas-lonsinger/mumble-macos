@@ -47,69 +47,13 @@
 		1A1000000000000000000026 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"celt/x86",
-				"silk/x86",
-				"silk/float/x86",
-				"dnn/x86",
-				"celt/arm/celt_fft_ne10.c",
-				"celt/arm/celt_mdct_ne10.c",
-				"celt/arm/celt_pitch_xcorr_arm.s",
-				"celt/arm/armopts.s.in",
-				"celt/arm/arm2gnu.pl",
-				"celt/arm/meson.build",
-				"celt/mips",
-				"silk/mips",
-				"silk/fixed",
-				"celt/opus_custom_demo.c",
-				"celt/dump_modes",
-				"src/opus_demo.c",
-				"src/opus_compare.c",
-				"src/repacketizer_demo.c",
-				"celt/tests",
-				"silk/tests",
-				"tests",
-				"dnn",
-				"doc",
-				"training",
-				"cmake",
-				"scripts",
-				"m4",
-				"meson",
-				".github",
-				".gitlab-ci.yml",
-				".gitmodules",
-				"AUTHORS",
-				"ChangeLog",
-				"NEWS",
-				"README",
-				"README.draft",
-				"LICENSE_PLEASE_READ.txt",
-				"COPYING",
-				"configure.ac",
-				"Makefile.am",
-				"Makefile.unix",
-				"Makefile.mips",
-				"CMakeLists.txt",
-				"meson.build",
-				"meson_options.txt",
-				"autogen.sh",
-				"autogen.bat",
-				"opus.m4",
-				"opus.pc.in",
-				"opus-uninstalled.pc.in",
-				"releases.sha2",
-				"celt_headers.mk",
-				"celt_sources.mk",
-				"lpcnet_headers.mk",
-				"lpcnet_sources.mk",
-				"opus_headers.mk",
-				"opus_sources.mk",
-				"silk_headers.mk",
-				"silk_sources.mk",
-				"celt/meson.build",
-				"silk/meson.build",
-				"src/meson.build",
-				"include/meson.build",
+				celt/arm/celt_fft_ne10.c,
+				celt/arm/celt_mdct_ne10.c,
+				celt/arm/celt_pitch_xcorr_arm.s,
+				celt/opus_custom_demo.c,
+				src/opus_compare.c,
+				src/opus_demo.c,
+				src/repacketizer_demo.c,
 			);
 			target = 1A100000000000000000001F /* COpus */;
 		};
@@ -358,7 +302,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "arm64 x86_64";
+				ARCHS = (
+					arm64,
+					x86_64,
+				);
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -430,7 +377,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "arm64 x86_64";
+				ARCHS = (
+					arm64,
+					x86_64,
+				);
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -563,7 +513,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "arm64 x86_64";
+				ARCHS = (
+					arm64,
+					x86_64,
+				);
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -599,7 +552,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "arm64 x86_64";
+				ARCHS = (
+					arm64,
+					x86_64,
+				);
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;

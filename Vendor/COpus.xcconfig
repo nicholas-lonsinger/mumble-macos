@@ -20,7 +20,12 @@ GCC_C_LANGUAGE_STANDARD = gnu17
 // The other entries replicate Package.swift cSettings.headerSearchPath().
 HEADER_SEARCH_PATHS = $(SRCROOT)/Vendor/opus-config $(SRCROOT)/Vendor/opus $(SRCROOT)/Vendor/opus/include $(SRCROOT)/Vendor/opus/celt $(SRCROOT)/Vendor/opus/silk $(SRCROOT)/Vendor/opus/silk/float $(SRCROOT)/Vendor/opus/src
 
-GCC_PREPROCESSOR_DEFINITIONS = $(inherited) OPUS_BUILD=1 HAVE_CONFIG_H=1
+// Only HAVE_CONFIG_H lives here — it's the meta-flag that tells libopus's
+// source files to `#include "config.h"`. Every other libopus #define
+// (OPUS_BUILD, OPUS_HAVE_RTCD, NEON/SSE gating, HAVE_STDINT_H, …) lives
+// in Vendor/opus-config/config.h, where it belongs as upstream's autoconf
+// would have generated it.
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) HAVE_CONFIG_H=1
 
 // libopus is upstream third-party C; suppress its diagnostics so they don't
 // pollute the app's issue list. Matches Package.swift's .unsafeFlags(["-w"]).
