@@ -1,9 +1,10 @@
 // Minimal config.h for vendored libopus 1.5.2 on Apple platforms.
 // Derived from upstream config.h.in — only the knobs that actually affect
-// the portable-C build on macOS are set. MIPS SIMD isn't vendored; ARM
-// NEON and x86 SSE/AVX SIMD are wired below via libopus's runtime-CPU-
-// detection (RTCD) layer so a single config can drive both arm64 and
-// (future) x86_64 slices.
+// the portable-C build on macOS are set. ARM NEON SIMD is wired below via
+// libopus's runtime-CPU-detection (RTCD) layer for the arm64 slice; x86
+// SIMD and MIPS SIMD are intentionally not enabled (see x86 section
+// further down for the per-file `-msse4.1`/`-mavx -mfma` issue, and
+// CLAUDE.md for the no-MIPS stance).
 
 #ifndef OPUS_VENDORED_CONFIG_H
 #define OPUS_VENDORED_CONFIG_H

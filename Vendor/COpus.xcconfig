@@ -52,24 +52,24 @@ CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO
 // hand-written module.modulemap via SWIFT_INCLUDE_PATHS on the app target.
 CLANG_ENABLE_MODULES = NO
 
-// File exclusions. PBXFileSystemSynchronizedBuildFileExceptionSet's
-// `membershipExceptions` only matches individual files in Xcode 16, not
-// directory paths, so directory-wide exclusions live here as fnmatch
-// patterns instead. Mirrors the rationale in Packages/COpus/Package.swift's
-// (now removed) `exclude:` array — see that history for per-section notes.
-// File exclusions in two buckets:
+// File exclusions. Xcode 16's PBXFileSystemSynchronizedBuildFileExceptionSet
+// `membershipExceptions` only matches individual files (not directory
+// paths), so directory-wide exclusions live here as fnmatch patterns.
+// Two buckets:
 //
 //   1. Universal — never compiled on any slice. DNN/DRED features we don't
 //      use, MIPS SIMD we don't target, tests/demos, fixed-point SILK (we
 //      use float), all x86 SIMD .c files (see config.h for why x86 is
-//      scalar-only), and upstream build-system droppings. fnmatch's `*`
-//      doesn't cross `/`, so each directory depth needs its own pattern;
-//      dnn/torch/rdovae/packets/ goes 4 levels deep.
+//      scalar-only), and upstream build-system droppings.
 //
 //   2. x86_64-only — the ARM NEON intrinsics and ARM RTCD glue compile
-//      cleanly only on arm64; on x86_64 they error out at intrinsic
-//      headers. Excluding per-arch lets the same source tree serve both
-//      slices without source patches.
+//      cleanly only on arm64; on x86_64 they error at intrinsic headers.
+//
+// fnmatch's `*` doesn't cross `/`, so each directory depth needs its own
+// pattern. The deepest .c-bearing path in upstream 1.5.2 is
+// dnn/torch/rdovae/packets/*.c (4 levels) — when bumping libopus, recheck
+// each excluded subtree's max depth and extend the pattern set if upstream
+// added a deeper directory.
 
 EXCLUDED_SOURCE_FILE_NAMES = $(inherited) */celt/x86/* */silk/x86/* */silk/float/x86/* */dnn/* */dnn/*/* */dnn/*/*/* */dnn/*/*/*/* */silk/fixed/* */silk/fixed/*/* */celt/mips/* */silk/mips/* */celt/tests/* */silk/tests/* */tests/* */celt/dump_modes/* */doc/* */training/* */cmake/* */scripts/* */m4/* */meson/* */.github/*
 

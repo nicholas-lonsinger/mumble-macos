@@ -150,8 +150,6 @@
 				1A100000000000000000000F /* mumble-macos */,
 			);
 			name = "mumble-macos";
-			packageProductDependencies = (
-			);
 			productName = "mumble-macos";
 			productReference = 1A1000000000000000000004 /* mumble-macos.app */;
 			productType = "com.apple.product-type.application";
@@ -173,8 +171,6 @@
 				1A1000000000000000000010 /* mumble-macosTests */,
 			);
 			name = "mumble-macosTests";
-			packageProductDependencies = (
-			);
 			productName = "mumble-macosTests";
 			productReference = 1A1000000000000000000018 /* mumble-macosTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -194,8 +190,6 @@
 				1A1000000000000000000025 /* opus */,
 			);
 			name = COpus;
-			packageProductDependencies = (
-			);
 			productName = COpus;
 			productReference = 1A100000000000000000002C /* libCOpus.a */;
 			productType = "com.apple.product-type.library.static";
