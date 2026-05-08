@@ -1,0 +1,8 @@
+// Clang module map for Swift `import COpus`.
+// Mirrors what SwiftPM auto-generated for Packages/COpus before the move
+// to a native Xcode static-library target: every header in the libopus
+// public include directory is part of the module.
+module COpus {
+    umbrella "../opus/include"
+    export *
+}
