@@ -98,6 +98,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc func showAboutPanel(_ sender: Any?) {
+        #if DEBUG
+        let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        let versionAnnotation = buildNumber.isEmpty ? "Debug" : "\(buildNumber) | Debug"
+        NSApp.orderFrontStandardAboutPanel(options: [.version: versionAnnotation])
+        #else
+        NSApp.orderFrontStandardAboutPanel(sender)
+        #endif
+    }
+
     @objc func showCertificateManager(_ sender: Any?) {
         if certificateManagerController == nil {
             certificateManagerController = CertificateManagerWindowController()

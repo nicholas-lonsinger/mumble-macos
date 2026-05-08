@@ -38,7 +38,7 @@ enum MainMenu {
         let menu = NSMenu()
 
         menu.addItem(withTitle: "About \(appName)",
-                     action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+                     action: #selector(AppDelegate.showAboutPanel(_:)),
                      keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
 
