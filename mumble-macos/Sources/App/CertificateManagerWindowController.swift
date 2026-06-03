@@ -12,7 +12,7 @@ final class CertificateManagerWindowController: NSWindowController {
         window.title = "Certificate Manager"
         window.setFrameAutosaveName("CertificateManagerWindow")
         window.isReleasedWhenClosed = false
-        window.contentViewController = CertificateManagerViewController()
+        window.setContentViewControllerPreservingFrame(CertificateManagerViewController())
         super.init(window: window)
     }
 

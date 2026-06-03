@@ -114,11 +114,8 @@ final class ConnectViewController: NSViewController, NSTextFieldDelegate {
         cancelButton.keyEquivalent = "\u{1b}"
         connectButton = NSButton(title: "Connect", target: self, action: #selector(connect(_:)))
         connectButton.keyEquivalent = "\r"
-        let buttonSpacer = NSView()
-        buttonSpacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let buttonRow = NSStackView(views: [saveButton, buttonSpacer, cancelButton, connectButton])
-        buttonRow.orientation = .horizontal
-        buttonRow.spacing = 8
+        let buttonRow = NSStackView.sheetButtonRow(leading: [saveButton],
+                                                   trailing: [cancelButton, connectButton])
 
         let stack = NSStackView(views: [title, form, identityRow, buttonRow])
         stack.orientation = .vertical
@@ -278,12 +275,14 @@ final class ConnectViewController: NSViewController, NSTextFieldDelegate {
         guard !trimmedLabel.isEmpty else {
             return "Display name can't be empty."
         }
-        guard let portValue = UInt16(portField.stringValue) else {
-            return "Port must be a number 0–65535."
+        if let message = BookmarkFormValidation.validationError(
+            port: portField.stringValue,
+            handling: handling,
+            password: passwordField.stringValue
+        ) {
+            return message
         }
-        if handling == .useStoredPassword, passwordField.stringValue.isEmpty {
-            return "Password is required when 'Use saved password' is selected."
-        }
+        let portValue = UInt16(portField.stringValue) ?? 64738
 
         let server = SavedServer(
             label: trimmedLabel,
@@ -320,11 +319,10 @@ final class ConnectViewController: NSViewController, NSTextFieldDelegate {
 /// string for this sheet to display (nil closes the sheet).
 @MainActor
 private final class SaveServerViewController: NSViewController, NSTextFieldDelegate {
-    private let groups: [ServerGroup]
     private let onSave: (String, UUID?, PasswordHandling) -> String?
 
     private let labelField: NSTextField
-    private let groupPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let groupPopup: GroupPopup
     private let handlingPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let errorLabel = NSTextField(wrappingLabelWithString: "")
     private var saveButton: NSButton!
@@ -334,19 +332,10 @@ private final class SaveServerViewController: NSViewController, NSTextFieldDeleg
          defaultGroupID: UUID?,
          defaultHandling: PasswordHandling,
          onSave: @escaping (String, UUID?, PasswordHandling) -> String?) {
-        self.groups = groups
         self.onSave = onSave
         self.labelField = NSTextField(string: defaultLabel)
+        self.groupPopup = GroupPopup(groups: groups, selected: defaultGroupID)
         super.init(nibName: nil, bundle: nil)
-
-        groupPopup.addItem(withTitle: "Top Level")
-        for group in groups {
-            groupPopup.addItem(withTitle: group.name)
-        }
-        if let defaultGroupID,
-           let index = groups.firstIndex(where: { $0.id == defaultGroupID }) {
-            groupPopup.selectItem(at: index + 1)   // +1 for "Top Level"
-        }
 
         for handling in PasswordHandling.allCases {
             handlingPopup.addItem(withTitle: handling.displayLabel)
@@ -371,7 +360,7 @@ private final class SaveServerViewController: NSViewController, NSTextFieldDeleg
         labelField.delegate = self
         let rows: [(String, NSView)] = [
             ("Display Name", labelField),
-            ("Group", groupPopup),
+            ("Group", groupPopup.control),
             ("Password handling", handlingPopup),
         ]
         for (label, control) in rows {
@@ -392,11 +381,7 @@ private final class SaveServerViewController: NSViewController, NSTextFieldDeleg
         cancelButton.keyEquivalent = "\u{1b}"
         saveButton = NSButton(title: "Save", target: self, action: #selector(save(_:)))
         saveButton.keyEquivalent = "\r"
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let buttonRow = NSStackView(views: [spacer, cancelButton, saveButton])
-        buttonRow.orientation = .horizontal
-        buttonRow.spacing = 8
+        let buttonRow = NSStackView.sheetButtonRow(trailing: [cancelButton, saveButton])
 
         let stack = NSStackView(views: [title, form, errorLabel, buttonRow])
         stack.orientation = .vertical
@@ -432,10 +417,8 @@ private final class SaveServerViewController: NSViewController, NSTextFieldDeleg
     }
 
     @objc private func save(_ sender: Any?) {
-        let groupIndex = groupPopup.indexOfSelectedItem
-        let groupID: UUID? = groupIndex > 0 ? groups[groupIndex - 1].id : nil
         let handling = PasswordHandling.allCases[handlingPopup.indexOfSelectedItem]
-        if let error = onSave(labelField.stringValue, groupID, handling) {
+        if let error = onSave(labelField.stringValue, groupPopup.selectedGroupID, handling) {
             errorLabel.stringValue = error
             errorLabel.isHidden = false
         } else {

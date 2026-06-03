@@ -49,11 +49,7 @@ final class PasswordPromptViewController: NSViewController {
         cancelButton.keyEquivalent = "\u{1b}"
         let connectButton = NSButton(title: "Connect", target: self, action: #selector(connect(_:)))
         connectButton.keyEquivalent = "\r"
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let buttonRow = NSStackView(views: [spacer, cancelButton, connectButton])
-        buttonRow.orientation = .horizontal
-        buttonRow.spacing = 8
+        let buttonRow = NSStackView.sheetButtonRow(trailing: [cancelButton, connectButton])
 
         let stack = NSStackView(views: [title, details, passwordField, buttonRow])
         stack.orientation = .vertical

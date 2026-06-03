@@ -68,7 +68,7 @@ final class PasswordHandlingTests: XCTestCase {
 
     // MARK: - Connect-flow decision (helper, mirroring requestConnect)
 
-    /// Replicates `ServersView.requestConnect`'s decision so we can lock in
+    /// Replicates `ServersViewController.requestConnect`'s decision so we can lock in
     /// the contract without instantiating SwiftUI. If the view's logic
     /// diverges from this helper, this test should be the first to fail.
     private enum ConnectDecision: Equatable {

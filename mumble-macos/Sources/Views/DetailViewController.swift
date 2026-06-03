@@ -115,7 +115,8 @@ final class DetailViewController: NSViewController {
             isTransmitting: client.isTransmitting,
             voiceAvailable: client.voiceAvailable,
             isSelfMuted: client.isSelfMuted,
-            isSelfDeafened: client.isSelfDeafened
+            isSelfDeafened: client.isSelfDeafened,
+            pttHint: Self.pttHint(from: ShortcutsStore.shared.bindings)
         )
 
         let welcome = client.serverWelcomeText
@@ -134,6 +135,18 @@ final class DetailViewController: NSViewController {
                 )
             }
         }
+    }
+
+    /// PTT is user-rebindable, so the idle hint derives from the live
+    /// binding instead of hardcoding the seeded Globe+Control chord.
+    /// Reading `bindings` in render() also makes the tracker re-render
+    /// the banner when the user rebinds.
+    private static func pttHint(from bindings: [ShortcutBinding]) -> String {
+        guard let trigger = bindings.first(where: { $0.action == .pushToTalk })?.trigger,
+              !trigger.isEmpty else {
+            return "No Push-to-Talk shortcut set"
+        }
+        return "Hold \(trigger.displayString) to talk"
     }
 
     private static func placeholderText(for state: MumbleClient.ConnectionState) -> String {
@@ -242,7 +255,8 @@ final class StatusBannerView: NSView {
                    isTransmitting: Bool,
                    voiceAvailable: Bool,
                    isSelfMuted: Bool,
-                   isSelfDeafened: Bool) {
+                   isSelfDeafened: Bool,
+                   pttHint: String) {
         indicatorDot.layer?.backgroundColor = Self.indicatorColor(for: state).cgColor
         stateLabel.stringValue = Self.label(for: state)
 
@@ -259,7 +273,7 @@ final class StatusBannerView: NSView {
             voiceIcon.image = NSImage(systemSymbolName: isTransmitting ? "mic.fill" : "mic",
                                       accessibilityDescription: nil)
             voiceIcon.contentTintColor = isTransmitting ? .systemGreen : .secondaryLabelColor
-            voiceLabel.stringValue = isTransmitting ? "Transmitting" : "Hold 🌐+⌃ to talk"
+            voiceLabel.stringValue = isTransmitting ? "Transmitting" : pttHint
             voiceLabel.textColor = .secondaryLabelColor
         } else {
             voiceIcon.image = NSImage(systemSymbolName: "mic.slash",

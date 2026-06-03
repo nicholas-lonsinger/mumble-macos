@@ -22,11 +22,7 @@ final class AddGroupViewController: NSViewController, NSTextFieldDelegate {
         addButton = NSButton(title: "Add", target: self, action: #selector(commit(_:)))
         addButton.keyEquivalent = "\r"
         addButton.isEnabled = false
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let buttonRow = NSStackView(views: [spacer, cancelButton, addButton])
-        buttonRow.orientation = .horizontal
-        buttonRow.spacing = 8
+        let buttonRow = NSStackView.sheetButtonRow(trailing: [cancelButton, addButton])
 
         let stack = NSStackView(views: [title, nameField, buttonRow])
         stack.orientation = .vertical

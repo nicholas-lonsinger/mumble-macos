@@ -27,12 +27,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
 
         window.delegate = self
-        // Assigning `contentViewController` snaps the window to the split
-        // view's fitting size (minSize only constrains user resizing) —
-        // re-apply the frame so the 900×600 default / autosaved frame wins.
-        let frame = window.frame
-        window.contentViewController = MainViewController(client: client)
-        window.setFrame(frame, display: false)
+        window.setContentViewControllerPreservingFrame(MainViewController(client: client))
         shortcutDispatcher = ShortcutDispatcher(client: client, store: ShortcutsStore.shared)
     }
 
