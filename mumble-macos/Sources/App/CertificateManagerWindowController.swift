@@ -1,5 +1,4 @@
 import AppKit
-import SwiftUI
 
 @MainActor
 final class CertificateManagerWindowController: NSWindowController {
@@ -13,7 +12,7 @@ final class CertificateManagerWindowController: NSWindowController {
         window.title = "Certificate Manager"
         window.setFrameAutosaveName("CertificateManagerWindow")
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: CertificateManagerView())
+        window.contentViewController = CertificateManagerViewController()
         super.init(window: window)
     }
 
