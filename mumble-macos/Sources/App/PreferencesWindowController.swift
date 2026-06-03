@@ -1,6 +1,5 @@
 import AppKit
 import OSLog
-import SwiftUI
 
 /// Owns the Preferences window. Native macOS pattern: an `NSWindow` with an
 /// `NSToolbar` in the title bar (Safari/Messages prefs aesthetic), each
@@ -47,11 +46,10 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 
         configureToolbar(on: window)
         showTab(identifier: tabs[0].identifier)
-        // NSHostingView reports the SwiftUI view's intrinsic size, which
-        // (for a single-row table) shrinks the window below `contentRect`.
-        // Pin to the intended frame explicitly — but only if the user
-        // doesn't already have a saved frame, otherwise we'd clobber
-        // their resized/repositioned window every relaunch.
+        // Setting `contentViewController` can snap the window to the view's
+        // fitting size. Pin to the intended frame explicitly — but only if
+        // the user doesn't already have a saved frame, otherwise we'd
+        // clobber their resized/repositioned window every relaunch.
         if !Self.hasSavedFrame(autosaveName: Self.autosaveName) {
             window.setContentSize(NSSize(width: 700, height: 500))
             window.center()
@@ -77,33 +75,39 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 
     private func showTab(identifier: NSToolbarItem.Identifier) {
         guard let window else { return }
-        let view = contentView(for: identifier)
-        let hosting = NSHostingView(rootView: view)
-        // Without this, NSHostingView reports the SwiftUI view's intrinsic
-        // size as the content view bounds, so the window snaps tight to
-        // whatever the view minimally needs and the bottom toolbar gets
-        // clipped. autoresizing keeps the host filling the window frame.
-        hosting.autoresizingMask = [.width, .height]
-        window.contentView = hosting
+        // Re-apply the frame after the swap: assigning
+        // `contentViewController` resizes the window to the controller
+        // view's fitting size, which would shrink the user's window on
+        // every tab switch.
+        let frame = window.frame
+        window.contentViewController = makeViewController(for: identifier)
+        window.setFrame(frame, display: true)
         window.toolbar?.selectedItemIdentifier = identifier
     }
 
-    @ViewBuilder
-    private func contentView(for identifier: NSToolbarItem.Identifier) -> some View {
+    private func makeViewController(for identifier: NSToolbarItem.Identifier) -> NSViewController {
         switch identifier {
         case .general:
-            GeneralTab()
+            return GeneralViewController()
         case .shortcuts:
-            ShortcutsTab(dispatcher: dispatcher).environment(client)
+            return ShortcutsViewController(client: client, dispatcher: dispatcher)
         default:
             // Defensive: an unknown identifier means we forgot to wire a tab.
             // Render a placeholder so the window stays usable instead of
             // hosting nothing.
-            VStack {
-                Text("Not yet implemented.")
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Self.log.error("No view controller wired for toolbar tab \(identifier.rawValue, privacy: .public)")
+            let controller = NSViewController()
+            let root = NSView()
+            let label = NSTextField(labelWithString: "Not yet implemented.")
+            label.textColor = .secondaryLabelColor
+            label.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(label)
+            NSLayoutConstraint.activate([
+                label.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+                label.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+            ])
+            controller.view = root
+            return controller
         }
     }
 
