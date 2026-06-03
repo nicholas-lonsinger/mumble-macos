@@ -61,6 +61,10 @@ final class ServersViewController: NSViewController,
     private var topLevelServers: [SavedServer] = []
     private var groupsSorted: [ServerGroup] = []
     private var serversByGroup: [UUID: [SavedServer]] = [:]
+    // ID-keyed views of the same snapshot so cell construction doesn't
+    // pay an O(N) store scan per row.
+    private var serversByID: [UUID: SavedServer] = [:]
+    private var groupsByID: [UUID: ServerGroup] = [:]
 
     /// True while render() drives expandItem/collapseItem to mirror
     /// `group.isCollapsed` — those delegate notifications are not user
@@ -163,6 +167,8 @@ final class ServersViewController: NSViewController,
         serversByGroup = Dictionary(uniqueKeysWithValues: groupsSorted.map {
             ($0.id, bookStore.servers(in: $0.id))
         })
+        serversByID = Dictionary(uniqueKeysWithValues: bookStore.servers.map { ($0.id, $0) })
+        groupsByID = Dictionary(uniqueKeysWithValues: groupsSorted.map { ($0.id, $0) })
         // Prune stale interned items so the cache doesn't grow across
         // many add/remove cycles.
         let liveServerIDs = Set(bookStore.servers.map(\.id))
@@ -313,7 +319,7 @@ final class ServersViewController: NSViewController,
             return cell
 
         case .group(let id):
-            guard let group = bookStore.group(id: id) else { return nil }
+            guard let group = groupsByID[id] else { return nil }
             let cell = NSTableCellView()
             let icon = NSImageView(image: NSImage(systemSymbolName: groupSymbol(group),
                                                   accessibilityDescription: nil)!)
@@ -332,7 +338,7 @@ final class ServersViewController: NSViewController,
             return cell
 
         case .server(let id):
-            guard let server = bookStore.server(id: id) else { return nil }
+            guard let server = serversByID[id] else { return nil }
             let cell = NSTableCellView()
             let icon = NSImageView(image: NSImage(systemSymbolName: "network",
                                                   accessibilityDescription: nil)!)

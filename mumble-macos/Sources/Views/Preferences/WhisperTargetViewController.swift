@@ -129,11 +129,7 @@ final class WhisperTargetViewController: NSViewController,
         cancelButton.keyEquivalent = "\u{1b}"
         saveButton = NSButton(title: "Save", target: self, action: #selector(save(_:)))
         saveButton.keyEquivalent = "\r"
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let buttonRow = NSStackView(views: [spacer, cancelButton, saveButton])
-        buttonRow.orientation = .horizontal
-        buttonRow.spacing = 8
+        let buttonRow = NSStackView.sheetButtonRow(trailing: [cancelButton, saveButton])
 
         let stack = NSStackView(views: [title, modeRow, box, restrictRow, checkboxRow, buttonRow])
         stack.orientation = .vertical

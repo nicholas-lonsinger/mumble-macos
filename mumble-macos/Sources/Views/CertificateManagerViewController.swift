@@ -309,7 +309,14 @@ final class CertificateManagerViewController: NSViewController {
         }
         let confirm = alert.addButton(withTitle: replacing ? "Replace" : "Create")
         confirm.hasDestructiveAction = replacing
-        alert.addButton(withTitle: "Cancel")
+        let cancel = alert.addButton(withTitle: "Cancel")
+        if replacing {
+            // Never let Return fire the destructive default — the previous
+            // confirmation dialog mapped Return/Esc to Cancel, and a stray
+            // Return here would destroy an un-backed-up identity.
+            confirm.keyEquivalent = ""
+            cancel.keyEquivalent = "\r"
+        }
         guard let window = view.window else { return }
         alert.beginSheetModal(for: window) { [weak self] response in
             guard response == .alertFirstButtonReturn else { return }
@@ -318,12 +325,17 @@ final class CertificateManagerViewController: NSViewController {
     }
 
     private func performCreate() {
+        // Disable the buttons, then hop so the disabled state actually
+        // paints before the synchronous RSA-2048 keygen blocks the main
+        // thread — set-and-reset within one runloop turn never renders.
         isCreating = true
-        defer { isCreating = false }
-        do {
-            try model.createNew()
-        } catch {
-            presentError(message: error.localizedDescription)
+        Task { @MainActor in
+            defer { isCreating = false }
+            do {
+                try model.createNew()
+            } catch {
+                presentError(message: error.localizedDescription)
+            }
         }
     }
 
@@ -422,11 +434,7 @@ private final class ImportPasswordViewController: NSViewController {
         cancelButton.keyEquivalent = "\u{1b}"
         let importButton = NSButton(title: "Import", target: self, action: #selector(doImport(_:)))
         importButton.keyEquivalent = "\r"
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let buttonRow = NSStackView(views: [spacer, cancelButton, importButton])
-        buttonRow.orientation = .horizontal
-        buttonRow.spacing = 8
+        let buttonRow = NSStackView.sheetButtonRow(trailing: [cancelButton, importButton])
 
         passwordField.translatesAutoresizingMaskIntoConstraints = false
 
@@ -508,11 +516,7 @@ private final class ExportPasswordViewController: NSViewController, NSTextFieldD
         cancelButton.keyEquivalent = "\u{1b}"
         saveButton = NSButton(title: "Save…", target: self, action: #selector(save(_:)))
         saveButton.keyEquivalent = "\r"
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let buttonRow = NSStackView(views: [spacer, cancelButton, saveButton])
-        buttonRow.orientation = .horizontal
-        buttonRow.spacing = 8
+        let buttonRow = NSStackView.sheetButtonRow(trailing: [cancelButton, saveButton])
 
         passwordField.translatesAutoresizingMaskIntoConstraints = false
         confirmField.translatesAutoresizingMaskIntoConstraints = false

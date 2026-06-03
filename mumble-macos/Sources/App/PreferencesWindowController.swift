@@ -75,13 +75,10 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 
     private func showTab(identifier: NSToolbarItem.Identifier) {
         guard let window else { return }
-        // Re-apply the frame after the swap: assigning
-        // `contentViewController` resizes the window to the controller
-        // view's fitting size, which would shrink the user's window on
-        // every tab switch.
-        let frame = window.frame
-        window.contentViewController = makeViewController(for: identifier)
-        window.setFrame(frame, display: true)
+        // Frame-preserving swap: a plain assignment would shrink the
+        // user's window to the new tab's fitting size on every switch.
+        window.setContentViewControllerPreservingFrame(makeViewController(for: identifier),
+                                                       display: true)
         window.toolbar?.selectedItemIdentifier = identifier
     }
 

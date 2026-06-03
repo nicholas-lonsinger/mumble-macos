@@ -16,10 +16,9 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
 
     private let mode: Mode
     private let bookStore: ServerBookStore
-    private let groups: [ServerGroup]
     private let onConnectAfterSave: ((SavedServer) -> Void)?
     /// Set when `.edit` couldn't resolve its server (deleted out from
-    /// under the sheet). Save degrades to a close, matching the old view.
+    /// under the sheet). Save stays disabled; Cancel is the way out.
     private var loadFailed = false
 
     private let labelField = NSTextField(string: "")
@@ -28,7 +27,7 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
     private let usernameField = NSTextField(string: "")
     private let passwordField = NSSecureTextField(string: "")
     private let handlingPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let groupPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let groupPopup: GroupPopup
     private let errorLabel = NSTextField(wrappingLabelWithString: "")
     private var saveButton: NSButton!
     private var saveAndConnectButton: NSButton?
@@ -38,7 +37,8 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
          onConnectAfterSave: ((SavedServer) -> Void)? = nil) {
         self.mode = mode
         self.bookStore = bookStore
-        self.groups = bookStore.groups.sorted { $0.sortIndex < $1.sortIndex }
+        self.groupPopup = GroupPopup(
+            groups: bookStore.groups.sorted { $0.sortIndex < $1.sortIndex })
         self.onConnectAfterSave = onConnectAfterSave
         super.init(nibName: nil, bundle: nil)
     }
@@ -67,11 +67,6 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
         handlingPopup.target = self
         handlingPopup.action = #selector(handlingChanged(_:))
 
-        groupPopup.addItem(withTitle: "Top Level")
-        for group in groups {
-            groupPopup.addItem(withTitle: group.name)
-        }
-
         let form = NSGridView(views: [])
         for (label, control) in [
             ("Display Name", labelField as NSView),
@@ -80,7 +75,7 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
             ("Username", usernameField),
             ("Password", passwordField),
             ("Password handling", handlingPopup),
-            ("Group", groupPopup),
+            ("Group", groupPopup.control),
         ] {
             let labelView = NSTextField(labelWithString: label)
             labelView.alignment = .right
@@ -102,21 +97,17 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
         cancelButton.keyEquivalent = "\u{1b}"
         saveButton = NSButton(title: "Save", target: self, action: #selector(save(_:)))
         saveButton.keyEquivalent = "\r"
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        var buttons: [NSView] = [spacer, cancelButton]
+        var trailing: [NSView] = [cancelButton]
         // `Save & Connect` only exists in edit mode — editing a bookmark
         // and connecting in one step shouldn't need two round-trips.
         if case .edit = mode, onConnectAfterSave != nil {
             let saveConnect = NSButton(title: "Save & Connect",
                                        target: self, action: #selector(saveAndConnect(_:)))
             saveAndConnectButton = saveConnect
-            buttons.append(saveConnect)
+            trailing.append(saveConnect)
         }
-        buttons.append(saveButton)
-        let buttonRow = NSStackView(views: buttons)
-        buttonRow.orientation = .horizontal
-        buttonRow.spacing = 8
+        trailing.append(saveButton)
+        let buttonRow = NSStackView.sheetButtonRow(trailing: trailing)
 
         let stack = NSStackView(views: [title, form, errorLabel, buttonRow])
         stack.orientation = .vertical
@@ -142,7 +133,7 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
         switch mode {
         case .add(let initialGroupID):
             selectHandling(.useStoredPassword)
-            selectGroup(initialGroupID)
+            groupPopup.select(initialGroupID)
         case .edit(let serverID):
             if let server = bookStore.server(id: serverID) {
                 labelField.stringValue = server.label
@@ -152,7 +143,7 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
                 passwordField.stringValue =
                     ((try? ServerPasswordStore.shared.password(forServer: serverID)) ?? nil) ?? ""
                 selectHandling(server.passwordHandling)
-                selectGroup(server.groupID)
+                groupPopup.select(server.groupID)
             } else {
                 loadFailed = true
                 showError("Server no longer exists.")
@@ -171,19 +162,6 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
 
     private var selectedHandling: PasswordHandling {
         PasswordHandling.allCases[handlingPopup.indexOfSelectedItem]
-    }
-
-    private func selectGroup(_ groupID: UUID?) {
-        if let groupID, let index = groups.firstIndex(where: { $0.id == groupID }) {
-            groupPopup.selectItem(at: index + 1)   // +1 for "Top Level"
-        } else {
-            groupPopup.selectItem(at: 0)
-        }
-    }
-
-    private var selectedGroupID: UUID? {
-        let index = groupPopup.indexOfSelectedItem
-        return index > 0 ? groups[index - 1].id : nil
     }
 
     // MARK: - Validation
@@ -213,7 +191,7 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
     private func refreshControlState() {
         passwordField.isEnabled = (selectedHandling != .noPasswordRequired)
         let enabled = canSave && !loadFailed
-        saveButton.isEnabled = enabled || loadFailed   // loadFailed: Save degrades to close
+        saveButton.isEnabled = enabled
         saveAndConnectButton?.isEnabled = enabled
     }
 
@@ -241,15 +219,16 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
             endHostingSheet()
             return
         }
-        guard let port = UInt16(portField.stringValue) else {
-            showError("Port must be 0–65535.")
-            return
-        }
         let handling = selectedHandling
-        if handling == .useStoredPassword, passwordField.stringValue.isEmpty {
-            showError("Password is required when 'Use saved password' is selected.")
+        if let message = BookmarkFormValidation.validationError(
+            port: portField.stringValue,
+            handling: handling,
+            password: passwordField.stringValue
+        ) {
+            showError(message)
             return
         }
+        let port = UInt16(portField.stringValue) ?? 64738
 
         switch mode {
         case .add:
@@ -258,7 +237,7 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
                 host: hostField.stringValue.trimmingCharacters(in: .whitespaces),
                 port: port,
                 username: usernameField.stringValue.trimmingCharacters(in: .whitespaces),
-                groupID: selectedGroupID,
+                groupID: groupPopup.selectedGroupID,
                 passwordHandling: handling
             )
             bookStore.addServer(server)
@@ -284,7 +263,7 @@ final class BookmarkEditorViewController: NSViewController, NSTextFieldDelegate 
             server.host = hostField.stringValue.trimmingCharacters(in: .whitespaces)
             server.port = port
             server.username = usernameField.stringValue.trimmingCharacters(in: .whitespaces)
-            server.groupID = selectedGroupID
+            server.groupID = groupPopup.selectedGroupID
             server.passwordHandling = handling
             do {
                 try bookStore.updateServer(server)

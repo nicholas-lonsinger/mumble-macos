@@ -147,7 +147,7 @@ final class ChannelSidebarViewController: NSViewController,
             // Placeholder mode. Tear down tree state when leaving a
             // connection so the next session starts from live occupancy
             // (this is the SwiftUI @State-destruction boundary).
-            if wasConnected || !channelsSnapshot.isEmpty {
+            if wasConnected {
                 channelsSnapshot = [:]
                 usersSnapshot = [:]
                 rootID = nil
@@ -193,6 +193,12 @@ final class ChannelSidebarViewController: NSViewController,
                 expansionOverride.removeAll()
                 channelItems.removeAll()
                 userItems.removeAll()
+            } else {
+                // Prune interned items for channels/users that left —
+                // otherwise the caches grow monotonically over a long
+                // session as people churn through the server.
+                channelItems = channelItems.filter { channelsSnapshot[$0.key] != nil }
+                userItems = userItems.filter { usersSnapshot[$0.key] != nil }
             }
             childrenCache.removeAll()
             outlineView.reloadData()

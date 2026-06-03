@@ -31,11 +31,11 @@ final class ServersWindowController: NSWindowController {
 
         super.init(window: window)
 
-        window.contentViewController = ServersViewController(
+        window.setContentViewControllerPreservingFrame(ServersViewController(
             onConnectRequested: { [weak self] server, password in
                 self?.handleConnectRequest(server: server, password: password)
             }
-        )
+        ))
     }
 
     @available(*, unavailable)
