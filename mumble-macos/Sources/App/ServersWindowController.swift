@@ -1,15 +1,11 @@
 import AppKit
 import OSLog
-import SwiftUI
 
-/// Owns the standalone Servers window. The window hosts the SwiftUI
-/// `ServersView` via `NSHostingView`, AppKit-first per the project's
-/// "no double-bridging" rule (CLAUDE.md → "AppKit-first, never double-
-/// bridge"). The controller's job is plumbing: it wires the view's
-/// connect-requested callback to the shared `MumbleClient`, brings the
-/// main window forward, and hides itself so the user lands directly in
-/// the channel list — which matches the reference Mumble client's
-/// server-browser-on-connect behavior.
+/// Owns the standalone Servers window. The controller's job is plumbing:
+/// it wires `ServersViewController`'s connect-requested callback to the
+/// shared `MumbleClient`, brings the main window forward, and hides
+/// itself so the user lands directly in the channel list — which matches
+/// the reference Mumble client's server-browser-on-connect behavior.
 @MainActor
 final class ServersWindowController: NSWindowController {
     private let client: MumbleClient
@@ -35,10 +31,11 @@ final class ServersWindowController: NSWindowController {
 
         super.init(window: window)
 
-        let view = ServersView(onConnectRequested: { [weak self] server, password in
-            self?.handleConnectRequest(server: server, password: password)
-        })
-        window.contentView = NSHostingView(rootView: view)
+        window.contentViewController = ServersViewController(
+            onConnectRequested: { [weak self] server, password in
+                self?.handleConnectRequest(server: server, password: password)
+            }
+        )
     }
 
     @available(*, unavailable)
