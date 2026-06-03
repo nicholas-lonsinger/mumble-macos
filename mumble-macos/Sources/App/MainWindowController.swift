@@ -51,14 +51,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if let existing = window.attachedSheet {
             window.endSheet(existing)
         }
-        let sheetWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 360),
-            styleMask: [.titled],
-            backing: .buffered,
-            defer: false
-        )
-        sheetWindow.title = "Connect to Server"
-        let sheetView = ConnectView(onConnect: { [weak self] params in
+        let controller = ConnectViewController(prefill: prefill, onConnect: { [weak self] params in
             guard let self, let window = self.window else { return }
             if let sheet = window.attachedSheet {
                 window.endSheet(sheet)
@@ -67,9 +60,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }, onCancel: { [weak window] in
             guard let window, let sheet = window.attachedSheet else { return }
             window.endSheet(sheet)
-        }, prefill: prefill)
-        sheetWindow.contentView = NSHostingView(rootView: sheetView)
-        window.beginSheet(sheetWindow)
+        })
+        window.beginSheet(controller: controller, title: "Connect to Server")
     }
 
     @objc func disconnect(_ sender: Any?) {
