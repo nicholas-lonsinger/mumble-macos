@@ -7,7 +7,7 @@ import Observation
 /// `ServerPasswordStore` (data-protection keychain) instead — see
 /// CLAUDE.md and the spec in the chat for the rationale.
 ///
-/// Host/port/username for Quick Connect remain in `@AppStorage` (their
+/// Host/port/username for Quick Connect remain in `UserDefaults` (their
 /// values aren't sensitive). Only the password lives here.
 @MainActor
 @Observable

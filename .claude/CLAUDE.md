@@ -1,6 +1,6 @@
 # mumble-macos
 
-Native macOS Mumble VoIP client in Swift/AppKit/SwiftUI. Apple frameworks only, with one third-party exception (libopus, isolated in a native Xcode static-library target — see "Third-party isolation" below). No package managers, no dynamic deps.
+Native macOS Mumble VoIP client in Swift/AppKit — no SwiftUI anywhere (the UI was fully reimplemented NSViewController-first; keep it that way). Apple frameworks only, with one third-party exception (libopus, isolated in a native Xcode static-library target — see "Third-party isolation" below). No package managers, no dynamic deps.
 
 ## Build model
 
@@ -45,17 +45,25 @@ Apple's `kAudioFormatOpus` expects Ogg-framed Opus. Mumble sends raw Opus frames
 
 ## Performance invariant: gate sidebar on ServerSync
 
-Large servers stream 700+ `ChannelState` + `UserState` messages between TLS handshake and `ServerSync`. Rendering the channel tree during that burst re-diffs the whole SwiftUI tree per message and pushes perceived handshake from ~1s to ~55s.
+Large servers stream 700+ `ChannelState` + `UserState` messages between TLS handshake and `ServerSync`. Rendering the channel tree during that burst (historically: re-diffing the whole view tree per message) pushed perceived handshake from ~1s to ~55s.
 
-Rule: the tree in `MainView.swift` renders only when `client.state == .connected` (i.e., after `ServerSync`). Before then, show a placeholder. Benchmark server: `mumble.sh1t.space:64738` (~616 channels, ~120 users) — use it when touching the connect path to catch regressions.
+Rule: the tree renders only when `client.state == .connected` (i.e., after `ServerSync`). The mechanism lives in `ChannelSidebarViewController`: its `ObservationTracker` render reads `client.channels`/`client.users` **only behind the `.connected` gate**, so the burst registers zero tracked reads and triggers zero renders — don't hoist those reads above the gate. Benchmark server: `mumble.sh1t.space:64738` (~620 channels) — use it when touching the connect path to catch regressions; A/B against `main` if in doubt (the migration baseline was ~1.1s at ~250 users).
 
-`MumbleClient` logs `handshake=<ms>ms` on ServerSync; target is ~1s on that server.
+`MumbleClient` logs `handshake=<ms>ms` on ServerSync.
+
+## UI architecture
+
+- All UI is NSViewController-driven AppKit with programmatic Auto Layout. No SwiftUI, no xibs. Window controllers (in `Sources/App/`) own windows and plumbing; view controllers (in `Sources/Views/`) own content.
+- Models stay `@MainActor @Observable`; controllers observe through `ObservationTracker` (`Sources/App/ObservationTracker.swift`) — a re-arming `withObservationTracking` bridge that coalesces mutation bursts to one render per runloop turn. Only properties a render actually reads are tracked, which is what the ServerSync gating above relies on. (AppKit has no automatic observation tracking on macOS 26; that's a UIKit-only feature.)
+- Sheets: titled `NSWindow` + `contentViewController` via `NSWindow.beginSheet(controller:title:)` (`Sources/App/SheetPresentation.swift`); sheet content dismisses itself with `endHostingSheet()`. Return/Esc via `keyEquivalent`; default buttons stay disabled when invalid (disabled default buttons don't fire on Return).
+- Setting `window.contentViewController` snaps the window to the content's fitting size (`minSize` only constrains *user* resizing) — re-apply the frame after assignment (see `MainWindowController` / `PreferencesWindowController`).
 
 ## UI invariants worth preserving
 
-- Channel row expansion uses `userOverride: Bool?` where `nil` falls through to live `subtreeHasOccupants` computed occupancy. Don't seed a plain `@State Bool` at first appearance — that snapshots occupancy before `UserState` messages arrive and leaves populated channels visually collapsed.
-- PTT is Globe(Fn) + Control via `NSEvent.addLocalMonitorForEvents(.flagsChanged)`. Do **not** use ⌥Space or other key-based combos — macOS plays the system "funk" beep on keyup for unhandled key events, which bleeds into recordings.
-- Connect form persists host/port/username via `@AppStorage`. Password stays `@State` (intentionally not persisted).
+- Channel row expansion: `ChannelSidebarViewController.expansionOverride` maps channelID → the user's latched choice; absent means *live* `subtreeHasOccupants` occupancy (auto-expands/collapses as people move) until the user toggles the row, which latches it until the connection ends. Each render reconciles realized rows inside the `isApplyingProgrammaticExpansion` flag; the DidExpand/DidCollapse notifications latch only when that flag is off. Don't snapshot occupancy once at first appearance — that leaves populated channels visually collapsed while the burst is still arriving.
+- Per-voice-packet updates (`speakingSessions`/`isTransmitting`) must stay on the targeted `reloadItem` fast path in `ChannelSidebarViewController` — never a tree rebuild.
+- PTT default is Globe(Fn) + Control via `NSEvent` monitors (`ShortcutDispatcher`). Do **not** use ⌥Space or other key-based combos — macOS plays the system "funk" beep on keyup for unhandled key events, which bleeds into recordings.
+- Connect form writes host/port/username through to `UserDefaults` on every edit (values survive Cancel — `lastServerHost/Port/Username`). The password field round-trips `QuickConnectMemory` only (intentionally not persisted).
 
 ## Identity / keychain
 
@@ -73,6 +81,7 @@ Rule: the tree in `MainView.swift` renders only when `client.state == .connected
 
 - `MumbleClient` is `@MainActor` + `@Observable`. All mutations of its state go through main. Network reads hop to main before touching the model.
 - `VoiceController` owns `AVAudioEngine`; audio callbacks run on AU threads. Hand Opus frames back via the `onOpusFrame` closure — don't mutate `MumbleClient` from inside the tap.
+- `ObservationTracker.onChange` fires synchronously inside the mutating store; it hops via `Task { @MainActor }` + a scheduled-flag `DispatchQueue.main.async` dedupe and re-arms only **after** the render — don't "simplify" the re-arm timing, it prevents re-entering a mid-mutation store (unit-tested in `ObservationTrackerTests`).
 
 ## Testing
 
