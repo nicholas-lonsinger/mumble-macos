@@ -1,7 +1,7 @@
 import XCTest
 @testable import mumble_macos
 
-/// Tests for `WhisperTargetSheet.flattenTree`. The flatten-once-on-appear
+/// Tests for `WhisperTargetTree.flattenTree`. The flatten-once-on-appear
 /// design replaces a recursive `@ViewBuilder` that defeated `LazyVStack`
 /// laziness on large channel trees; these tests pin the depth-first
 /// ordering and per-level sort so future refactors don't regress it.
@@ -30,12 +30,12 @@ final class WhisperTargetTreeFlattenTests: XCTestCase {
     // MARK: - Empty / unknown root
 
     func test_flatten_emptyChannelsReturnsEmpty() {
-        let result = WhisperTargetSheet.flattenTree(channels: [:], rootID: 1)
+        let result = WhisperTargetTree.flattenTree(channels: [:], rootID: 1)
         XCTAssertTrue(result.isEmpty)
     }
 
     func test_flatten_nilRootReturnsEmpty() {
-        let result = WhisperTargetSheet.flattenTree(channels: [:], rootID: nil)
+        let result = WhisperTargetTree.flattenTree(channels: [:], rootID: nil)
         XCTAssertTrue(result.isEmpty)
     }
 
@@ -47,7 +47,7 @@ final class WhisperTargetTreeFlattenTests: XCTestCase {
             2: makeChannel(2, name: "Child", parent: 1, children: [3]),
             3: makeChannel(3, name: "Grandchild", parent: 2),
         ]
-        let result = WhisperTargetSheet.flattenTree(channels: channels, rootID: 1)
+        let result = WhisperTargetTree.flattenTree(channels: channels, rootID: 1)
         XCTAssertEqual(result.map(\.channelID), [1, 2, 3])
         XCTAssertEqual(result.map(\.depth), [0, 1, 2])
     }
@@ -62,7 +62,7 @@ final class WhisperTargetTreeFlattenTests: XCTestCase {
             30: makeChannel(30, name: "Apple", parent: 1, position: 0),
             40: makeChannel(40, name: "Banana", parent: 1, position: 0),
         ]
-        let result = WhisperTargetSheet.flattenTree(channels: channels, rootID: 1)
+        let result = WhisperTargetTree.flattenTree(channels: channels, rootID: 1)
         // Position 0 first (Apple, Banana — alphabetical), then position 1
         // (Zeta), then position 2 (Alpha).
         XCTAssertEqual(result.map(\.channelID), [1, 30, 40, 10, 20])
@@ -80,7 +80,7 @@ final class WhisperTargetTreeFlattenTests: XCTestCase {
             20: makeChannel(20, name: "B", parent: 1, position: 1, children: [21]),
             21: makeChannel(21, name: "B1", parent: 20, position: 0),
         ]
-        let result = WhisperTargetSheet.flattenTree(channels: channels, rootID: 1)
+        let result = WhisperTargetTree.flattenTree(channels: channels, rootID: 1)
         XCTAssertEqual(result.map(\.channelID), [1, 10, 11, 20, 21])
     }
 
@@ -95,7 +95,7 @@ final class WhisperTargetTreeFlattenTests: XCTestCase {
             2: makeChannel(2, name: "Real", parent: 1),
             // 99 is referenced as a child but missing from the dictionary.
         ]
-        let result = WhisperTargetSheet.flattenTree(channels: channels, rootID: 1)
+        let result = WhisperTargetTree.flattenTree(channels: channels, rootID: 1)
         XCTAssertEqual(result.map(\.channelID), [1, 2])
     }
 }
