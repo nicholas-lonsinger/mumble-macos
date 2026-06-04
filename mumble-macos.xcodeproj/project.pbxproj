@@ -265,6 +265,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(INFOPLIST_PATH)",
 			);
 			name = "Set Build Number from Git";
 			outputFileListPaths = (
@@ -273,7 +274,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "BUILD_NUMBER=$(git rev-list --count HEAD)\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\n";
+			shellScript = "# The Info.plist input on this phase is load-bearing: without a declared\n# input the build system has no ordering edge to ProcessInfoPlistFile and\n# may schedule this script before the plist exists (seen on CI with a\n# restored Intermediates cache whose build db skipped the plist task).\nset -eu\nBUILD_NUMBER=$(git -C \"${SRCROOT}\" rev-list --count HEAD)\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ ! -f \"$PLIST\" ]; then\n  echo \"error: processed Info.plist missing at $PLIST (script ordered before ProcessInfoPlistFile?)\" >&2\n  exit 1\nfi\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

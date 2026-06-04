@@ -32,9 +32,14 @@ jobs:
           path: |
             DerivedData/SourcePackages
             DerivedData/Build/Intermediates.noindex
-          key: ${{ runner.os }}-xcode-${{ env.XCODE_BUILD }}-${{ hashFiles('Packages/COpus/**') }}
+          # v2: hash Vendor/** (libopus actually lives there — the old
+          # 'Packages/COpus/**' path no longer exists, so the hash was
+          # always empty and vendor bumps never invalidated the cache).
+          # The version bump also retires a cache entry whose build db
+          # desynced from the uncached Build/Products tree.
+          key: ${{ runner.os }}-xcode-${{ env.XCODE_BUILD }}-v2-${{ hashFiles('Vendor/**') }}
           restore-keys: |
-            ${{ runner.os }}-xcode-${{ env.XCODE_BUILD }}-
+            ${{ runner.os }}-xcode-${{ env.XCODE_BUILD }}-v2-
 
       - name: Build for testing
         run: |
